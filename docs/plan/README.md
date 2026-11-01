@@ -6,7 +6,7 @@
 | [PHASES.md](PHASES.md) | Order, workflow, phases P0–P7 with acceptance criteria, owner actions, first task |
 | [../adr/](../adr/) | Architecture decisions (ADR-0001 … 0017) |
 | [planning-prompt.md](planning-prompt.md) | The request this plan was made from, and how the planning session ran (2026-11-01) |
-| [phases/](phases/) | Build plans per phase, drafted before the phase starts: design, work packages, evidence and prompts ([P1a](phases/p1a-museum-sources.md)). They bind only once the owner approves them |
+| [phases/](phases/) | One file per phase, drafted before it starts and copied into its issue ([index](phases/README.md)): P1a's full build plan (design, work packages, evidence and prompts), and for P1b–P7 the build prompts with the owner's questions, design points, work packages and evidence. They bind only once the owner approves them |
 | [research/](research/) | Research input (2026-11-01): [museum data](research/museum-data.md), [media](research/media.md), [legal](research/legal.md), [auth](research/auth.md), [prior art](research/prior-art.md), [naming](research/naming.md). ARCHITECTURE.md wins where they differ |
 
 Rules:
