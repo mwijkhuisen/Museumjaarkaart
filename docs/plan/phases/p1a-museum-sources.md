@@ -429,7 +429,6 @@ Phase checks:
 - Untrusted Wikidata text: stripped controls and bidi overrides, length caps, CSV formula injection
   guarded, no label, URL or payload in a log; no raw text cast in SQL (the 22P02 gotcha).
 - Migrations: new files only, sha256 pins added, working down sections, codegen --verify.
-
 - Commons: P1a only stores commons_file (a P18 change after the seed queues); no Commons host in
   the HTTP allowlist or any test; ADR-0018 and the PHASES P3b amendment match the plan's §2.9.
 
