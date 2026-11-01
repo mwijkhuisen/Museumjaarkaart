@@ -4,7 +4,7 @@ Status: draft for the owner's approval (2026-11-01); the owner answered the §1 
 
 ## 0. Before the build starts
 
-- **P0 merged** (PR #32, still open on 2026-11-01) and **A7** done (branch protection on `main`). P1a branches from that `main`. It builds on P0's role dispatcher (`apps/server/src/main.ts`), `heartbeat.ts`, `dbUrl()` and `LOGINS` (`src/db/migrate.ts`), `createTestDb()`, the sha256 pins in `test/migrations.test.ts`, and the PostgreSQL 18 + dbmate integration job.
+- **Done:** P0 is merged (PR #32, 2026-11-01), and A7 is set: branch protection on `main` requires `ci` and `security` (A§16.3). P1a branches from that `main`. It builds on P0's role dispatcher (`apps/server/src/main.ts`), `heartbeat.ts`, `dbUrl()` and `LOGINS` (`src/db/migrate.ts`), `createTestDb()`, the sha256 pins in `test/migrations.test.ts`, and the PostgreSQL 18 + dbmate integration job.
 - **No workflow change.** `kysely-codegen --verify` runs inside an integration test, so `.github/` stays untouched (the owner pushes any diff under `.github/workflows`, A§16.3). If the lead finds a workflow change unavoidable, it hands that diff to the owner.
 - **Owner steps during the phase** (they do not block the start):
   - **O1:** record the real fixtures on the owner's machine with `scripts/record-fixture.ts` once WP3 lands (§2.2).
