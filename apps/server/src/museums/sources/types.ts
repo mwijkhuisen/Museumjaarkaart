@@ -3,7 +3,7 @@
 // Every string here is already normalised (NFC, collapsed whitespace, no C0/C1
 // controls or bidi overrides) and within its length cap (invariant 5).
 
-import type { Category, Source } from '../fields.ts';
+import type { Source } from '../fields.ts';
 
 export type { Source };
 
@@ -62,9 +62,8 @@ export type WikidataRow = {
   museumnlUrl: string | null;
   /** P18: the Commons file name without `File:` (P1a stores it only). */
   commonsFile: string | null;
-  /** P31 classes, unique, sorted. */
+  /** P31 classes, unique, sorted (the sync maps them to categories, museums/categories.ts). */
   classes: string[];
-  categories: Category[];
   /** P576 as `YYYY-MM-DD`. */
   dissolvedOn: string | null;
 };

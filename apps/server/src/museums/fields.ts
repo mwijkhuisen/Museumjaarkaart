@@ -90,3 +90,32 @@ export type Source = (typeof SOURCES)[number];
 
 /** A move of this many metres or more queues (A§7.4 [U]). */
 export const MOVE_QUEUE_METRES = 250;
+
+/** The European Netherlands (plan §2.1): the `museum` CHECK and the parsers use the same box. */
+export const NL_BOX = { latMin: 50.7, latMax: 53.7, lonMin: 3.2, lonMax: 7.3 } as const;
+
+export const QID = /^Q[1-9][0-9]*$/;
+/** A Dutch postcode as stored: `1234 AB`. */
+export const POSTCODE = /^[1-9][0-9]{3} [A-Z]{2}$/;
+/** A CBS municipality code as stored: `GM0363`. */
+export const CBS_CODE = /^GM[0-9]{4}$/;
+/** An ISO 3166-2 province code: `NL-NH`. */
+export const PROVINCE_CODE = /^NL-[A-Z]{2}$/;
+
+/**
+ * Length caps in characters (the `museum` CHECKs and the parsers). Wikidata caps
+ * labels, descriptions and aliases at 250; a longer value makes its row invalid.
+ */
+export const LIMITS = {
+  label: 250,
+  description: 250,
+  alias: 250,
+  street: 200,
+  houseNumber: 20,
+  place: 100,
+  municipalityName: 100,
+  url: 2048,
+  commonsFile: 255,
+  slug: 120,
+  rceId: 64,
+} as const;
