@@ -202,7 +202,12 @@ describe('.claude/settings.json deny list (A§16.3)', () => {
     expect(allow.filter((rule) => deny.includes(rule))).toEqual([]);
   });
 
+  // Claude Code checks deny before allow, so `Bash(git *--output*)` wins over these read-only allow rules: only
+  // the `--output=` samples may also match one of them. Every other forbidden sample matches no allow rule.
+  const DENY_WINS_OVER = ['Bash(git diff *)', 'Bash(git log *)', 'Bash(git show *)'];
   it.each(FORBIDDEN)('no allow rule can match: %s', (command) => {
-    expect(allow.filter((rule) => bashRuleMatches(rule, command))).toEqual([]);
+    const output = /--output/.test(command);
+    const matches = allow.filter((rule) => bashRuleMatches(rule, command));
+    expect(matches.filter((rule) => !(output && DENY_WINS_OVER.includes(rule)))).toEqual([]);
   });
 });
