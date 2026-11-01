@@ -1,0 +1,14 @@
+{
+  "name": "@mjk/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "i18n": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy globalVariable baseLocale --emit-ts-declarations --silent",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@inlang/paraglide-js": "2.29.1",
+    "@inlang/plugin-message-format": "4.5.4",
+    "@playwright/test": "1.64.1"
+  }
+}

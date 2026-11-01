@@ -1,0 +1,58 @@
+# Dependabot: weekly, grouped, 7-day cooldown against fast worms (the same rule
+# as minimumReleaseAge), no automerge (the owner merges every PR).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        patterns: ['*']
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: typescript
+        versions: [">=7"]
+      # Node 26 is pinned.
+      - dependency-name: '@types/node'
+        versions: [">=27"]
+
+  # The Playwright image (e2e job) and the postgres service image (integration job) in
+  # .github/workflows/ci.yml are pinned by hand: this ecosystem does not update them.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ['*']
+    open-pull-requests-limit: 5
+
+  # The docker and docker-compose entries stay inert until P1e adds deploy/.
+  # The image bases of deploy/{server,web}/Dockerfile (pinned by digest).
+  - package-ecosystem: docker
+    directories: [/deploy/server, /deploy/web]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      images:
+        patterns: ['*']
+    open-pull-requests-limit: 5
+
+  # postgres and cloudflared in deploy/compose.yaml.
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      compose-images:
+        patterns: ['*']
+    open-pull-requests-limit: 5
