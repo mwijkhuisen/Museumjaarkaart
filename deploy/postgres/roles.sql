@@ -30,5 +30,7 @@ BEGIN
   REVOKE CONNECT ON DATABASE postgres, template1 FROM PUBLIC;  -- no login reaches another database
 END $$;
 
--- A§8: mjk_backup reads everything and is a member of nothing else.
-GRANT pg_read_all_data TO mjk_backup WITH INHERIT TRUE;
+-- A§8: mjk_backup reads everything and is a member of nothing else. SET FALSE:
+-- no SET ROLE pg_read_all_data. On an existing membership GRANT sets the options
+-- it names, so re-applying this file also lowers an older SET TRUE.
+GRANT pg_read_all_data TO mjk_backup WITH INHERIT TRUE, SET FALSE;

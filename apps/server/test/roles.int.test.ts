@@ -67,13 +67,19 @@ it('each login can log in and has no privileged attribute; the database belongs 
 it('mjk_backup is a member of pg_read_all_data and of no other role', async () => {
   const c = await connect(db.urls.admin);
   const { rows } = await c.query(
-    `SELECT pg_get_userbyid(roleid) AS role, inherit_option FROM pg_auth_members WHERE member = 'mjk_backup'::regrole`,
+    `SELECT pg_get_userbyid(roleid) AS role, inherit_option, set_option, admin_option
+       FROM pg_auth_members WHERE member = 'mjk_backup'::regrole`,
   );
-  expect(rows).toEqual([{ role: 'pg_read_all_data', inherit_option: true }]);
+  expect(rows).toEqual([{ role: 'pg_read_all_data', inherit_option: true, set_option: false, admin_option: false }]);
   const others = await c.query(`SELECT count(*)::int AS n FROM pg_auth_members WHERE member = ANY($1::regrole[])`, [
     LOGINS.filter((l) => l !== 'mjk_backup'),
   ]);
   expect(others.rows[0].n).toBe(0);
+});
+
+it('mjk_backup cannot SET ROLE pg_read_all_data', async () => {
+  const backup = await connect(db.urls.mjk_backup);
+  expect(await code(backup.query('SET ROLE pg_read_all_data'))).toBe('42501');
 });
 
 it('no login can connect to the postgres database, and mjk_api can connect to its own', async () => {
@@ -86,12 +92,19 @@ it('no login can connect to the postgres database, and mjk_api can connect to it
   expect((await c.query('SELECT current_user')).rows[0].current_user).toBe('mjk_api');
 });
 
-it('applying roles.sql a second time succeeds and the new passwords work', async () => {
+it('applying roles.sql a second time succeeds, lowers an older SET TRUE membership and the new passwords work', async () => {
   const admin = new pg.Client({ connectionString: db.urls.admin });
   await admin.connect();
   let passwords: Awaited<ReturnType<typeof applyRoles>>;
   try {
+    // the P0 draft granted the membership WITH INHERIT TRUE alone (SET TRUE)
+    await admin.query('GRANT pg_read_all_data TO mjk_backup WITH INHERIT TRUE, SET TRUE');
     passwords = await applyRoles(admin);
+    const { rows } = await admin.query(
+      `SELECT inherit_option, set_option, admin_option FROM pg_auth_members
+        WHERE member = 'mjk_backup'::regrole AND roleid = 'pg_read_all_data'::regrole`,
+    );
+    expect(rows).toEqual([{ inherit_option: true, set_option: false, admin_option: false }]);
   } finally {
     await admin.end();
   }

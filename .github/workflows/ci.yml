@@ -46,6 +46,8 @@ jobs:
           test "$(pnpm config get minimumReleaseAge)" = 10080
           test "$(pnpm config get strictDepBuilds)" = true
           test "$(pnpm config get blockExoticSubdeps)" = true
+          test "$(pnpm config get registry)" = https://registry.npmjs.org/
+          test -z "$(git ls-files '.npmrc' '**/.npmrc')"
       # pnpm 12.5.1 still lets a transitive https tarball through blockExoticSubdeps.
       - name: Every lockfile resolution is a registry integrity hash (no git or tarball source)
         run: |
