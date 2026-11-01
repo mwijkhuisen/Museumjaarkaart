@@ -28,7 +28,7 @@ P2a + P1d ► P2c · P3a + P1d ► P3b
 P4 (A12 = go) + P3b ► P7
 ```
 
-- **Tracking:** GitHub milestones can't be created from the planning session, so the roadmap is a sub-issue tree: a `Roadmap` epic → one issue per milestone (M0–M7) → the phase issues. If the owner creates milestones M0–M7 in the GitHub UI, the phase issues are assigned to them as well.
+- **Tracking:** a `Roadmap` epic (#1) with every phase issue as a direct sub-issue, and each phase issue assigned to its GitHub milestone M0–M7 (milestones 1–8). The milestone issues the planning session opened first (#2, #4–#10) were closed as not planned once the owner created the real milestones.
 
 ## 2. Criterion tags and workflow
 
@@ -544,7 +544,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
 
 **P0: Foundation.** After the owner approves this plan:
 
-1. Check the `Roadmap` epic, the milestone issues M0–M7 and the phase issues from §3 (their sub-issues, with the §3 labels) against this plan, or open them if the planning session has not (the GitHub-chores model of §2). Assign milestones M0–M7 if the owner has created them.
+1. Check the `Roadmap` epic (#1) and the phase issues from §3 (#11–#30: its sub-issues, with the §3 labels and their milestones M0–M7) against this plan, and fix any drift (the GitHub-chores model of §2).
 2. Branch `claude/p0-foundation` from `main`.
 3. Copy the workspace, tsconfig/Biome/Vitest/pnpm policy, the CI workflows, `.claude/settings.json`, Dependabot and the templates from F1 (names `f1` → `mjk`, UID, GIDs, port), and Paraglide with `check-i18n` from Waterheight. Verify each pin against the 7-day release-age rule.
 4. Fill in the CLAUDE.md commands and keep only the gotchas that apply.
