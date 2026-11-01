@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/contracts" },
+    { "path": "apps/server" },
+    { "path": "apps/web/e2e" },
+    { "path": "tsconfig.tooling.json" }
+  ]
+}

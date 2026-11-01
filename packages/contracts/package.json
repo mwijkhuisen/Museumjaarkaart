@@ -1,0 +1,15 @@
+{
+  "name": "@mjk/contracts",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "mjk-dist": "./dist/index.js",
+      "default": "./src/index.ts"
+    }
+  }
+}
