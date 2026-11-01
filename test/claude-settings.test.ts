@@ -72,6 +72,7 @@ const REQUIRED: Record<string, string[]> = {
     'Bash(git * push *:main*)',
   ],
   'git --output= (writes any file)': ['Bash(git *--output*)'],
+  'git --no-index (reads any file)': ['Bash(git *--no-index*)'],
   'gh pr merge': ['Bash(gh pr merge*)', 'Bash(gh * pr merge*)'],
   'gh api, gh auth and gh alias outright': [
     'Bash(gh api*)',
@@ -91,7 +92,7 @@ const REQUIRED: Record<string, string[]> = {
     'Bash(pnpx*)',
     'Bash(npx*)',
   ],
-  'npm, yarn, bun and bunx': [
+  'npm, yarn, yarnpkg, corepack, bun and bunx': [
     'Bash(npm)',
     'Bash(npm *)',
     'Bash(yarn)',
@@ -99,6 +100,8 @@ const REQUIRED: Record<string, string[]> = {
     'Bash(bun)',
     'Bash(bun *)',
     'Bash(bunx *)',
+    'Bash(yarnpkg*)',
+    'Bash(corepack*)',
   ],
 };
 
@@ -138,6 +141,7 @@ const FORBIDDEN = [
   'git push origin x -d',
   'git log -1 --format=x --output=.git/config',
   'git diff --output=/tmp/x',
+  'git diff --no-index /etc/hostname /dev/null',
   'gh pr merge 1',
   'gh pr merge --merge 1',
   'gh api repos/o/r/pulls/1/merge -X PUT',
@@ -165,6 +169,9 @@ const FORBIDDEN = [
   'yarn add x',
   'bun x',
   'bunx x',
+  'yarnpkg dlx x',
+  'corepack yarn dlx x',
+  'corepack pnpm dlx x',
 ];
 
 const PERMITTED = [
@@ -202,11 +209,11 @@ describe('.claude/settings.json deny list (A§16.3)', () => {
     expect(allow.filter((rule) => deny.includes(rule))).toEqual([]);
   });
 
-  // Claude Code checks deny before allow, so `Bash(git *--output*)` wins over these read-only allow rules: only
-  // the `--output=` samples may also match one of them. Every other forbidden sample matches no allow rule.
+  // Claude Code checks deny before allow, so `Bash(git *--output*)` and `Bash(git *--no-index*)` win over these
+  // read-only allow rules: only the `--output=` and `--no-index` samples may also match one of them. Every other forbidden sample matches no allow rule.
   const DENY_WINS_OVER = ['Bash(git diff *)', 'Bash(git log *)', 'Bash(git show *)'];
   it.each(FORBIDDEN)('no allow rule can match: %s', (command) => {
-    const output = /--output/.test(command);
+    const output = /--output|--no-index/.test(command);
     const matches = allow.filter((rule) => bashRuleMatches(rule, command));
     expect(matches.filter((rule) => !(output && DENY_WINS_OVER.includes(rule)))).toEqual([]);
   });

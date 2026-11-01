@@ -45,6 +45,7 @@
       "Bash(git send-pack*)",
       "Bash(git * send-pack*)",
       "Bash(git *--output*)",
+      "Bash(git *--no-index*)",
       "Bash(git push * main)",
       "Bash(git push * *:main)",
       "Bash(git push * *:refs/heads/main*)",
@@ -80,7 +81,9 @@
       "Bash(yarn *)",
       "Bash(bun)",
       "Bash(bun *)",
-      "Bash(bunx *)"
+      "Bash(bunx *)",
+      "Bash(yarnpkg*)",
+      "Bash(corepack*)"
     ],
     "allow": [
       "Bash(pnpm install --frozen-lockfile)",
