@@ -121,15 +121,15 @@ One server image (`ghcr.io/mwijkhuisen/mjk-server`) whose first argument picks t
 | `migrate` | job | dbmate as `mjk_migrator` | `mjk_migrator` |
 | `healthcheck` | probe | Heartbeat file under 120 s old | – |
 | `sync-museums [--dry-run]` | job | One-off museum import or diff (the worker's weekly code) | `mjk_worker` |
-| `admin <cmd>` | job | CLI: `invite create`, `user role`, `museum flag`, used until the admin UI exists | `mjk_api` |
+| `admin <cmd>` | job | CLI: `invite create`, `user role`, `user trust` (P3b), `museum flag`, used until the admin UI exists | `mjk_api` |
 | `backup` | job | `pg_dump -Fc` + restic of the dumps and `/srv/mjk/originals` to the private R2 EU backup bucket (own image stage or the restic binary in the server image [U]) | `mjk_backup` (read-only) |
 
 **Caddy routes** (web image):
 
 - On `<domain>`: `/assets/*` (immutable, `file` matcher) · `/map/*` (glyphs, sprites, style) · `/api/v1/*` → `api:8080` · `/api/admin/*` → 404 · everything else → `ssr:8081`.
-- On `admin.<domain>`: `/api/admin/*`, `/api/v1/auth/*` (except signup), `/api/v1/me*` and `GET /api/v1/museums*` → `api` · any other `/api/*` → 404 · everything else → the admin SPA entry (`admin.html`, same web build). The `api` checks the Access JWT on every admin-host request (A§9).
+- On `admin.<domain>`: `/assets/*` (immutable, `file` matcher, as on the public host) · `/api/admin/*`, `/api/v1/auth/*` (except signup), `/api/v1/me*` and `GET /api/v1/museums*` → `api` · any other `/api/*` → 404 · everything else → the admin SPA entry (`admin.html`, same web build). The `api` checks the Access JWT on every admin-host request (A§9).
 - Media and tiles never pass through Caddy: they come from `media.<domain>` (R2). The `api` also refuses `/api/admin/*` unless the `Host` is the admin host.
-- Headers: the CSP (A§15.6), `Cache-Control` on `/api/*` as the `api` sets it per answer (A§14: short `s-maxage` on public GETs, `private, no-store` on everything personal, mutations and errors); Caddy adds `no-store` only on its own error responses (A§17.2). Public HTML with a short shared cache [U A§15.1], and `X-Robots-Tag: noindex` until P5b.
+- Headers: the CSP (A§15.6), `Cache-Control` on `/api/*` as the `api` sets it per answer (A§14: short `s-maxage` on public GETs, `private, no-store` on everything personal, mutations and errors); Caddy sets `no-store` only on its own error responses, where `handle_errors` also repeats the A§15.6 headers (A§17.2). Public HTML with a short shared cache [U A§15.1], and `X-Robots-Tag: noindex` until P5b.
 
 ```
 visitor ─► Cloudflare (zone <domain>) ─► cloudflared ─► caddy ─┬─► ssr ──► postgres (mjk_ssr, read-only)
@@ -222,10 +222,10 @@ One matcher (`apps/server/src/museums/match.ts`, pure, property-tested) serves t
 
 - **Museumkaart flag:** `museumkaart_status` (`participating` · `left` · `unknown`, default `unknown`) with `mk_since`, `mk_until` and `mk_last_verified_at`.
   - The owner sets it with the P1a tooling (admin CLI, then the admin UI) by hand (A6), from each museum's own website and members' reports (or the A5 answer), never by working through museum.nl's list or filter (database right, A§13.3). The P973 links are hints only.
-  - [U A9, asked before A6 starts] whether this hand curation is fine under the Databankenwet; A5's answer may replace it with a feed or a permission.
+  - [U A9, answered before A6 starts] whether this hand curation is fine under the Databankenwet; A5's answer may replace it with a feed or a permission.
   - Members use "Meld een wijziging" on a museum page; reports go to the moderation queue, and the owner applies them as `museum_change` rows.
   - A museum that leaves keeps its history: `left` with `mk_until`, never deleted.
-- **N:** the number of museums with status `participating` in the last **published list version**. The owner publishes a version from the admin (`mk_list_version`: date, N). The site shows N with that date, "37 van 512 · lijst nov 2026", because public counts disagree (426 to 539).
+- **N:** the number of museums in the last **published list version**. The owner publishes a version from the admin (`mk_list_version`: date, N). Publishing a version copies the museums then `participating` into `mk_list_member`; N is their count, computed, never typed. The site shows N with that date, "37 van 512 · lijst nov 2026", because public counts disagree (426 to 539).
 - **Admission price:** the adult price in cents with `price_verified_at`. A museum without a price is left out of € saved, and the page says how many were left out.
 - **Card price:** a committed per-year table (2026: €75 adult, €39 under 19), updated by PR.
 - **Photo policy:** curated from the museum's house rules and reports, shown before upload (A§13.3).
@@ -247,6 +247,7 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 | `museum_source_row` | (source, external_id) | payload `jsonb`, hash, fetched_at, run_id, matched_museum_id, match_state (`matched` · `new` · `ambiguous` · `ignored`) |
 | `museum_change` | `id` | museum_id, field, old, new, origin (`sync` · `admin` · `report`), state (`applied` · `pending` · `rejected`), reporter_id, decided_by, created_at, decided_at |
 | `mk_list_version` | `id` | published_on, n, published_by |
+| `mk_list_member` | (list_version_id, museum_id) | the museums `participating` when the version was published |
 | `museum_stats` | `museum_id` | rating_count, rating_mean, bayes_score, aspect means and counts, review_count, visit_count, updated_at (worker) |
 | `app_user` | `id` | email (`citext`, unique), email_verified_at, handle (`citext`, unique), display_name, password_hash (argon2id PHC string, null), role (`user` · `moderator` · `admin`), status (`active` · `banned` · `deleted`), banned_until, ban_reason, trusted_at, age_confirmed_at, terms_version, terms_accepted_at, settings (A§10), invite_id, created_at |
 | `session` | `id` = sha256(token) | user_id, host (`public` · `admin`), method (`code` · `password` · `passkey`), created_at, expires_at, absolute_expires_at, last_used_at, reauth_at (the last sign-in or code on this session, A§9) |
@@ -263,7 +264,7 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 | `media` | `id` | user_id, review_id (null until attached), kind (`photo`; `video` P7), state (`uploading` · `quarantined` · `processing` · `pending_review` · `approved` · `rejected` · `removed` · `failed`), declared_size, received_bytes, sha256, bytes, width, height, public_key (random), alt_text, consents_at, decided_by, decided_at, created_at |
 | `media_variant` | (media_id, format, width) | object_key, bytes |
 | `blocked_hash` | `sha256` | reason, moderation_action_id, created_at |
-| `job` | `id` (bigint) | kind, payload `jsonb` (ids only; `mail_code` and `mail_invite` add a sealed code, nulled once sent, A§9), state (`queued` · `running` · `done` · `failed`), run_at, attempts, max_attempts, locked_at, locked_by, last_error (fixed code), created_at, finished_at |
+| `job` | `id` (bigint) | kind, payload `jsonb` (ids only; `mail_code`, `mail_invite` and the two account-notice mails add a sealed code and/or recipient address, nulled once sent, A§9), state (`queued` · `running` · `done` · `failed`), run_at, attempts, max_attempts, locked_at, locked_by, last_error (fixed code), created_at, finished_at |
 | `data_export` | `id` | user_id, state, path, expires_at, created_at |
 | `notice` | `id` | target_kind, target_id, category (`copyright` · `portrait` · `privacy` · `defamation` · `csam` · `threat` · `other_illegal` · `terms` · `appeal`), explanation, notifier_name and notifier_email (null allowed only for `csam`, A§13.1), good_faith, received_at, ack_sent_at, decision, decided_at, decision_sent_at |
 | `moderation_action` | `id` | target_kind, target_id, affected_user_id (`ON DELETE SET NULL`), type (`approve` · `reject` · `remove` · `restrict` · `ban` · `unban` · `restore`), ground_kind (`law` · `terms`), ground_ref, facts, automated, actor_id, notice_id, sor_sent_at, created_at |
@@ -294,11 +295,11 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
 - **Sign-up (beta):** invite code, email, handle, display name, a 16+ confirmation, the current terms version, an ALTCHA solution and a honeypot field.
   - The `api` checks the rate limits, the ALTCHA (single use), the invite and the handle, then mails a code. The answer is the same whether or not the email already has an account.
   - `app_user` is created only when the code is entered (`email_verified_at`, `age_confirmed_at`, `terms_*` set), and the session starts. Open sign-up (P5a) drops only the invite.
-  - Invite codes are 16 characters of Crockford base32 (80 bits), with `max_uses` 1 and `expires_at` 14 days by default (`admin invite create --uses N --days D`). `uses` is incremented with `UPDATE … WHERE uses < max_uses AND expires_at > now()` in the transaction that creates the account; a used-up or expired invite makes the code verify fail with 403 and creates nothing.
+  - Invite codes are 16 characters of Crockford base32 (80 bits), with `max_uses` 1 and `expires_at` 14 days by default (`admin invite create --uses N --days D [--email <address>]`). `uses` is incremented with `UPDATE … WHERE uses < max_uses AND expires_at > now()` in the transaction that creates the account; a used-up or expired invite makes the code verify fail with 403 and creates nothing.
 - **Sign-in by email code:** email + ALTCHA → a 6-digit code by mail (codes, never links: mail scanners open links). Valid 10 min, 5 attempts, single use. Stored as an HMAC with a pepper from `app_keys`.
   - Issuing a code voids every unused code for the same email and purpose. Verify compares only with the newest code and names its purpose (`signin` · `signup` · `email_change` · `delete`); a code of another purpose fails like a wrong one.
   - `/auth/code` sends nothing for an email without an account (purposes `signin`, `delete`); the 202 and its timing are the same.
-  - The `api` enqueues a `mail_code` job. Its payload holds the `email_code` id plus the code sealed with AES-256-GCM under the `code_seal` key from `app_keys`; this is the one exception to ids-only payloads (A§8). The worker opens it, sends the mail and sets the sealed field to null in the same transaction. An unsent sealed code is nulled at `expires_at`. Mail jobs are deleted on success, not kept 30 days. Invite mails (`mail_invite`) work the same way. A code mail holds the code and fixed text only: no handle, display name or other submitted text.
+  - The `api` enqueues a `mail_code` job. Its payload holds the `email_code` id plus the code sealed with AES-256-GCM under the `code_seal` key from `app_keys`; sealed fields are the one exception to ids-only payloads (A§8). The worker opens it, sends the mail and sets the sealed field to null in the same transaction. An unsent sealed code is nulled at `expires_at`. Mail jobs are deleted on success, not kept 30 days. `mail_invite` (from `admin invite create --email <address>` or `POST /api/admin/invites` with `email`) seals the invite code the same way. `mail_invite`, the notice to the old address on an email change and the deletion confirmation (A§13.5) carry their recipient address sealed under `code_seal` next to the ids, nulled once sent; the address is never stored on `invite` or kept after the send. A code mail holds the code and fixed text only: no handle, display name or other submitted text.
 - **Sign-in by password** (optional, set in settings): argon2id via `node:crypto` `argon2()` at no less than OWASP's floor (m = 19 MiB, t = 2, p = 1), with the highest m ≤ 64 MiB that keeps one hash under 250 ms on the VM [U P2a]; at most 2 hashes at once per process (a semaphore; a waiter gives up after 2 s with 429); passwords of 12 to 256 characters (else 400); no HIBP check (a third party). The PHC string carries the parameters, and a hash with older ones is redone at the next successful sign-in. One error for an unknown email and a wrong password, and the server hashes a dummy so the timing matches.
 - **Sign-in by passkey** (P2b): `@simplewebauthn` with discoverable credentials and the browser's autofill UI; RP ID `<domain>`; challenges in `auth_challenge` (5 min, single use). `userVerification: 'required'` at registration and sign-in, and the server rejects an assertion without the UV flag; `expectedRPID` is `<domain>` and `expectedOrigin` is the origin of the host the request arrived on (`https://<domain>` or `https://admin.<domain>`); a challenge records its host. Adding a passkey needs a sign-in within the last 10 min [U]. An email code always remains a way in.
 - **Sessions:** a 32-byte random token; the row id is sha256(token). Cookie `__Host-mjk_sid; HttpOnly; Secure; SameSite=Lax; Path=/`: host-only, so it never reaches `media.<domain>` and the public cookie never works on `admin.<domain>`. 30-day sliding expiry (extended when under 15 days remain). Sign-out deletes the row; "sign out everywhere" deletes them all. Absolute lifetime 180 days [U]; admin-host sessions 12 h idle, 7 days absolute [U]. Signing in deletes the row of any session cookie sent with the request and always issues a new token.
@@ -331,8 +332,8 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
 ## 10. Passport, wishlist, profiles and privacy
 
 - **Visit:** user, museum, `visited_on`, a private note, source (`manual` · `import`). Several per museum, at most one per date and at most one undated. No future dates. `visited_on` may be null ("eerder, datum onbekend"), for onboarding and imports without dates.
-- **Progress:** **card list** = distinct visited museums that are `participating` in the published list, against N, in total and per province ("37 van 512 · lijst nov 2026", A§7.5); **all time** = every museum ever visited, closed ones included; **per year** = distinct museums visited in a calendar year (dated visits only).
-- **€ saved per calendar year:** Σ adult admission of the year's dated visits to museums that were `participating` on the visit date (`mk_since` ≤ date ≤ `mk_until`), minus that year's card price for the user's card type. Museums without a price are left out and counted ("3 musea zonder prijs"). The adult price is used for everyone, which overstates the savings of under-19 holders; the page says so.
+- **Progress:** **card list** = distinct visited museums in the last published version's `mk_list_member`, against N, in total and per province ("37 van 512 · lijst nov 2026", A§7.5); **all time** = every museum ever visited, closed ones included; **per year** = distinct museums visited in a calendar year (dated visits only).
+- **€ saved per calendar year:** Σ adult admission of the year's dated visits to museums that were `participating` on the visit date (`mk_since` null or ≤ date, and `mk_until` null or ≥ date), minus that year's card price for the user's card type. Museums without a price are left out and counted ("3 musea zonder prijs"). The adult price is used for everyone, which overstates the savings of under-19 holders; the page says so.
 - **Wishlist:** user and museum. Filters "op mijn verlanglijst" and "nog niet bezocht" (A§14).
 - **Onboarding:** after sign-up, "Welke musea heb je al bezocht?": search and province filters, tick many at once, then optionally add dates. The ticks become visits with no date; a museum that already has an undated visit gets none (A§8).
 - **Import** (P2c): generic CSV (a name, QID or museum.nl URL, a date, optionally a note), MuseoTrack and Cultra exports [U formats: the owner supplies samples, A10], and `mjk` (our own JSON export: visits with notes, and the wishlist); at most 5,000 rows and 2 MB [U].
@@ -348,7 +349,7 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
 
 - **Rules** (D13, D17): one review per member per museum, citing one of the member's visits there, shown as "Bezocht op <date>" ("Bezocht" for an undated visit). Deleting the cited visit asks the member to pick another visit or delete the review. It needs a verified email and an active account. A closed museum's reviews are read-only.
 - **Content:** overall 1–5 stars (required; drives the average). Optional aspects 1–5, stored as columns: collection, presentation, kid-friendly, accessibility, facilities, value for money (D13) [U final list in P3a]. Optional text: plain, any language, ≤ 5,000 characters, line breaks only (no HTML or Markdown), always rendered as text nodes. Up to 10 photos (A§12).
-- **Scores:** the museum page shows the plain mean and the count. Lists are ordered by the **Bayesian average** `(C·m + Σ ratings) / (C + n)` with C = 5 and m = the global mean of visible ratings [U tune after the beta]. Aspects show a mean only from 3 ratings up [U]. The worker recomputes `museum_stats` in a debounced job after every change.
+- **Scores:** the museum page shows the plain mean and the count. Lists are ordered by the **Bayesian average** `(C·m + Σ ratings) / (C + n)` with C = 5 and m = the global mean of visible ratings [U tune after the beta] [U: with C = 5 a single 5-star review still outranks a 4.6 average when m > 4.5; P3a and the beta tune C]. Aspects show a mean only from 3 ratings up [U]. The worker recomputes `museum_stats` in a debounced job after every change.
 - **"Hide ratings until I've visited"** (the spoiler setting): on museums the member has not visited, scores and review texts stay folded behind "Toon beoordelingen". Public HTML is anonymous, so a tiny blocking same-origin script (not inline) reads a `localStorage` flag before the first paint and sets an attribute that CSS uses to fold the blocks: no flash, no cookie, still cacheable. Visited museums unfold once `/api/v1/me` answers [U P3a]. The flag is written at sign-in, re-synced from every `/api/v1/me` answer and cleared on sign-out; after a storage wipe (Safari clears script-written storage after 7 days without interaction) the first page may show scores until `/me` answers [U P3a].
 - **Edits:** allowed at any time. The previous version goes to `review_revision` (for notices and moderation, never public), and the review shows "bewerkt op <date>".
 - **Forbidden by the terms:** reviews by a museum's staff or for a reward, and more than one account per person.
@@ -365,10 +366,10 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
   4. Unfinished uploads are purged after 24 h.
 - **Worker** (sharp 0.35.5, `limitInputPixels` ≈ 50 MP, `sharp.concurrency(1)`, `sharp.cache(false)`, one job at a time, a 120 s [U] timeout per photo job that ends it `failed` with a fixed code): orientation applied, then all metadata (EXIF, GPS) stripped, sRGB; AVIF and WebP at 400, 1200 and 2000 px wide (never upscaled); a random 128-bit key per photo (`p/<key>/<width>.<ext>`), not derived from any id. The quarantine file is deleted when a job ends `failed`.
   - An untrusted member's variants stay in `/srv/mjk/quarantine/<id>/v/` (state `pending_review`); the author and moderators see them only through the `private, no-store` preview routes (A§14).
-  - A trusted member's photo, or one a moderator approves, is uploaded to the public R2 EU bucket by a `media_publish` job with the own SigV4 client (built in P1d, A§15.3) (state `approved`). A rejection deletes the quarantine copies. Nothing reaches R2 before approval (A§13.1).
+  - A trusted member's photo, or one a moderator approves, is uploaded to the public R2 EU bucket by a `media_publish` job with the own SigV4 client (built in P1d, A§15.3) (state `approved`). A successful `media_publish` deletes the quarantine copies and moves the original to `/srv/mjk/originals`; a rejection deletes the quarantine copies and the original. Nothing reaches R2 (the media bucket or the backup) before approval (A§13.1).
 - **R2 objects:** exact `Content-Type`, `Cache-Control: public, max-age=31536000, immutable`. A Transform Rule on `media.<domain>` adds `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` (A2). A Cache Rule on `media.<domain>/p/*` makes them eligible for cache with an Edge TTL of 4 h [U] and the browser TTL from the origin; the bucket's `r2.dev` public URL is off (A2), so nothing bypasses the zone's headers or the CSAM tool. CORS allows `GET` from `https://<domain>` only (the tiles' range requests). Pages use `<picture>` with AVIF and WebP `srcset`. Only files we re-encoded are stored there: **raw uploads are never served.**
-- **Originals** stay private in `/srv/mjk/originals/<id>` (worker UID, never served), go into restic (A§17.6), and are deleted with the photo.
-- **Removal:** deleting a photo (by the member, a moderator or account deletion) deletes the variants and the original at once, and adds the sha256 to `blocked_hash` when removed for illegality. The edge copy expires within the 4 h edge TTL. Urgent removals (CSAM, Art. 18, a court order) are also purged by URL in the dashboard (runbook `takedown-and-purge`). A scoped purge token for the worker stays [U P3c].
+- **Originals** stay private in `/srv/mjk/originals/<id>` (worker UID, never served), go into restic (A§17.6), and are deleted with the photo. An untrusted member's original stays in `/srv/mjk/quarantine/<id>/` until approval, so no unreviewed photo enters a backup.
+- **Removal:** deleting a photo (by the member, a moderator or account deletion) deletes the variants (on R2 or still in quarantine) and the original at once, and adds the sha256 to `blocked_hash` when removed for illegality. The edge copy expires within the 4 h edge TTL. Urgent removals (CSAM, Art. 18, a court order) are also purged by URL in the dashboard (runbook `takedown-and-purge`). A scoped purge token for the worker stays [U P3c].
 - **HEIC:** not decoded on the server (sharp's prebuilt libvips has no HEIC), and no WASM decoder in the browser (it would need `'wasm-unsafe-eval'`). The file input accepts JPEG, PNG and WebP, so iOS Safari hands over a JPEG [U P3b]. Anything else gets a clear message.
 - **Limits:** a photo ≤ 25 MB and ≤ 50 MP; ≤ 10 per review; ≤ 30 per day per user; 1 GB per user. An optional alt text (≤ 250 characters). Before upload: three checkboxes (own photo · no recognisable people without consent · not focused on a protected artwork) and the museum's `photo_policy` (A§13.3).
 - **Basemap tiles** live on the same bucket under `tiles/` (range requests from R2, never through the tunnel; A§15.3).
@@ -376,7 +377,7 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
 
 ## 13. Moderation, legal and privacy
 
-ADR-0010. Research input: `docs/plan/research/legal.md`. One paid hour of Dutch legal advice before the beta (A9) checks the [U] items below; its database-right question (A§7.5) is asked before A6 starts.
+ADR-0010. Research input: `docs/plan/research/legal.md`. One paid hour of Dutch legal advice before P3d's sign-off of the legal texts (A9) checks the [U] items below; its database-right question (A§7.5) is answered before A6 starts.
 
 ### 13.1 DSA
 
@@ -386,20 +387,20 @@ Whether a no-revenue private site falls under the DSA is [U] (the ACM guidelines
 |---|---|
 | Art. 11/12 points of contact | `/contact`: an email address, languages NL and EN, answered by a person |
 | Art. 14 terms | `/voorwaarden`, versioned: content rules, how moderation works (human review, the hash blocklist), the upload licence (A§13.3). A change is announced by email and on the site; acceptance stores `terms_version` |
-| Art. 16 notice and action | "Meld inhoud" on every review, photo, profile and (P6) comment: a category (A§8 `notice`), reason, the exact item, name and email, a good-faith box. Name and email are required except for `csam` (DSA Art. 16(2)(c)); a `csam` notice without them gets no receipt mail. `threat` marks the queue item urgent and links `docs/runbooks/art18.md`. Automatic receipt, which holds the notice's reference and the target link, never the text or name the notifier typed; decision by email with the redress options |
+| Art. 16 notice and action | "Meld inhoud" on every review, photo, profile and (P6) comment: a category (the A§8 `notice` enum except `appeal`), reason, the exact item, name and email, a good-faith box. Name and email are required except for `csam` (DSA Art. 16(2)(c)); a `csam` notice without them gets no receipt mail. `threat` marks the queue item urgent and links `docs/runbooks/art18.md`. Automatic receipt, which holds the notice's reference and the target link, never the text or name the notifier typed; decision by email with the redress options |
 | Art. 17 statement of reasons | Every removal, restriction, rejection or ban: the restriction, the facts, the ground (law or terms clause), whether it was automated (yes only for a hash match), redress. Email + a notice in the account; `sor_sent_at` |
 | Art. 18 threats to life or safety | `docs/runbooks/art18.md`: report to the police at once |
 | Art. 6 liability | Act quickly on a valid notice; the admin queue shows each notice's age |
 | Art. 15, 20, 21 | Exempt as a micro service (Art. 19) [U]. A simple "bezwaar maken" link anyway, reviewed by the owner |
 
-- **Moderation flow** (D9): text (reviews, P6 comments) goes live at once. Photos of untrusted accounts wait in a queue on the VM, never on R2, visible only to their author through the `api` ("wacht op controle", A§12); trusted = ≥ 3 approved photos and an account ≥ 14 days old, or set by a moderator [U]. The owner moderates alone at first, on the admin host. Each action writes `moderation_action` and `audit_log`.
+- **Moderation flow** (D9): text (reviews, P6 comments) goes live at once. Photos of untrusted accounts wait in a queue on the VM, never on R2, visible only to their author and moderators, through the `api`'s `private, no-store` preview routes ("wacht op controle", A§12, A§14); trusted = ≥ 3 approved photos and an account ≥ 14 days old, or set by a moderator [U]. The owner moderates alone at first, on the admin host. Each action writes `moderation_action` and `audit_log`.
 - **CSAM:** Cloudflare's CSAM Scanning Tool on the zone (A2), which probably covers the R2 custom domain [U]. A match → remove, block the hash, ban, report (runbook) [U contacts].
 
 ### 13.2 GDPR
 
 - **Lawful bases:** contract (Art. 6(1)(b)) for the account, passport, reviews and media; legitimate interest (Art. 6(1)(f): abuse prevention and legal claims) for rate limits, `content_ip_log` and moderation records; consent for optional emails (P6).
 - **Privacy page** (`/privacy`, layered, following the AP's checklist; NL and EN): Cloudflare named first (every request passes through it; a US company relying on the EU-US Data Privacy Framework, upheld 2025-09-03, under appeal C-703/25 P). Processors: Cloudflare (DNS, tunnel, Access, R2, CSAM scanning; DPA through the Self-Serve Agreement §6.1 [U Free plan], recorded in A2) and Lettermint (email, EU only; DPA accepted in A4). Also retention, rights, the right to complain to the AP, the one cookie and the device storage below, the lost-mailbox position (A§9), and the owner's identity as a private person with an email address [U A9: whether that is enough].
-  - Device storage, all user-requested and strictly necessary (ePrivacy Art. 5(3)): the theme and the ratings fold in `localStorage` (A§11, A§15.5), and the offline outbox in IndexedDB (A§15.4).
+  - Device storage, all user-requested and strictly necessary (ePrivacy Art. 5(3)): the theme and the ratings fold in `localStorage` (A§11, A§15.5), and, if P5a ships it, the offline outbox in IndexedDB (A§15.4).
 - **Rights:** access and portability (export, A§10), rectification (settings), erasure (A§13.5), objection (contact).
 - **Records** (P3d): an Art. 30 register in `docs/legal/`; `docs/legal/processors.md` (per processor: service, data, location, transfer basis, DPA version and date), referenced by the register; the breach runbook `docs/runbooks/breach.md` (the AP within 72 h).
 - **Privacy by design (Art. 25):** EXIF/GPS stripped, no analytics, logs with fixed codes only (no IPs, emails or content), one strictly necessary cookie and device storage only for what the member asks for, so no banner.
@@ -412,10 +413,10 @@ Whether a no-revenue private site falls under the DSA is [U] (the ACM guidelines
 | `rate_limit` windows (emails, IP prefixes, site-wide counts) | Window + 24 h | Deleted |
 | `content_ip_log` (full IP) | 30 days [U owner confirms in P3d], also after the account is deleted | Deleted |
 | Notices, moderation actions, and the text of removed reviews and comments (in `moderation_action.facts`) | 3 years [U] | Deleted by the worker |
-| Removed photos | Not kept: variants and original deleted at once; only the sha256 stays in `blocked_hash` | CSAM: reported, then deleted, never kept [U A9] |
+| Removed photos | Not kept: variants and original deleted at once; only the sha256 stays in `blocked_hash` | CSAM: reported, then deleted, never kept; a copy already in the locked backup cannot be deleted before its lock ends and ages out within 35 days [U A9] |
 | `audit_log` | 3 years [U] | Purge function (A§8) |
-| Job rows | 30 days after they finish; mail jobs deleted on success, a sealed code nulled once sent or at `expires_at` (A§9) | Deleted |
-| Unfinished uploads, quarantine files | 24 h (pending-review variants: until decided) | Deleted |
+| Job rows | 30 days after they finish; mail jobs deleted on success, a sealed code or recipient address nulled once sent, a code also at `expires_at` (A§9) | Deleted |
+| Unfinished uploads, quarantine files | 24 h (pending-review copies: until decided, or until the photo or its account is deleted) | Deleted |
 | `visit_import` rows (the raw file) | 7 days after creation, or on confirm [U] | Deleted |
 | Export bundles and `data_export` rows | 7 days (link valid 24 h [U]) | Deleted |
 | `invite` rows (the note holds no personal data) | 90 days after expiry or use [U] | Deleted |
@@ -447,12 +448,12 @@ Settings → delete account → a fresh email code → the choice (D10):
 | | Delete everything | Keep reviews as "voormalig lid" |
 |---|---|---|
 | Profile, sessions, passkeys, visits, wishlist, settings, exports | Deleted | Deleted |
-| Photos (variants on R2, originals) | Deleted | Deleted |
+| Photos (variants on R2, pending copies in quarantine, originals) | Deleted | Deleted |
 | Reviews and ratings | Deleted | Kept without photos; `user_id` cleared, shown as "voormalig lid"; revisions deleted; no longer editable |
 | P6 comments, votes, follows | Deleted | Deleted |
 
 - The page warns that kept review text can still identify the author [U].
-- A deletion job runs in the worker: the user turns `deleted` and loses every session at once, and the rows go within minutes. R2 variants are deleted at once; edge copies expire within 4 h (A§12). Then `museum_stats` is recomputed and a last email confirms it.
+- A deletion job runs in the worker: the user turns `deleted` and loses every session at once, and the rows go within minutes. R2 variants, quarantine copies and originals are deleted at once; edge copies expire within 4 h (A§12). Then `museum_stats` is recomputed and a last email confirms it (its address sealed in the job, A§9).
 - **Not erased** (Art. 17(3)(e), legal claims): notices and moderation actions about the user, with the user id set to null, for 3 years [U]; notices the member filed, for 3 years [U]; `content_ip_log` rows until their 30 days end; `audit_log` rows, which hold ids only.
 - Backups age out within 35 days [U]. Deletions since the snapshot are re-applied from production's `audit_log` when it survives. For a full loss, they come from the owner's deletion notices: the deletion job mails the owner "<account id> deleted <time>" (ids only) [U]. The restore runbook keeps the site in maintenance until those deletions are re-run (A§17.6).
 - The handle stays reserved for 6 months [U]. Nothing can be undone.
@@ -517,7 +518,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 | `GET /users/:handle/reviews` · `/photos` · `/visits` · `/wishlist` | keyset paging; a private list → 404 | P2c–P3b |
 | `PUT /reviews/:id/helpful` · `GET /reviews/:id/comments` · `POST /reviews/:id/comments` · `PATCH /comments/:id` · `DELETE /comments/:id` | votes and comments | P6a |
 | `PUT /users/:handle/follow` · `DELETE /users/:handle/follow` · `GET /feed` | follows · the feed (anonymous → 401) | P6b, P6c |
-| `GET /healthz` | `select 1` → 200 `{"ok":true}`, else 503 `{"ok":false}`; `no-store`; the `mjk-update` smoke test (P1b's `/healthz`) | P1b |
+| `GET /healthz` | `select 1` → 200 `{"ok":true}`, else 503 `{"ok":false}`; `no-store`; the `mjk-update` smoke test calls it with `Host: <domain>` (A§17.5) | P1b |
 
 **Uploads, media, reports**
 
@@ -529,7 +530,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 | `GET /uploads/:id` · `DELETE /uploads/:id` | self | state and, once approved, the variant keys · abort | P3b |
 | `GET /uploads/:id/preview?w=400\|1200` | self | a pending variant read from quarantine, sent with `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` (A§12) | P3b |
 | `PATCH /media/:id` · `DELETE /media/:id` | self | alt text · delete the variants and the original | P3b |
-| `POST /reports` | public | DSA Art. 16 notice: `target_kind`, `target_id`, category (the A§8 enum), explanation, name, email, `good_faith: true`, ALTCHA → 202 and a receipt by email (reference and target link only, A§13.1); a missing field → 422, except that name and email are optional for `csam` (DSA Art. 16(2)(c); no receipt without an email); `threat` marks the queue item urgent; 10 per day per IP prefix | P3c |
+| `POST /reports` | public | DSA Art. 16 notice: `target_kind`, `target_id`, category (the A§8 enum except `appeal`, which only `POST /appeals` creates; `appeal` here → 422), explanation, name, email, `good_faith: true`, ALTCHA → 202 and a receipt by email (reference and target link only, A§13.1); a missing field → 422, except that name and email are optional for `csam` (DSA Art. 16(2)(c); no receipt without an email); `threat` marks the queue item urgent; 10 per day per IP prefix | P3c |
 | `POST /appeals` | public | "bezwaar maken": the signed reference from a statement of reasons or a decision email + an explanation → 202 (stored as a `notice` with category `appeal`); a forged or expired reference → 422 | P3c |
 
 **Admin** (`/api/admin/*`): only when the `Host` is `admin.<domain>` (else 404, at Caddy and in the `api`), with the Access JWT verified as in ADR-0004, an admin-host session, role `moderator` or `admin`, and the JWT's email equal to the user's (D22). Every write inserts one `audit_log` row; every answer is `private, no-store`.
@@ -539,15 +540,15 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 | `GET /status` | mod | jobs per state, failed jobs with their codes, sync runs, the last backup and drill, disk, queue ages, the month's mails against `MJK_MAIL_CAP` (the status panel, A§17.7) | P3c |
 | `GET /queue?kind=` | mod | `photo` · `notice` · `match` · `change`, oldest first, each with its age (Art. 6) | P3c |
 | `GET /media/:id/preview` | mod | a pending variant from quarantine, with the headers of `GET /uploads/:id/preview` | P3c |
-| `POST /media/:id/approve` · `POST /media/:id/reject` | mod | a `media_publish` job uploads the variants to R2, then the photo is public · reject with a statement of reasons; the quarantine copies are deleted (A§12) | P3c |
+| `POST /media/:id/approve` · `POST /media/:id/reject` | mod | a `media_publish` job uploads the variants to R2, then the photo is public · reject with a statement of reasons; the quarantine copies and the original are deleted (A§12) | P3c |
 | `GET /notices` · `GET /notices/:id` · `POST /notices/:id/decision` | mod | the notice and its target as reported; the decision mails the notifier with the redress options | P3c |
 | `POST /actions` · `GET /actions?target=` | mod | `remove` · `restrict` · `restore` · `ban` · `unban`, with the ground (law or terms clause) and the facts → `moderation_action`, the statement of reasons, `blocked_hash` on removal for illegality | P3c |
 | `GET /museum-changes` · `POST /museum-changes/:id/apply` · `POST /museum-changes/:id/reject` | mod | sync diffs and members' reports | P3c |
 | `GET /museums` · `POST /museums` · `PATCH /museums/:id` | admin | curation (A§7.5): Museumkaart status and dates, adult price, photo policy, closures, `hidden`, overrides; a museum added by hand | P3c (CLI from P1a) |
 | `GET /sync-runs` · `GET /sync-runs/:id` · `POST /source-rows/:id/match` | admin | counts per outcome, queued diffs, match resolution (a museum, new or ignore) | P3c |
-| `POST /list-versions` | admin | publish a list version (date, N) | P3c |
+| `POST /list-versions` | admin | publish a list version: copies today's `participating` museums into `mk_list_member`; N computed | P3c |
 | `GET /appeals` · `POST /appeals/:id/decision` | admin | appeals, reviewed by the owner (A§13.1) | P3c |
-| `GET /invites` · `POST /invites` · `DELETE /invites/:id` | admin | the code is shown once; only its HMAC is stored | P3c (CLI from P2a) |
+| `GET /invites` · `POST /invites` · `DELETE /invites/:id` | admin | optional `email` → a `mail_invite` job; the code is shown once; only its HMAC is stored | P3c (CLI from P2a) |
 | `GET /users?q=` · `GET /users/:id` · `PATCH /users/:id` | mod reads · admin writes | exact handle or email lookup; role and `trusted_at`; a moderator changing a role → 403 | P3c |
 | `GET /audit` | admin | the audit log, read-only, keyset paging | P3c |
 
@@ -639,7 +640,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 
 ### 15.6 CSP and security headers
 
-Public host `<domain>`, set by Caddy on every response (error responses included: routes use their own `respond`, CLAUDE.md gotcha):
+Public host `<domain>`, set by Caddy on every response (error responses included: routes use their own `respond`, and `handle_errors` repeats the headers on Caddy's error path, A§17.2; CLAUDE.md gotcha):
 
 ```
 Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://media.<domain>; media-src https://media.<domain>; connect-src 'self' https://media.<domain>; worker-src 'self'; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'
@@ -653,7 +654,7 @@ Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'
   - `X-Content-Type-Options: nosniff` · `Referrer-Policy: strict-origin-when-cross-origin`
   - `Permissions-Policy: geolocation=(self), camera=(), microphone=(), payment=(), usb=(), browsing-topics=()`
   - `Cross-Origin-Opener-Policy: same-origin` · `Cross-Origin-Resource-Policy: same-origin`
-  - `X-Robots-Tag: noindex` on every response until P5b (prelaunch profile); then only on `/api/*`, the app shell, private routes and search results (launch profile)
+  - `X-Robots-Tag: noindex` on every response until P5b (prelaunch profile); then only on `/api/*`, the app shell, private routes, search results (`noindex, follow`) and `/melden` (launch profile; the admin host keeps `noindex, nofollow`)
   - `Cache-Control` per A§14 and A§15.1; no `Set-Cookie` but `__Host-mjk_sid` from the auth routes
 - A CSP `report-to` endpoint that counts violations per directive and stores nothing else [U P5a decides]; none until then.
 - **Admin host** `admin.<domain>`: `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://media.<domain>; connect-src 'self'; worker-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` (`worker-src` for ALTCHA at sign-in; no map and no manifest; `media-src https://media.<domain>` joins in P7 for the video queue), plus `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and the other headers above.
@@ -700,7 +701,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 | DoS on uploads | Quotas at create, before any byte; 8 MiB chunks checked for index and length before writing, never past the declared size; at most 3 open uploads per member and 2 GB [U] declared in total; Caddy body caps; unfinished uploads purged after 24 h; the disk guard (A§17.7); a 120 s [U] timeout per photo job; the worker's memory limit |
 | Compromised dependency | Exact pins, the 7-day release age, `strictDepBuilds`, `blockExoticSubdeps`, Dependabot cooldown, an ADR-lite line per new dependency; few dependencies (own auth and SigV4, no AWS SDK); distroless runtime; egress per role (A§17.4) |
 | Compromised admin account or device | Access (owner email + one-time PIN) and an admin-host session and the role and the matching email (D22); the Access application on the whole hostname with 24 h sessions [U A2]; every request on the admin host, the auth routes included, needs the Access JWT (A§9); every action in the INSERT-only `audit_log`; moderators cannot change roles |
-| Compromised `api` process | It holds no R2 key, tunnel token or backup password (not mounted, not in its GIDs) and cannot read originals; it can read export bundles (copies of originals) for up to 7 days (A§17.1); its only egress is Cloudflare's ranges, but `cf4` and DNS still reach any Cloudflare-fronted host, so this egress limits reach, not exfiltration (accepted, as in F1); `mjk_api` cannot change `audit_log` |
+| Compromised `api` process | It holds no R2 key, tunnel token or backup password (not mounted, not in its GIDs) and cannot read approved originals (a pending photo's original sits in the quarantine it writes to); it can read export bundles (copies of originals) for up to 7 days (A§17.1); its only egress is Cloudflare's ranges, but `cf4` and DNS still reach any Cloudflare-fronted host, so this egress limits reach, not exfiltration (accepted, as in F1); `mjk_api` cannot change `audit_log` |
 | Compromised `worker` (a libvips exploit in an uploaded image) | Magic bytes and `limitInputPixels` before decode; one job at a time inside 768m; the P3b security review decides whether decoding moves to a role with no secrets and no egress (the P7 `mjk-media` pattern: quarantine in, variants out, the worker uploads) or records the accepted risk [U P3b]; worker egress narrowed to sets in P3b (A§17.4) |
 | Cloudflare as a root of trust | It ends TLS, sees every request and could alter any answer: accepted, and named first on the privacy page (Waterheight ADR-0021). The account uses hardware-key 2FA [U owner] and per-bucket R2 tokens, with no account-wide token on the VM (A§17.3); `verify-prod` watches for injected scripts and cookies |
 | Cross-project breakout to or from `rws` and `f1` | Own networks, subnets, UID, GIDs, secrets, table, volumes and units (invariant 2); the `hardening` test refuses `rws` and `f1` names; `mjk-install` refuses overlapping subnets and leaves the other projects untouched (P1e) |
@@ -746,7 +747,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 | `cloudflared` | `cloudflare/cloudflared:2026.10.3` | 256m / 0.5 | `mjk-tunnel`, `mjk-tunnel-edge` |
 | `migrate` | mjk-server `migrate` (profile `jobs`) | 256m / 0.5 | `mjk-db` |
 | `backup` | mjk-server `backup` (profile `jobs`, run by `mjk-backup.timer`; own stage [U]) | 256m / 0.5 | `mjk-db`, `mjk-backup-egress` |
-| `sync-museums`, `admin` | mjk-server (profile `jobs`) | as `worker` / as `api` | as `worker` / `mjk-db` |
+| `sync-museums`, `admin` | mjk-server (profile `jobs`) | as `worker` / as `api` | as `worker` / `mjk-db`; secret GIDs per A§17.3 |
 | `media` (P7) | `ghcr.io/mwijkhuisen/mjk-media` | 1.5g / 2.0 [U] | `mjk-db` (no egress; the worker uploads its output; own login and GIDs from 63014) |
 
 - Total limits ≈ 2.9 GB for the six daemons, ≈ 3.4 GB with both jobs running. Expected steady state ≈ 1.2 GB [U] (F1: 2.7 GB of limits, ~0.9 GB steady). Images are A§4's pins, by digest, each re-checked against the 7-day rule when installed.
@@ -758,16 +759,16 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
   - a request with `X-Forwarded-Proto: http` → a `no-store` 308 to `https://`
   - any `Host` other than `<domain>` and `admin.<domain>` → 421 (Waterheight ADR-0021 §4)
   - towards `api`, Caddy sets `X-Mjk-Client` to `{client_ip}` and removes `X-Forwarded-For`, `CF-Connecting-IP` and `True-Client-IP` (A§9)
-  - `handle_errors` sets `Cache-Control: no-store` on Caddy's own error responses
+  - `handle_errors` sets `Cache-Control: no-store` and repeats the host's A§15.6 headers (CSP, HSTS, `nosniff`, `Referrer-Policy`, `X-Robots-Tag`) on Caddy's own error responses (413, 502, `file_server` 404)
 - Measured into this section: a day of `docker stats` (P1e), a 24 MP photo's time and peak memory (P3b), the beta (P4), the launch week (P5b), a 60 s clip (P7).
 
 ### 17.3 Networks, IDs and secrets
 
 | Network | Subnet | Internal | Members | Egress (A§17.4) |
 |---|---|---|---|---|
-| `mjk-db` | 10.63.1.0/24 | yes | db, api, ssr, worker, migrate, backup | – |
+| `mjk-db` | 10.63.1.0/24 | yes | db, api, ssr, worker, migrate, backup, sync-museums, admin | – |
 | `mjk-edge` | 10.63.2.0/24 | yes | caddy (10.63.2.10), api, ssr | – |
-| `mjk-egress` | 10.63.3.0/24 | no | worker | tcp/443, internet minus private ranges; sets from P3b |
+| `mjk-egress` | 10.63.3.0/24 | no | worker, sync-museums | tcp/443, internet minus private ranges; sets from P3b |
 | `mjk-api-egress` | 10.63.4.0/24 | no | api | tcp/443 to `cf4` |
 | `mjk-tunnel` | 10.63.5.0/24 | no | cloudflared | tcp+udp/7844 to `cf_tunnel4` |
 | `mjk-tunnel-edge` | 10.63.6.0/24 | yes | cloudflared (10.63.6.10), caddy | – |
@@ -781,16 +782,16 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 |---|---|---|
 | `db_postgres` | 63001 | db |
 | `db_mjk_migrator` | 63002 | db, migrate |
-| `db_mjk_api` | 63003 | db, api |
+| `db_mjk_api` | 63003 | db, api, admin |
 | `db_mjk_ssr` | 63004 | db, ssr |
-| `db_mjk_worker` | 63005 | db, worker |
+| `db_mjk_worker` | 63005 | db, worker, sync-museums |
 | `db_mjk_backup` | 63006 | db, backup |
 | `cf_tunnel_token` | 63007 | cloudflared |
 | `lettermint_api_token` | 63008 | worker |
 | `r2_media_rw` (S3 key id + secret; Object R/W on `mjk-media` only) | 63009 | worker |
 | `r2_backup_put` (S3 key id + secret; Object R/W on `mjk-backup` only; the lock rule protects history, A§17.6) | 63010 | backup |
 | `restic_password` | 63011 | backup |
-| `app_keys` (OTP pepper, invite pepper, code sealing key, ALTCHA HMAC, export link signing, statement-of-reasons/appeal reference signing; P6a unsubscribe signing) | 63012 | api, worker |
+| `app_keys` (OTP pepper, invite pepper, code sealing key, ALTCHA HMAC, export link signing, statement-of-reasons/appeal reference signing; P6a unsubscribe signing) | 63012 | api, worker, admin |
 | `hc_ping_key` | 63013 | worker, backup |
 
 - `db` holds the login GIDs because `roles.sql` sets their passwords with `pg_read_file` (F1).
@@ -819,7 +820,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
   2. pull `:main`; wait (exit 0) while the two images' `org.opencontainers.image.revision` labels differ; stop if the digests equal `current.env`; stop with a loud log line if the pair equals `failed.env` (`rm /srv/mjk/state/failed.env` to retry)
   3. run `migrate`
   4. `up -d`
-  5. smoke-test `http://127.0.0.1:8280/api/v1/healthz` and one museum page with `Host: <domain>`, then require every `mjk` container healthy
+  5. smoke-test `http://127.0.0.1:8280/api/v1/healthz` and one museum page, both with `Host: <domain>` (A§17.2 answers any other `Host` with 421), then require every `mjk` container healthy
   6. on failure, write the pair to `failed.env` and roll back to the digests in `/srv/mjk/state/current.env`
 - **A migration must work with the previous image** (expand now, contract in a later release): a rollback restores the old images but never runs `down`. The PR template asks for it.
 - `mjk-update --server <ref> --web <ref>` deploys given images (drills, CI); a ref with a registry host is recorded by digest, so `current.env` never names a movable tag.
@@ -843,7 +844,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 - **Disk guard:** below 10 % free [U], the `api` refuses new uploads (503 `unavailable`) and the status panel turns red.
 - **healthchecks.io** [U A8: the free account's checks are used up by Waterheight and F1; the owner picks a new free account or an alternative]: `mjk-worker` (pinged hourly while the queue drains, the last weekly sync is under 8 days old and the month's mails are under 80 % of `MJK_MAIL_CAP`) and `mjk-backup` (each nightly run; period 1 day, grace 2 h [U]).
 - **Status panel** on the admin host (P3c): jobs per state, failed jobs with their codes, sync runs, the last backup and drill, disk, queue ages, and the mails sent this month against the plan cap.
-- **Mail budget** (Lettermint's free plan is a hard cap of 300 a month, D15): sign-in codes always go first. Mails triggered by anonymous requests (notice receipts, sign-up codes) are capped at 20 a day [U]; over that they wait. The counts live in `rate_limit` windows with the key `site`. At 80 % of `MJK_MAIL_CAP` the worker logs `mail_cap_near` and its health ping fails.
+- **Mail budget** (Lettermint's free plan is a hard cap of 300 a month, D15): sign-in codes always go first. Mails triggered by anonymous requests (notice receipts, sign-up codes) are capped at 20 a day [U]: over that, `/auth/signup` answers 429 with `Retry-After` (a queued code would expire unsent) and notice receipts wait. The counts live in `rate_limit` windows with the key `site`. At 80 % of `MJK_MAIL_CAP` the worker logs `mail_cap_near` and its health ping fails.
 - **Logs:** pino JSON to Docker's `local` driver. Fixed codes and ids only: never IPs, emails, handles, tokens, codes, cookies, query strings, bodies or user text (invariant 8; the log-capture test, A§18). Caddy's access log is off; its error log carries no client address [U the Caddy fields].
 - **Cloudflare** is not code: `docs/runbooks/cloudflare.md` lists every setting (the Access application, the rate-limiting rule, Cache Rules, the Transform Rule, R2 CORS, `r2.dev` off, the CSAM tool, the script injections that stay off), and `verify-prod` checks what it can (Waterheight ADR-0021).
   - Cache Rules (Waterheight ADR-0021 §8): (1) host `<domain>`, path not under `/api/` → eligible, Edge TTL "use the origin's Cache-Control; bypass if absent"; (2) host `<domain>`, GET under `/api/v1/` except `/api/v1/me`, `/api/v1/auth/`, `/api/v1/uploads` and `/api/v1/museums/near` → the same mode; (3) `media.<domain>` per A§12. Nothing on `admin.<domain>`; never "Cache Everything" or an Edge TTL that ignores the origin outside `media.<domain>`.
@@ -858,7 +859,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 - **Fixtures:** recorded Wikidata SPARQL and RCE WFS answers (normal, edge, empty) from `scripts/record-fixture.ts`, which refuses under `CI`; hostile strings (`</script>`, markup, bidi controls, 5,001 characters) in museum names, handles and reviews; crafted uploads (polyglots, a 30,000 × 30,000 px PNG, truncated JPEGs, GPS EXIF, a file in `blocked_hash`).
 - **msw 3** with `onUnhandledFrame: 'error'`: a request without a handler fails the test. Wikidata, RCE, Lettermint and the Access certs are handlers.
 - **Web:** component tests render with `react-dom/server` in Vitest's node environment (F1). `build.test.ts` scans `dist` and the SSR output for inline scripts (the two data blocks aside), `<style>`, `style=` attributes, inline handlers, `data:` and `blob:` URLs (ADR-0009's `img-src data:` for MapLibre aside) and third-party references, and checks that MapLibre sits only in the map route's lazy chunk. `contrast.test.ts` (A§15.5); `check-i18n` in `pnpm check`.
-- **E2E:** Playwright 1.64.1, Chromium and WebKit, in the Playwright CI image, against the CI compose stack (the real `caddy`, `ssr`, `api`, `worker` and `db`) with stand-ins: Chainguard MinIO for R2 (Object Lock on, also used for restic) and a mail sink that speaks Lettermint's API. Under the production CSP each spec asserts 0 `securitypolicyviolation` events and no request to a host other than `<domain>` and `media.<domain>` (their stand-ins). Passkeys run on Chromium's virtual authenticator, the map on headless WebGL2, `@axe-core/playwright` 4.14.0 on every page template (P5a).
+- **E2E:** Playwright 1.64.1, Chromium and WebKit, in the Playwright CI image, against the CI compose stack (the real `caddy`, `ssr`, `api`, `worker` and `db`) with stand-ins: Chainguard MinIO for R2 (also used for restic, without a lock: MinIO's Object Lock needs versioning, so a delete adds a marker and succeeds, and it is bucket-wide, so it cannot model R2's per-prefix lock rule; the lock is proven only on the box, by P1e and the restore drill) and a mail sink that speaks Lettermint's API. Under the production CSP each spec asserts 0 `securitypolicyviolation` events and no request to a host other than `<domain>` and `media.<domain>` (their stand-ins). Passkeys run on Chromium's virtual authenticator, the map on headless WebGL2, `@axe-core/playwright` 4.14.0 on every page template (P5a).
 - **Deploy** (job `ci / deploy`, from P1e): `deploy/tests/hardening.sh` (on `compose config`: the hardening anchor, UID 63532, limits, only 8280 published, no `rws` or `f1` names, subnets, GIDs or volumes, no `DATABASE_URL`), `nft-check.sh` (`nft -c` and a double load in a container, no `flush ruleset`) and `e2e.sh` (install, deploy, egress per network, rollback, `mjk-tick` reloading a deleted table).
 - **Never in CI:** Wikidata, RCE, Lettermint, R2, Cloudflare, real phones. Those are [box] and [owner] criteria (PHASES §2).
 
@@ -876,7 +877,7 @@ Per year, in euros. [U] items are measured in P4 and written back.
 | healthchecks.io | 0 [U A8] | 0 [U A8] | |
 | GitHub: public repository, Actions, GHCR | 0 | 0 | |
 | VM, power, home line | – | – | Shared with Waterheight and F1; A3 uses existing hardware [U] |
-| One hour of Dutch legal advice (A9) | one-off [U] | – | Before P4 |
+| One hour of Dutch legal advice (A9) | one-off [U] | – | Before P3d's sign-off |
 | **Total** | **≈ 20–25, plus the legal hour** | **≈ 140–150** | |
 
 - Video (P7) adds ~6.5 GB of derivatives in year one [U]: still near the free tier.
@@ -891,7 +892,7 @@ Per year, in euros. [U] items are measured in P4 and written back.
 | Trademark: "Museumkaart" is protected; a shortlisted brand collides (museumlog.app) | Neutral brand in config and messages (ADR-0006, D23); BOIP and EUIPO check before registering (A1); descriptive use only and the "not affiliated" footer; a rename touches config and messages, not code |
 | Museumkaart list accuracy and data access: no feed, public counts disagree (426–539), museum.nl text and lists are off limits | The curated flag with a published list version and date (A§7.5); "Meld een wijziging"; A5 asks for a feed or permission; Wikidata and RCE only (ADR-0005) |
 | Illegal content and the moderation load on one person | Invite-only beta, the photo queue, text live but reportable, the hash blocklist, the CSAM tool; the P4 gate measures hours per week before open sign-up; the moderator role for help |
-| Legal uncertainty: DSA applicability, trader status, IP retention, the database right | Assume the DSA applies (cheap); no revenue ever (D14); one paid hour of advice (A9) before P4, its database-right question before A6; the [U] items of A§13 |
+| Legal uncertainty: DSA applicability, trader status, IP retention, the database right | Assume the DSA applies (cheap); no revenue ever (D14); one paid hour of advice (A9) before P3d's sign-off, its database-right question answered before A6; the [U] items of A§13 |
 | Cloudflare's terms for media and tiles change, or R2's custom domain on an EU bucket misbehaves [U] | Media and tiles on R2, nothing large through the tunnel (ADR-0008, ADR-0014); P1d and P3b prove the custom domain; derivatives and tiles can be rebuilt, so a move is a rebuild, a re-upload and an ADR |
 | One vendor for media and backups (D24) | Accepted; the originals also live on the VM; a locked bucket and per-bucket tokens, no account-wide token on the VM; hardware-key 2FA on the account [U] |
 | Home line, power, one disk | Accepted for a hobby site (ADR-0003); RPO ≤ 24 h; the reinstall and restore runbooks; the edge cache serves public pages for up to the `s-maxage` only |

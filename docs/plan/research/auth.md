@@ -2,7 +2,7 @@
 
 Research input (2026-11-01). Superseded by ARCHITECTURE.md where they differ.
 
-Sub-agent report. Versions, dates, licences and maintainers come from registry.npmjs.org on 2026-11-01; transitive counts from `npm install --package-lock-only` in a scratch directory. Outcome: D8, D15, A§9, ADR-0007, ADR-0012. The plan differs: email + password is in from P2a (the report put it later), no social login at all, IPv6 keyed by /56 and its /48 at 4× [U] rather than /64, and CSRF by our own Origin/`Sec-Fetch-Site` middleware rather than Hono's `csrf()`.
+Sub-agent report. Versions, dates, licences and maintainers come from registry.npmjs.org on 2026-11-01; transitive counts from `npm install --package-lock-only` in a scratch directory. Outcome: D8, D15, A§9, ADR-0007, ADR-0012. The plan differs: email + password is in from P2a (the report put it later), no social login at all, IPv6 keyed by /56 and its /48 at 4× [U] rather than /64, and CSRF by our own Origin/`Sec-Fetch-Site` middleware rather than Hono's `csrf()`; the client IP comes from Caddy's `X-Mjk-Client` (right-most untrusted `X-Forwarded-For`), never `CF-Connecting-IP`; the cookie is `__Host-mjk_sid`.
 
 ## 1. Libraries
 

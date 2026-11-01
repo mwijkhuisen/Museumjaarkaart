@@ -2,7 +2,9 @@
 
 Research input (2026-11-01). Superseded by ARCHITECTURE.md where they differ.
 
-Sub-agent report on the legal duties of a Dutch, no-revenue hobby review site, turned into plan items. Not legal advice: the owner books one paid hour of Dutch legal advice before the beta (A9). Outcome: D9, D10, D14, A§13, ADR-0010, ADR-0016.
+Sub-agent report on the legal duties of a Dutch, no-revenue hobby review site, turned into plan items. Not legal advice: the owner books one paid hour of Dutch legal advice before P3d's sign-off of the legal texts (A9). Outcome: D9, D10, D14, A§13, ADR-0010, ADR-0016.
+
+The plan differs: name and email are optional for CSAM notices (DSA Art. 16(2)(c), A§13.1); the full IP of content-creating requests is kept 30 days (A§13.2).
 
 **Legend:** **[M]** mandatory · **[M\*]** mandatory if the regime applies (assume it does) · **[G]** good practice · **[U]** not verified. Sources were fetched where noted; the rest come from search snippets.
 

@@ -19,7 +19,7 @@
 - **Tied to a visit** (D17): a review cites one of the member's visits to that museum, shown as "Bezocht op <date>" ("Bezocht" if undated). Visits are self-declared. Deleting the cited visit asks the member to pick another one or delete the review.
 - **Scores** (A§11): overall 1–5 stars, required, which drives every average. Optional aspects 1–5: collection, presentation, kid-friendly, accessibility, facilities, value for money (D13) [U final list in P3a]. An aspect mean shows from 3 ratings [U].
 - **Text:** optional, plain (line breaks only), any language, ≤ 5,000 characters. Up to 10 photos (ADR-0008).
-- **Ranking:** the museum page shows the plain mean and the count. Lists order by the Bayesian average `(C·m + Σ ratings) / (C + n)`, with C = 5 and m = the global mean of visible ratings [U tune after the beta]. The worker recomputes `museum_stats` in a debounced job.
+- **Ranking:** the museum page shows the plain mean and the count. Lists order by the Bayesian average `(C·m + Σ ratings) / (C + n)`, with C = 5 and m = the global mean of visible ratings [U tune after the beta] [U: with C = 5 a single 5-star review still outranks a 4.6 average when m > 4.5; P3a and the beta tune C]. The worker recomputes `museum_stats` in a debounced job.
 - **"Hide ratings until I've visited"** (D20): a member setting that folds scores and texts on museums the member has not visited (A§11).
 - **"Hoe wij reviews controleren"** beside every score: visits are self-declared; one review per member per museum; how the mean and the ranking are computed; negative reviews are never suppressed or demoted; staff and rewarded reviews are forbidden; how to report a review.
 - A closed museum's reviews are read-only (ADR-0005).
@@ -28,7 +28,7 @@
 
 - Every review comes from a member with a logged visit, and reviewing grows the member's passport.
 - A member can lie about a visit; the site says openly that visits are not checked.
-- Rankings resist a single extreme rating, and a new museum starts near the global mean.
+- Rankings damp a single extreme rating (fully only while m < 4.5 at C = 5; P3a and the beta tune C), and a new museum starts near the global mean.
 - A repeat visit updates the one review; the passport keeps every visit.
 - fast-check property tests cover the ranking (A§18).
 

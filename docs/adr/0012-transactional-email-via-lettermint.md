@@ -28,7 +28,7 @@
 ## Consequences
 
 - The free plan's hard cap (300 a month) bounds the beta (codes × members) [U]. Burning it would stop every sign-in code until the month ends, so a mail budget guards it (A§17.7):
-  - sign-in codes always go first; mails triggered by anonymous requests (notice receipts, sign-up codes) are capped at 20 a day [U] and wait above that
+  - sign-in codes always go first; mails triggered by anonymous requests (notice receipts, sign-up codes) are capped at 20 a day [U]: over that, `/auth/signup` answers 429 with `Retry-After` (a queued code would expire unsent) and notice receipts wait
   - `/auth/code` sends nothing for an email without an account (A§9), and a notice receipt holds the notice's reference and the target link, never the text or name the notifier typed, so nobody can relay text through our domain
   - the status panel shows the month's count against `MJK_MAIL_CAP`; at 80 % the worker logs `mail_cap_near` and its health ping fails, and the owner moves to Starter before the cap
   - a refused send logs a fixed code.

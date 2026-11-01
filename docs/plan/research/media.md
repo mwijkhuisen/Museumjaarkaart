@@ -2,7 +2,7 @@
 
 Research input (2026-11-01). Superseded by ARCHITECTURE.md where they differ.
 
-Sub-agent report on uploads, storage and processing behind a Cloudflare Tunnel on the Free plan. Outcome: D7, D19, D24, A§12, ADR-0008, ADR-0011, ADR-0014. The plan differs in places: 8 MiB chunks (not 16 MB), photos only until P7, backups to a private R2 bucket.
+Sub-agent report on uploads, storage and processing behind a Cloudflare Tunnel on the Free plan. Outcome: D7, D19, D24, A§12, ADR-0008, ADR-0011, ADR-0014. The plan differs in places: 8 MiB chunks (not 16 MB), photos only until P7, backups to a private R2 bucket; an untrusted member's variants and original stay in quarantine and reach R2 (the media bucket and the backup) only after approval (A§12); the CSP is A§15.6's (`img-src 'self' data: https://media.<domain>`).
 
 ## 1. Cloudflare limits
 

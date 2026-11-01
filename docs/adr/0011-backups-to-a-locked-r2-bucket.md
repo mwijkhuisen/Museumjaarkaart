@@ -28,7 +28,7 @@
 - RPO ≤ 24 h for the database and the originals. Once the lock is proven, ransomware on the VM cannot erase the last 28 days of history. The Admin token could remove the rule, so it never sits on the VM.
 - **Accepted risk** (owner, 2026-11-01): media and backups sit with one vendor in one account, so losing or compromising that account hits both. The originals on the VM survive that case.
 - The owner keeps a workstation key and looks at the drill result each month.
-- Cost within or near R2's free tier [U] (A§19). CI tests restic against Chainguard MinIO with Object Lock, as Waterheight does.
+- Cost within or near R2's free tier [U] (A§19). CI runs restic against Chainguard MinIO without a lock: MinIO's Object Lock needs versioning (a delete adds a marker and succeeds) and is bucket-wide, so it cannot model R2's per-prefix lock rule; P1e's [box] criterion and the restore drill prove the lock.
 
 ## Alternatives rejected
 

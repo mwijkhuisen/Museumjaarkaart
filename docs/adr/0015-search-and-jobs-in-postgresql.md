@@ -16,7 +16,7 @@
 - **Search:** PostgreSQL full-text search with `unaccent` and the `dutch` configuration, through an immutable `unaccent` wrapper (A§8), plus `pg_trgm` for fuzzy names. Trusted extensions only: `pg_trgm`, `unaccent`, `citext`.
 - **Near me:** a bounding box, then haversine in SQL on `lat`/`lon`; no PostGIS.
 - **Filters:** province, municipality, category, Museumkaart, visited or not and wishlist (logged in), minimum rating, kid-friendly.
-- **Jobs:** our own `job` table (A§8) with `FOR UPDATE SKIP LOCKED` and `LISTEN/NOTIFY`, no library. Payloads hold ids only, with one exception: `mail_code` and `mail_invite` jobs add the code sealed with AES-256-GCM (the `code_seal` key in `app_keys`), nulled once sent or at `expires_at` (A§9). Attempts, `run_at` backoff and a fixed error code; finished rows are deleted after 30 days, mail jobs on success. Schedules use croner with F1's busy guard. Photo jobs run one at a time.
+- **Jobs:** our own `job` table (A§8) with `FOR UPDATE SKIP LOCKED` and `LISTEN/NOTIFY`, no library. Payloads hold ids only, with one exception: `mail_code`, `mail_invite` and the two account-notice mails add a sealed code and/or recipient address (AES-256-GCM under the `code_seal` key in `app_keys`), nulled once sent, a code also at `expires_at` (A§9). Attempts, `run_at` backoff and a fixed error code; finished rows are deleted after 30 days, mail jobs on success. Schedules use croner with F1's busy guard. Photo jobs run one at a time.
 - **Rate limits** live in PostgreSQL too (`rate_limit`, A§9).
 
 ## Consequences
