@@ -27,7 +27,7 @@ Answer to 4, for the record: **general, not Dutch.** museumlog.app is "Museum Lo
    - [prior art](research/prior-art.md): about 70 products found; the closest checked one by one (verified report)
    - [naming](research/naming.md): candidates with domains checked by RDAP; the trademark registers could not be reached
 3. **Interview.** Several rounds of questions to the owner, recommended option first, skipping what the request or the reference repos already answer: audience, languages, features, plan format, name, museum scope, media, login, moderation, deletion, hosting, profiles, ratings, revenue, email, timeline, review rules, phasing, video, extras, rendering, admin, code name, backups.
-4. **Outputs:** `docs/plan/{README,ARCHITECTURE,PHASES,planning-prompt}.md`, `docs/plan/research/*.md`, `docs/adr/0001`–`0017`, `CLAUDE.md`, `README.md`, `.gitignore`. The roadmap issues (a `Roadmap` epic → one issue per milestone → the phase issues, PHASES §1) are opened after the owner approves the plan (PHASES §5 step 1). Issue and PR templates, CI, Dependabot and the licence are P0 deliverables.
+4. **Outputs:** `docs/plan/{README,ARCHITECTURE,PHASES,planning-prompt}.md`, `docs/plan/research/*.md`, `docs/adr/0001`–`0017`, `CLAUDE.md`, `README.md`, `.gitignore`. The roadmap issues (a `Roadmap` epic with the phase issues as sub-issues, each assigned to its GitHub milestone M0–M7, PHASES §1) are opened after the owner approves the plan (PHASES §5 step 1). Issue and PR templates, CI, Dependabot and the licence are P0 deliverables.
 
 ## Decisions
 
