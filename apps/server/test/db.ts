@@ -1,6 +1,7 @@
 import pg from 'pg';
 import { applyRoles } from '../scripts/dev-db.ts';
 import { type DbLogin, LOGINS } from '../src/db/migrate.ts';
+import { run } from '../src/main.ts';
 
 // Integration-test helper. Needs DATABASE_URL: a superuser of a throw-away
 // PostgreSQL 18 cluster (CI's service container). Creates a database of its own
@@ -54,6 +55,22 @@ export async function createTestDb(): Promise<TestDb> {
     return { urls, drop };
   } catch (err) {
     await drop();
+    throw err;
+  }
+}
+
+/** createTestDb() plus every migration, applied by the real `migrate` role as mjk_migrator. */
+export async function createMigratedDb(): Promise<TestDb> {
+  const db = await createTestDb();
+  try {
+    const log: string[] = [];
+    const code = await run(['migrate'], { PATH: process.env.PATH, DATABASE_URL: db.urls.mjk_migrator }, (l) =>
+      log.push(l),
+    );
+    if (code !== 0) throw new Error(`migrate exited ${code}: ${log.join(' | ')}`);
+    return db;
+  } catch (err) {
+    await db.drop();
     throw err;
   }
 }

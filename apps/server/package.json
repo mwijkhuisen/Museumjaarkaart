@@ -6,7 +6,7 @@
     "dist"
   ],
   "scripts": {
-    "db:types": "kysely-codegen --dialect postgres --exclude-pattern schema_migrations --out-file src/db/types.ts"
+    "db:types": "kysely-codegen --dialect postgres --date-parser string --exclude-pattern schema_migrations --out-file src/db/types.ts"
   },
   "dependencies": {
     "@mjk/contracts": "workspace:*",

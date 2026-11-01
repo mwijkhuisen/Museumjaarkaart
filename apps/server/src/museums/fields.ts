@@ -79,7 +79,7 @@ export const CURATED_FIELDS = [
 export type CuratedField = (typeof CURATED_FIELDS)[number];
 
 /** `museum_change.field` beyond the column names: identity and presence events. */
-export const PSEUDO_FIELDS = ['new_museum', 'presence', 'qid_link'] as const;
+export const PSEUDO_FIELDS = ['new_museum', 'presence', 'qid_link', 'coordinates'] as const;
 export type PseudoField = (typeof PSEUDO_FIELDS)[number];
 
 export const CHANGE_FIELDS = [...SOURCE_FIELDS, ...CURATED_FIELDS, ...PSEUDO_FIELDS] as const;
