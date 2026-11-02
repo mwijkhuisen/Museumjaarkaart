@@ -24,7 +24,7 @@ export type SourceErrorCode = (typeof SOURCE_ERROR_CODES)[number];
 /**
  * `invalid`: rows dropped, counted per fixed code (e.g. `bad_qid`, `no_label`, `label_too_long`).
  * `notes`: rows kept with one field dropped or derived, counted per fixed code
- * (e.g. `coord_outside_nl`, `website_not_https`, `museumnl_bad_host`, `address_parsed`, `address_unparsed`).
+ * (e.g. `coord_outside_nl`, `website_upgraded`, `website_not_https`, `museumnl_bad_host`, `address_parsed`, `address_unparsed`).
  */
 export type ParseResult<T> =
   | { ok: true; rows: T[]; invalid: Record<string, number>; notes: Record<string, number> }

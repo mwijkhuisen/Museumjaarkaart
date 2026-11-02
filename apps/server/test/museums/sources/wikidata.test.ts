@@ -251,7 +251,10 @@ describe('the query', () => {
   it('selects the museums of the European Netherlands, dissolved ones included', () => {
     expect(text).toMatch(/\?class wdt:P279\* wd:Q33506 \.\s+\?item wdt:P31 \?class ;\s+wdt:P17 wd:Q55 \./);
     expect(text).toContain('wd:Q27561');
-    expect(text).toMatch(/FILTER NOT EXISTS \{\s+VALUES \?caribbean/);
+    // The Caribbean filter: one to three P131 hops up from the bound item, as OPTIONALs that must stay unbound.
+    for (const v of ['up1', 'up2', 'up3'])
+      expect(text).toMatch(new RegExp(`FILTER\\(\\?${v} IN \\(wd:Q27561, wd:Q25396, wd:Q26180, wd:Q25528\\)\\)`));
+    expect(text).toContain('FILTER(!BOUND(?up1) && !BOUND(?up2) && !BOUND(?up3))');
     expect(text).not.toMatch(/FILTER NOT EXISTS \{\s*\?item wdt:P576/);
     expect(text.match(/^SELECT/gm)).toHaveLength(1);
     expect(text).toContain('GROUP BY ?item');
@@ -303,11 +306,14 @@ describe('the query', () => {
     const marker = withBlock.indexOf('# @@MJK_VALUES@@');
     expect(sel).toBeGreaterThan(0);
     expect(marker).toBeGreaterThan(sel);
-    expect(withBlock.indexOf('FILTER NOT EXISTS')).toBeGreaterThan(marker);
+    expect(withBlock.indexOf('OPTIONAL { ?item wdt:P131 ?up1 .')).toBeGreaterThan(marker);
+    expect(withBlock).not.toContain('NOT EXISTS');
   });
 
-  it('has no zero-length property path outside the item set (unbound at both ends it matches every node)', () => {
+  it('has no P131 path: unbound it matches every node, and bound it was walked from the far end', () => {
     expect(where).not.toMatch(/wdt:P\d+[?*]/);
+    // In the item set only the class closure, which starts from a constant: no P131 path anywhere.
+    expect(withBlock.match(/wdt:P\d+[?*]/g)).toEqual(['wdt:P279*']);
     expect(where).toContain('?item wdt:P131 ?muni .');
     expect(where).toContain('?item wdt:P131 ?part . ?part wdt:P131 ?muni .');
   });
@@ -506,14 +512,21 @@ describe('the parser: fields', () => {
   });
 
   describe('websites and the link-out host', () => {
-    it('accept https only', () => {
+    it('accept https, and upgrade an http one (owner, 2026-11-02)', () => {
       expect(only({ websites: 'https://www.example.org/nl' }).website).toBe('https://www.example.org/nl');
       expect(only({ websites: 'https://example.org' }).website).toBe('https://example.org/');
+      // A real https value wins over an upgraded http one, whatever the order.
       expect(only({ websites: `http://a.example/${RECORD_SEP}https://b.example/` }).website).toBe('https://b.example/');
+      const r = ok(parseWikidata(doc([item({ websites: 'http://www.designmuseum.example/x?y=1' })])));
+      expect(r.rows[0]?.website).toBe('https://www.designmuseum.example/x?y=1');
+      expect(r.notes).toEqual({ website_upgraded: 1 });
+      // Two http values: the first in sorted order, upgraded.
+      expect(only({ websites: `http://b.example/${RECORD_SEP}http://a.example/` }).website).toBe('https://a.example/');
+      // An upgraded URL still passes every other check.
+      expect(only({ websites: 'http://user:pw@example.org/' }).website).toBeNull();
     });
 
     it.each([
-      ['http://example.org/', 'website_not_https'],
       ['javascript:alert(1)', 'website_not_https'],
       ['data:text/html,<script>', 'website_not_https'],
       ['ftp://example.org/', 'website_not_https'],

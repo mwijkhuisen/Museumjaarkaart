@@ -163,8 +163,12 @@ function isCleanToken(v: string): boolean {
   return !/\s/u.test(v) && !hasInvisible(v);
 }
 
-/** An https URL without credentials, at most 2,048 characters, or the note that explains why not. */
-function httpsUrl(v: string): { url: string } | { note: 'website_not_https' | 'website_invalid' } {
+/**
+ * An https URL without credentials, at most 2,048 characters, or the note that explains why not.
+ * An http URL is upgraded to https (owner, 2026-11-02): about half of the recorded P856 values are
+ * http only. We link and never fetch, so a site without https is a broken link the owner can pin over.
+ */
+function httpsUrl(v: string): { url: string; upgraded: boolean } | { note: 'website_not_https' | 'website_invalid' } {
   if (!isCleanToken(v) || v.length > LIMITS.url) return { note: 'website_invalid' };
   let url: URL;
   try {
@@ -172,11 +176,13 @@ function httpsUrl(v: string): { url: string } | { note: 'website_not_https' | 'w
   } catch {
     return { note: 'website_invalid' };
   }
+  const upgraded = url.protocol === 'http:';
+  if (upgraded) url.protocol = 'https:';
   if (url.protocol !== 'https:') return { note: 'website_not_https' };
   if (url.username !== '' || url.password !== '' || url.hostname === '' || url.href.length > LIMITS.url) {
     return { note: 'website_invalid' };
   }
-  return { url: url.href };
+  return { url: url.href, upgraded };
 }
 
 const COMMONS_FILEPATH = [
@@ -328,15 +334,24 @@ function build(qid: string, c: Collected, notes: Set<string>): Built {
   }
   if (lat === null && coordProblem !== undefined) notes.add(coordProblem);
 
+  // A real https value wins over an upgraded http one; within each, the first in sorted order.
   let website: string | null = null;
+  let upgradedWebsite: string | null = null;
   let websiteProblem: string | undefined;
   for (const raw of sorted(c, 'websites')) {
     const r = httpsUrl(raw);
-    if ('url' in r) {
+    if (!('url' in r)) {
+      websiteProblem ??= r.note;
+    } else if (!r.upgraded) {
       website = r.url;
       break;
+    } else {
+      upgradedWebsite ??= r.url;
     }
-    websiteProblem ??= r.note;
+  }
+  if (website === null && upgradedWebsite !== null) {
+    website = upgradedWebsite;
+    notes.add('website_upgraded');
   }
   if (website === null && websiteProblem !== undefined) notes.add(websiteProblem);
 

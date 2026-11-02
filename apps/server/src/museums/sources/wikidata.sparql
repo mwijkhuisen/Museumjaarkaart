@@ -15,8 +15,9 @@
 # - The item set is a named subquery (WITH ... AS %items, a Blazegraph extension), computed once, and
 #   every UNION branch starts with INCLUDE %items. A sub-select joined to the UNION timed out (HTTP 504)
 #   even for three items: the branches were evaluated over all of Wikidata.
-# - No zero-length property path (P131? or P131*) outside the item set: with both ends unbound it
-#   matches every node. The municipality takes one hop and two hops as two branches.
+# - No P131? or P131* path: unbound at both ends it matches every node, and bound at both ends it
+#   was walked from the far end. The municipality takes one and two hops as two branches, the
+#   Caribbean filter one to three hops, all written from the bound item.
 # - hint:Query hint:optimizer "None" keeps the join order as written. With 1,430 items the planner
 #   could start a branch from a pattern it thought smaller (all municipalities with a CBS code)
 #   instead of the items: the full run took 42 s once and timed out (HTTP 504) the next time, while
@@ -55,12 +56,17 @@ WITH {
     # A restricted recording's VALUES goes here, after the selection, so the order above holds.
     # @@MJK_VALUES@@
     # Not the Caribbean Netherlands (owner decision Q3): Q27561 and, in case the chain is incomplete,
-    # its three public bodies Bonaire, Sint Eustatius and Saba [U QIDs]. The parser also drops
-    # coordinates outside the NL box.
-    FILTER NOT EXISTS {
-      VALUES ?caribbean { wd:Q27561 wd:Q25396 wd:Q26180 wd:Q25528 }
-      ?item wdt:P131* ?caribbean .
+    # its three public bodies Bonaire, Sint Eustatius and Saba [U QIDs], one to three P131 hops up
+    # from the item (the island, a place on it, a part of that place). The parser also drops
+    # coordinates outside the NL box. Each hop starts from the bound item: a P131* path to the four
+    # was walked down from them for every item, 15 s of the run with the join order pinned.
+    OPTIONAL { ?item wdt:P131 ?up1 . FILTER(?up1 IN (wd:Q27561, wd:Q25396, wd:Q26180, wd:Q25528)) }
+    OPTIONAL { ?item wdt:P131 ?a2 . ?a2 wdt:P131 ?up2 . FILTER(?up2 IN (wd:Q27561, wd:Q25396, wd:Q26180, wd:Q25528)) }
+    OPTIONAL {
+      ?item wdt:P131 ?a3 . ?a3 wdt:P131 ?b3 . ?b3 wdt:P131 ?up3 .
+      FILTER(?up3 IN (wd:Q27561, wd:Q25396, wd:Q26180, wd:Q25528))
     }
+    FILTER(!BOUND(?up1) && !BOUND(?up2) && !BOUND(?up3))
   }
 } AS %items
 WHERE {
