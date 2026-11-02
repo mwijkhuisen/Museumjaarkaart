@@ -26,7 +26,7 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([[['api']], [['ssr']], [['backup']]])('%j is not built yet', async (argv) => {
+  it.each([[['ssr']], [['backup']]])('%j is not built yet', async (argv) => {
     const lines: string[] = [];
     expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_NOT_BUILT);
     expect(lines).toEqual([`role ${argv[0]} is not built yet`]);
@@ -50,12 +50,24 @@ describe('run', () => {
     expect(lines).toEqual(['usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce]']);
   });
 
-  it('worker takes no arguments', async () => {
+  it.each([['worker'], ['api']])('%s takes no arguments', async (role) => {
     const lines: string[] = [];
-    expect(await run(['worker', 'x'], {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+    expect(await run([role, 'x'], {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+    expect(lines).toEqual([USAGE]);
   });
 
-  it.each([[['sync-museums', '--dry-run']], [['worker']]])(
+  it('api without a database setting exits 78 naming the setting, never its value', async () => {
+    const lines: string[] = [];
+    const env = { DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
+    expect(await run(['api'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
+    expect(lines).toEqual(['api: DATABASE_URL is not a postgres URL']);
+    lines.length = 0;
+    // No DATABASE_URL: production's file secret, which the sandbox does not have.
+    expect(await run(['api'], {}, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
+    expect(lines).toEqual(['api: the file secret db_mjk_api is missing']);
+  });
+
+  it.each([[['sync-museums', '--dry-run']], [['worker']], [['api']]])(
     '%j without a database setting is a config error that never prints the URL',
     async (argv) => {
       const lines: string[] = [];
@@ -76,7 +88,7 @@ describe('run', () => {
 });
 
 describe('real CLI', () => {
-  it.each([['nope'], ['api']])('%s exits 2', (role) => {
+  it.each([['nope'], ['ssr']])('%s exits 2', (role) => {
     const r = spawnSync(process.execPath, [MAIN, role], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });

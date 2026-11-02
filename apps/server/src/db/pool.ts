@@ -6,9 +6,12 @@ import { type DbLogin, dbUrl } from './migrate.ts';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-/** Pool sizes per process [U]: the worker holds 3 connections, the admin CLI 2. */
+/** Pool sizes per process [U]: the worker holds 3 connections, the admin CLI 2, the api 10. */
 export const WORKER_POOL_MAX = 3;
 export const ADMIN_POOL_MAX = 2;
+export const API_POOL_MAX = 10;
+/** The api's per-statement cap [U]: a public read never runs longer. */
+export const API_STATEMENT_TIMEOUT_MS = 5_000;
 
 const OID_DATE = 1082;
 
@@ -22,7 +25,11 @@ const types = {
 } as pg.CustomTypesConfig;
 
 /** The pool of a login, or an error text (never the secret) when its URL cannot be built. */
-export function createPool(login: DbLogin, env: Env, opts: { max: number; secretsDir?: string }): pg.Pool | string {
+export function createPool(
+  login: DbLogin,
+  env: Env,
+  opts: { max: number; secretsDir?: string; statementTimeoutMs?: number },
+): pg.Pool | string {
   const url = dbUrl(login, env, opts.secretsDir);
   if (typeof url === 'string') return url;
   const pool = new pg.Pool({
@@ -30,6 +37,7 @@ export function createPool(login: DbLogin, env: Env, opts: { max: number; secret
     application_name: login,
     max: opts.max,
     connectionTimeoutMillis: 5_000,
+    ...(opts.statementTimeoutMs === undefined ? {} : { statement_timeout: opts.statementTimeoutMs }),
     types,
   });
   // An idle client's error (a restart of the server) must not crash the process; the next query reconnects.
