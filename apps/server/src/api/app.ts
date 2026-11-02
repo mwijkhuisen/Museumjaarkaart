@@ -8,6 +8,9 @@ import { ApiError, ContractMismatch, respondError } from './errors.ts';
 import { type ApiEnv, requestLog } from './middleware/request.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
+import { mountMkList } from './routes/mk-list.ts';
+import { mountMuseumDetail } from './routes/museum-detail.ts';
+import { mountProvinces } from './routes/provinces.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2): request id and log →
 // 64 KB body cap → /api/admin/* is a 404 (P1e adds the Host and Access checks) → each route parses
@@ -82,7 +85,14 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   return app;
 }
 
-/** Every catalogue route (P1b). Only the lead edits this list, so the route packages stay disjoint. */
+/**
+ * Every catalogue route (P1b). Only the lead edits this list, so the route packages stay disjoint.
+ * The first registered route answers, so the fixed /museums/… paths come before /museums/:slug.
+ */
 export function createApp(deps: ApiDeps): ApiApp {
-  return buildApp(deps, () => {});
+  return buildApp(deps, (v1, d) => {
+    mountProvinces(v1, d);
+    mountMkList(v1, d);
+    mountMuseumDetail(v1, d);
+  });
 }
