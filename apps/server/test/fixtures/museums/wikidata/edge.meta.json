@@ -4,6 +4,6 @@
   "origin": "synthetic",
   "recordedOn": "2026-11-01",
   "licence": "CC0-1.0",
-  "querySha256": "ba921c90232d90c78ced0c1a0bde81c3319ab59904d27fae31db2fce4abf2e97",
+  "querySha256": "4af9fe768988762abcfa3b1e72bbb3ccc90b81cce45daf104245c21ab16bc23c",
   "notes": "Hand-made edge cases: no coordinates, a dissolved item, three \"Stedelijk Museum\", two P18, two P625, no label, malformed QIDs, P973 on another host, an http website, one item in two rows, coordinates outside NL, a bad municipality code, an English-only label, over-long description and alias, a bad date, a bad cell and a non-object row."
 }

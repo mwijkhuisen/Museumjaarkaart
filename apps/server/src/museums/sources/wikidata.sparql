@@ -10,6 +10,13 @@
 # one error makes a whole aggregate an error, so no aggregated expression may fail: each one is
 # COALESCE'd to "", which the parser reads as absent (an empty record is dropped, an empty label is
 # no label). MAX picks the one value over "" (one label and one description per language).
+#
+# WDQS runs Blazegraph, and the query leans on two of its behaviours (the owner's probes, 2026-11-02):
+# - The item set is a named subquery (WITH ... AS %items, a Blazegraph extension), computed once, and
+#   every UNION branch starts with INCLUDE %items. A sub-select joined to the UNION timed out (HTTP 504)
+#   even for three items: the branches were evaluated over all of Wikidata.
+# - No zero-length property path (P131? or P131*) outside the item set: with both ends unbound it
+#   matches every node. The municipality takes one hop and two hops as two branches.
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -27,66 +34,78 @@ SELECT ?item
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?addr), ""); SEPARATOR="\u001F") AS ?addresses)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?pc), ""); SEPARATOR="\u001F") AS ?postcodes)
   (GROUP_CONCAT(DISTINCT COALESCE(?muniRec, ""); SEPARATOR="\u001F") AS ?municipalities)
-  (SAMPLE(?isRegistered) AS ?registered)
+  (MAX(COALESCE(?reg, "false")) AS ?registered)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?mnl), ""); SEPARATOR="\u001F") AS ?museumnl)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?image), ""); SEPARATOR="\u001F") AS ?images)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?class), ""); SEPARATOR="\u001F") AS ?classes)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?end), ""); SEPARATOR="\u001F") AS ?dissolved)
-WHERE {
-  # The items first, once each (an item with two museum classes would otherwise be multiplied).
-  {
-    SELECT DISTINCT ?item WHERE {
-      # @@MJK_VALUES@@
-      ?item wdt:P31/wdt:P279* wd:Q33506 ;
-            wdt:P17 wd:Q55 .
-      # Not the Caribbean Netherlands (owner decision Q3): Q27561 and, in case the chain is incomplete,
-      # its three public bodies Bonaire, Sint Eustatius and Saba [U QIDs]. The parser also drops
-      # coordinates outside the NL box.
-      FILTER NOT EXISTS {
-        VALUES ?caribbean { wd:Q27561 wd:Q25396 wd:Q26180 wd:Q25528 }
-        ?item wdt:P131* ?caribbean .
-      }
+WITH {
+  # The items, once each (an item with two museum classes would otherwise be multiplied):
+  # 1,437 items, 1,430 after the Caribbean filter, in 7 s (the owner's probe, 2026-11-02).
+  SELECT DISTINCT ?item WHERE {
+    # @@MJK_VALUES@@
+    ?item wdt:P31/wdt:P279* wd:Q33506 ;
+          wdt:P17 wd:Q55 .
+    # Not the Caribbean Netherlands (owner decision Q3): Q27561 and, in case the chain is incomplete,
+    # its three public bodies Bonaire, Sint Eustatius and Saba [U QIDs]. The parser also drops
+    # coordinates outside the NL box.
+    FILTER NOT EXISTS {
+      VALUES ?caribbean { wd:Q27561 wd:Q25396 wd:Q26180 wd:Q25528 }
+      ?item wdt:P131* ?caribbean .
     }
   }
-  BIND(EXISTS { ?item wdt:P166 wd:Q110989587 } AS ?isRegistered)
+} AS %items
+WHERE {
   # One UNION branch per kind of value, so an item's rows add up (one row per value) instead of
   # multiplying. A join of these as OPTIONALs makes every combination of aliases, links, images and
   # classes, and ran past the WDQS 60 s limit (HTTP 504, 2026-11-02).
   {
     # Every selected item has one (the selection goes through it), so no item loses its row.
-    ?item wdt:P31 ?class .
+    INCLUDE %items . ?item wdt:P31 ?class .
   } UNION {
-    ?item rdfs:label ?lNl FILTER(LANG(?lNl) = "nl")
+    INCLUDE %items . ?item rdfs:label ?lNl FILTER(LANG(?lNl) = "nl")
   } UNION {
-    ?item rdfs:label ?lEn FILTER(LANG(?lEn) = "en")
+    INCLUDE %items . ?item rdfs:label ?lEn FILTER(LANG(?lEn) = "en")
   } UNION {
-    ?item schema:description ?dNl FILTER(LANG(?dNl) = "nl")
+    INCLUDE %items . ?item schema:description ?dNl FILTER(LANG(?dNl) = "nl")
   } UNION {
-    ?item schema:description ?dEn FILTER(LANG(?dEn) = "en")
+    INCLUDE %items . ?item schema:description ?dEn FILTER(LANG(?dEn) = "en")
   } UNION {
-    ?item skos:altLabel ?alias FILTER(LANG(?alias) IN ("nl", "en"))
+    INCLUDE %items . ?item skos:altLabel ?alias FILTER(LANG(?alias) IN ("nl", "en"))
   } UNION {
-    ?item wdt:P625 ?coord .
+    INCLUDE %items . ?item wdt:P625 ?coord .
   } UNION {
-    ?item wdt:P856 ?site .
+    INCLUDE %items . ?item wdt:P856 ?site .
   } UNION {
-    ?item wdt:P6375 ?addr .
+    INCLUDE %items . ?item wdt:P6375 ?addr .
   } UNION {
-    ?item wdt:P281 ?pc .
+    INCLUDE %items . ?item wdt:P281 ?pc .
   } UNION {
-    # The municipality: one or two P131 hops to a live item with a CBS code, its Dutch label and its province's ISO code.
-    ?item wdt:P131/wdt:P131? ?muni .
+    # The municipality, one P131 hop away: a live item with a CBS code, its Dutch label and its province's ISO code.
+    INCLUDE %items . ?item wdt:P131 ?muni .
     ?muni wdt:P382 ?cbs .
-    FILTER NOT EXISTS { ?muni wdt:P576 ?muniEnd }
+    OPTIONAL { ?muni wdt:P576 ?muniEnd }
+    FILTER(!BOUND(?muniEnd))
     OPTIONAL { ?muni rdfs:label ?muniLabel FILTER(LANG(?muniLabel) = "nl") }
     OPTIONAL { ?muni wdt:P131 ?prov . ?prov wdt:P300 ?provIso }
     BIND(CONCAT(STR(?cbs), "\u001E", COALESCE(STR(?muniLabel), ""), "\u001E", COALESCE(STR(?provIso), "")) AS ?muniRec)
   } UNION {
-    ?item wdt:P973 ?mnl .
+    # The same, two P131 hops away (a museum in a village or a neighbourhood).
+    INCLUDE %items . ?item wdt:P131 ?part . ?part wdt:P131 ?muni .
+    ?muni wdt:P382 ?cbs .
+    OPTIONAL { ?muni wdt:P576 ?muniEnd }
+    FILTER(!BOUND(?muniEnd))
+    OPTIONAL { ?muni rdfs:label ?muniLabel FILTER(LANG(?muniLabel) = "nl") }
+    OPTIONAL { ?muni wdt:P131 ?prov . ?prov wdt:P300 ?provIso }
+    BIND(CONCAT(STR(?cbs), "\u001E", COALESCE(STR(?muniLabel), ""), "\u001E", COALESCE(STR(?provIso), "")) AS ?muniRec)
   } UNION {
-    ?item wdt:P18 ?image .
+    INCLUDE %items . ?item wdt:P166 wd:Q110989587 . BIND("true" AS ?reg)
   } UNION {
-    ?item wdt:P576 ?end .
+    INCLUDE %items . ?item wdt:P973 ?mnl .
+  } UNION {
+    INCLUDE %items . ?item wdt:P18 ?image .
+  } UNION {
+    INCLUDE %items . ?item wdt:P576 ?end .
   }
 }
 GROUP BY ?item

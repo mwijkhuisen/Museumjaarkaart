@@ -258,25 +258,51 @@ describe('the query', () => {
     expect(text).toContain('GROUP BY ?item');
   });
 
+  // The outer WHERE starts a line; the item set's own WHERE sits indented inside the WITH block.
+  const outerWhere = text.search(/^WHERE \{/m);
+  const withBlock = text.slice(text.indexOf('\nWITH {'), outerWhere);
+  const where = text.slice(outerWhere);
+
   it("collects each kind of value in its own UNION branch, so an item's rows add up instead of multiplying", () => {
     // The same values as OPTIONALs in one join made every combination of aliases, links, images and
     // classes, and ran past the WDQS 60 s limit (HTTP 504, the owner's recording on 2026-11-02).
-    const where = text.slice(text.indexOf('WHERE {'));
-    expect(where.match(/\} UNION \{/g)).toHaveLength(13);
-    // The only OPTIONALs left sit inside the municipality branch: its label and its province.
-    expect(where.match(/\bOPTIONAL\b/g)).toHaveLength(2);
-    // The registered flag is bound once per item, before the UNION, so every row carries it.
-    expect(text.indexOf('BIND(EXISTS')).toBeLessThan(text.indexOf('} UNION {'));
+    expect(outerWhere).toBeGreaterThan(0);
+    expect(where.match(/\} UNION \{/g)).toHaveLength(15);
+    // The only OPTIONALs sit inside the two municipality branches: P576, the label and the province.
+    expect(where.match(/\bOPTIONAL\b/g)).toHaveLength(6);
+  });
+
+  it('starts every branch from the named item set, computed once', () => {
+    // A sub-select joined to the UNION still timed out for three items (the owner's probe, 2026-11-02):
+    // Blazegraph evaluated the branches over all of Wikidata.
+    expect(withBlock).toContain('SELECT DISTINCT ?item WHERE {');
+    expect(withBlock).toMatch(/\} AS %items\s*$/);
+    expect(withBlock).toContain('wdt:P31/wdt:P279* wd:Q33506');
+    const body = where.slice(where.indexOf('{') + 1, where.lastIndexOf('}'));
+    const branches = body.split('} UNION {');
+    expect(branches).toHaveLength(16);
+    for (const branch of branches) {
+      const code = branch
+        .split('\n')
+        .filter((line) => !/^\s*#/.test(line))
+        .join('\n')
+        .replace(/^\s*\{?\s*/, '');
+      expect(code.startsWith('INCLUDE %items .'), code.slice(0, 60)).toBe(true);
+    }
+  });
+
+  it('has no zero-length property path outside the item set (unbound at both ends it matches every node)', () => {
+    expect(where).not.toMatch(/wdt:P\d+[?*]/);
+    expect(where).toContain('?item wdt:P131 ?muni .');
+    expect(where).toContain('?item wdt:P131 ?part . ?part wdt:P131 ?muni .');
   });
 
   it('aggregates only expressions that cannot fail (one error makes a SPARQL 1.1 aggregate an error)', () => {
-    const head = text.slice(text.indexOf('SELECT ?item'), text.indexOf('WHERE {'));
+    const head = text.slice(text.indexOf('SELECT ?item'), text.indexOf('\nWITH {'));
     const aggregates = head.match(/\((?:MAX|MIN|SAMPLE|GROUP_CONCAT|COUNT|SUM|AVG)\(.*\) AS \?\w+\)/g) ?? [];
     expect(aggregates).toHaveLength(15);
-    for (const a of aggregates) {
-      if (a.startsWith('(SAMPLE(')) expect(a).toBe('(SAMPLE(?isRegistered) AS ?registered)');
-      else expect(a).toMatch(/^\((?:MAX|GROUP_CONCAT)\((?:DISTINCT )?COALESCE\(/);
-    }
+    for (const a of aggregates) expect(a).toMatch(/^\((?:MAX|GROUP_CONCAT)\((?:DISTINCT )?COALESCE\(/);
+    expect(head).toContain('(MAX(COALESCE(?reg, "false")) AS ?registered)');
   });
 
   it('asks for every property the parser reads, with truthy values', () => {
