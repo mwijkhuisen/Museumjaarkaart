@@ -287,7 +287,7 @@ git diff apps/server/test/fixtures
 
 Check the golden diff for what you expect (row counts, no odd names or hosts) before you commit.
 
-`failed (http_status)` keeps neither the status nor the body, on purpose. To see them, send the same query by hand, a minute after the last one:
+`failed (http_status)` keeps neither the status nor the body, on purpose. To see them, send a query by hand, a minute after the last one. The full query (below) is expected to time out on a busy WDQS: that is why the sync and a full recording fetch in batches. To test one batch instead, put a `VALUES ?item { wd:Q190804 wd:Q224124 }` line at the `# @@MJK_VALUES@@` marker of a copy and send that.
 
 ```bash
 curl -sS -o /tmp/wdqs-answer.txt -w 'HTTP %{http_code} in %{time_total} s\n' -H 'Accept: application/sparql-results+json' -H "User-Agent: mjk-museum-sync/1.0 (+$MJK_SYNC_CONTACT)" --data-urlencode query@apps/server/src/museums/sources/wikidata.sparql https://query.wikidata.org/sparql
@@ -298,7 +298,7 @@ An HTTP 504 after about 60 s ("upstream request timeout") or a 500 with `Timeout
 ## 10. Wikimedia etiquette
 
 - Every request carries `User-Agent: mjk-museum-sync/1.0 (+<contact>)`. `<contact>` is `MJK_SYNC_CONTACT`: an email address or an https URL, printable ASCII, at most 200 characters. It is config, not a secret. Without a valid value the repository URL is sent. Set it in the worker's environment before the first real run.
-- One query per source per run. A dry run counts too.
+- Per run: RCE is one request; Wikidata is the item list, then the details in batches of 200 museums, one request at a time, 2 s apart (about 8 requests; A§7.1). A dry run counts too.
 - 429 and 503 are retried, 3 tries in all. The wait is `Retry-After` (seconds or a date, capped at 10 minutes), else 30 s, then 60 s. After the third the code is `rate_limited` and the run ends `*_unavailable`.
 - Redirects are never followed. A body over 20 MB [U] is refused. The timeout is 90 s.
 - Never hammer WDQS: no loops, no repeated runs within minutes, no recording and a sync at the same time. After a 429, wait.

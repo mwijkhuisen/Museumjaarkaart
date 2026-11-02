@@ -5,7 +5,7 @@ import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { JobError, type JobHandler } from '../worker/types.ts';
 import { fetchRce } from './sources/rce.ts';
-import { fetchWikidata, wikidataQuery } from './sources/wikidata.ts';
+import { fetchWikidataAll } from './sources/wikidata.ts';
 import { DEFAULT_SYNC_CONFIG, type Fetchers, runSync, type SyncConfig, type SyncResult } from './sync.ts';
 
 export const MUSEUM_SYNC_JOB = 'museum_sync';
@@ -19,7 +19,7 @@ type Env = Readonly<Record<string, string | undefined>>;
  */
 export function liveFetchers(env: Env): Fetchers {
   const deps = env.MJK_SYNC_CONTACT === undefined ? {} : { contact: env.MJK_SYNC_CONTACT };
-  return { wikidata: () => fetchWikidata(wikidataQuery(), deps), rce: () => fetchRce(deps) };
+  return { wikidata: () => fetchWikidataAll(deps), rce: () => fetchRce(deps) };
 }
 
 /** A run that did not apply as the job's fixed code: a refusal is final, a failure is retried. */

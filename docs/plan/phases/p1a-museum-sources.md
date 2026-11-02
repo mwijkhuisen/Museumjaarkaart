@@ -91,6 +91,7 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
   - Per item: nl/en labels and descriptions, aliases, P625, P856, P6375, P281, the municipality's P382 code and name, its province's P300 code, P166 = Q110989587, P973, P18 (the Commons file, Q5), the P31 classes and P576. P18 comes back as a `Special:FilePath` URL; the parser keeps only the decoded file name.
   - Truthy (`wdt:`) values only. Multi-values come back through `GROUP_CONCAT` and are reduced deterministically in TypeScript.
   - It must run well under the WDQS 60 s limit; the recording proves it (→ A§7.1). If the `P279*` path times out, the fallback is a `VALUES` list of the subclass QIDs, still one query.
+  - **Changed (owner, 2026-11-02, after O2):** the full query timed out from the box, so the sync fetches the item list and then the details in batches of 200 with the restricted query (A§7.1). The query text and its sha256 stay as the fixtures pin them.
 - **RCE:** WFS 2.0 `GetFeature` on `overzichtmusea`, GeoJSON in EPSG:4326, one request for all 629 rows [U output format, typeName and axis order → A§7.2]. A test asserts that every fixture coordinate lies inside the NL box, which catches swapped axes.
 - **Parsers:**
   - A zod envelope per source, then row by row. The result is `{ ok: true, rows, invalid: counts by code } | { ok: false, code }`, and a parser never throws. fast-check runs them on arbitrary JSON and on mutated fixtures.

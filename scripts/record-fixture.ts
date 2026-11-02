@@ -118,10 +118,10 @@ function readStamp(file: string): number | undefined {
   }
 }
 
-/** Fetches with the sync's own fetchers (one request), then writes `<out>/<source>/<case>.json` and `.meta.json`. */
+/** Fetches with the sync's own fetchers, then writes `<out>/<source>/<case>.json` and `.meta.json`. */
 export async function record(args: RecordArgs, deps: RecordDeps = {}): Promise<RecordResult> {
   // Imported here, after the CI refusal, so a refused run loads none of the fetcher code.
-  const { wikidataQuery, wikidataQuerySha256, fetchWikidata } = await import(
+  const { wikidataQuery, wikidataQuerySha256, fetchWikidata, fetchWikidataAll } = await import(
     '../apps/server/src/museums/sources/wikidata.ts'
   );
   const { fetchRce } = await import('../apps/server/src/museums/sources/rce.ts');
@@ -137,9 +137,10 @@ export async function record(args: RecordArgs, deps: RecordDeps = {}): Promise<R
     const stamp = stampFile ?? join(tmpdir(), STAMP_FILE);
     const last = readStamp(stamp);
     if (last !== undefined && now() - last >= 0 && now() - last < PAUSE_WINDOW_MS) await sleep(PAUSE_MS);
-    let query: string;
+    // A restricted recording is one request; a full one is the sync's own batched fetch (A§7.1).
+    let query: string | undefined;
     try {
-      query = wikidataQuery(args.qids === undefined ? {} : { qids: args.qids });
+      query = args.qids === undefined ? undefined : wikidataQuery({ qids: args.qids });
     } catch {
       return { ok: false, code: 'bad_query' };
     }
@@ -148,7 +149,7 @@ export async function record(args: RecordArgs, deps: RecordDeps = {}): Promise<R
     } catch {
       // The pause is a courtesy; a missing stamp is not an error.
     }
-    result = await fetchWikidata(query, httpDeps);
+    result = query === undefined ? await fetchWikidataAll(httpDeps) : await fetchWikidata(query, httpDeps);
   } else {
     result = await fetchRce(httpDeps);
   }

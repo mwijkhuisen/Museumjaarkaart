@@ -13,7 +13,7 @@ import { haversineMetres, type LatLon } from '../../src/museums/geo.ts';
 import { DEFAULT_MATCH_CONFIG } from '../../src/museums/match.ts';
 import { normaliseName } from '../../src/museums/normalise.ts';
 import { fetchRce, parseRce } from '../../src/museums/sources/rce.ts';
-import { fetchWikidata, parseWikidata, wikidataQuery } from '../../src/museums/sources/wikidata.ts';
+import { fetchWikidataAll, parseWikidata } from '../../src/museums/sources/wikidata.ts';
 import { type Fetchers, type FetchResult, runSync, type SyncConfig } from '../../src/museums/sync.ts';
 import { jobErrorOf } from '../../src/museums/sync-job.ts';
 import { similarity } from '../../src/museums/trigram.ts';
@@ -558,12 +558,16 @@ describe('the run itself', () => {
     expect(await snapshot()).toEqual(before);
   });
 
-  it('through the real fetchers and msw: one request per source, with the User-Agent, then one log line', async () => {
+  it('through the real fetchers and msw: the item list, one batch and RCE, with the User-Agent, then one log line', async () => {
     const agents: string[] = [];
     server.use(
-      http.post('https://query.wikidata.org/sparql', ({ request }) => {
+      http.post('https://query.wikidata.org/sparql', async ({ request }) => {
         agents.push(request.headers.get('user-agent') ?? '');
-        return HttpResponse.json(normalWikidata);
+        // The item list gets the fixture's items; the batch (its VALUES) gets their recorded rows.
+        const query = new URLSearchParams(await request.text()).get('query') ?? '';
+        if (query.includes('VALUES ?item')) return HttpResponse.json(normalWikidata);
+        const items = normalWikidata.results.bindings.map((b) => ({ item: b.item }));
+        return HttpResponse.json({ head: { vars: ['item'] }, results: { bindings: items } });
       }),
       http.get('https://services.rce.geovoorziening.nl/*', ({ request }) => {
         agents.push(request.headers.get('user-agent') ?? '');
@@ -572,15 +576,12 @@ describe('the run itself', () => {
     );
     const { logger, lines } = memoryLogger('worker');
     const fetchers: Fetchers = {
-      wikidata: () => fetchWikidata(wikidataQuery(), {}),
+      wikidata: () => fetchWikidataAll({ sleep: async () => {} }),
       rce: () => fetchRce({}),
     };
     const r = await runSync(db, fetchers, logger, { mode: 'sync' }, CFG);
     expect(r.outcome).toBe('applied');
-    expect(agents).toEqual([
-      'mjk-museum-sync/1.0 (+https://github.com/mwijkhuisen/Museumjaarkaart)',
-      'mjk-museum-sync/1.0 (+https://github.com/mwijkhuisen/Museumjaarkaart)',
-    ]);
+    expect(agents).toEqual(Array(3).fill('mjk-museum-sync/1.0 (+https://github.com/mwijkhuisen/Museumjaarkaart)'));
     const out = lines();
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({
