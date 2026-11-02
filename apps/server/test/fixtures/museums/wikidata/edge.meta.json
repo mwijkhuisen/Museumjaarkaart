@@ -1,9 +1,22 @@
 {
   "source": "wikidata",
   "case": "edge",
-  "origin": "synthetic",
-  "recordedOn": "2026-11-01",
+  "origin": "recorded",
+  "recordedOn": "2026-11-02",
   "licence": "CC0-1.0",
   "querySha256": "4af9fe768988762abcfa3b1e72bbb3ccc90b81cce45daf104245c21ab16bc23c",
-  "notes": "Hand-made edge cases: no coordinates, a dissolved item, three \"Stedelijk Museum\", two P18, two P625, no label, malformed QIDs, P973 on another host, an http website, one item in two rows, coordinates outside NL, a bad municipality code, an English-only label, over-long description and alias, a bad date, a bad cell and a non-object row."
+  "qids": [
+    "Q1237983",
+    "Q1890193",
+    "Q2004711",
+    "Q1406810",
+    "Q1862034",
+    "Q924335",
+    "Q2534195",
+    "Q2598787",
+    "Q2736515",
+    "Q474171",
+    "Q484899",
+    "Q1051928"
+  ]
 }

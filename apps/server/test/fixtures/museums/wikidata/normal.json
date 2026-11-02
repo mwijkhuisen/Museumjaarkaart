@@ -24,622 +24,353 @@
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000101"
+          "value": "http://www.wikidata.org/entity/Q23212"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Stadsmuseum Appelhoek"
+          "value": "Evoluon"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Evoluon"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de streek in Appelhoek"
+          "value": "gebouw in Eindhoven"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "building in Eindhoven, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fEvoluon Exploitatie B.V.\u001frijksmonumentnummer 532277"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.87010 52.34660)"
+          "value": "\u001fPoint(5.446944444 51.443611111)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.appelhoek-museum.example/nl/bezoek"
+          "value": "\u001fhttps://evoluon.com"
         },
         "addresses": {
           "type": "literal",
-          "value": "Kerkstraat 1a, 1011 AB Appelhoek"
+          "value": "\u001fNoord Brabantlaan 1A"
         },
         "postcodes": {
           "type": "literal",
-          "value": "1011 AB"
+          "value": "\u001f5652LA"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0363\u001eAmsterdam\u001eNL-NH"
+          "value": "\u001f0772\u001eEindhoven\u001eNL-NB"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.architectuur.org/bouwwerk/633/Evoluon.html"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Overzicht%20-%20Eindhoven%20-%2020396820%20-%20RCE.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q18674739\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q141355"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Hindeloopen"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum Hindeloopen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Súdwest-Fryslân"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fHidde Nijland Museum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.39867 52.94318)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.museumhindeloopen.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fDijkweg 1"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f8713KD"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f1900\u001eSúdwest-Fryslân\u001eNL-FR"
+        },
+        "registered": {
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+Hindeloopen.aspx"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Appelhoek%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stadhuis%20Hindelopen%2027.JPG"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000102"
+          "value": "http://www.wikidata.org/entity/Q431431"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Stadsmuseum Appelhoek Zuid"
+          "value": "Singer Laren"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Appelhoek Museum"
+          "value": "Singer Laren"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de scheepvaart in Appelhoek"
+          "value": "kunstmuseum en concertzaal in Laren (NH), Nederland"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about de scheepvaart in Appelhoek"
+          "value": "museum and concert hall in Laren, Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fSinger\u001fSinger Museum\u001fSinger concertzaal\u001fSinger Laren Museum\u001fSinger Theater"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.87040 52.34710)"
+          "value": "\u001fPoint(5.22222 52.25944)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.appelhoek-museum.example/"
+          "value": "\u001fhttp://www.singerlaren.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Molenweg 4, 1014 CD Appelhoek"
+          "value": "\u001fOude Drift 1"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f1251BS"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0363\u001eAmsterdam\u001eNL-NH"
+          "value": "\u001f0417\u001eLaren\u001eNL-NH"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/appelhoek"
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000103"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Stadsmuseum Kruidhoek"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over textiel in Kruidhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Kruidhoek museum\u001fMuseum Kruidhoek"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.09080 52.09280)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.kruidhoek-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Dorpsstraat 7, 3517 EF Kruidhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0344\u001eUtrecht\u001eNL-UT"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Kruidhoek%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000104"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Stadsmuseum Kruidhoek Zuid"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de natuur in Kruidhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.09110 52.09330)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Havenkade 10, 3520 GH Kruidhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0344\u001eUtrecht\u001eNL-UT"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Singer+Laren.aspx"
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Singer%20museum%20laren.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000105"
+          "value": "http://www.wikidata.org/entity/Q674449"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Stadsmuseum Mosterdhoek"
+          "value": "Nederlands Openluchtmuseum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Mosterdhoek Museum"
+          "value": "Netherlands Open Air Museum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over techniek in Mosterdhoek"
+          "value": "museum in Arnhem, Nederland"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about techniek in Mosterdhoek"
+          "value": "open air museum in Arnhem, Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fOpenluchtmuseum\u001fDutch Open Air Museum\u001fHet Nederlands Openluchtmuseum Rijksmuseum voor Volkskunde\u001fNederlands Openluchtmuseum\u001fNetherlands Open-Air Museum\u001fRijksmuseum voor Volkskunde \"Het Nederlands Openluchtmuseum\"\u001fthe Netherlands Open-Air Museum National Folk Museum\u001fNed. Openluchtmuseum\u001fOpenluchtmuseum Arnhem\u001fRijksmuseum Volkskunde\u001fStichting Het Nederlands Openluchtmuseum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.45050 51.90550)"
+          "value": "\u001fPoint(5.906389 52.009444)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.mosterdhoek-museum.example/"
+          "value": "\u001fhttps://www.openluchtmuseum.nl\u001fhttps://www.openluchtmuseum.nl/?taal=de\u001fhttps://www.openluchtmuseum.nl/?taal=en"
         },
         "addresses": {
           "type": "literal",
-          "value": "Stationsplein 13, 3023 JK Mosterdhoek"
+          "value": "\u001fHoeferlaan 4"
         },
         "postcodes": {
           "type": "literal",
-          "value": "3023 JK"
+          "value": "\u001f6816 SG"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0599\u001eRotterdam\u001eNL-ZH"
+          "value": "\u001f0202\u001eArnhem\u001eNL-GE"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Mosterdhoek%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000106"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Stadsmuseum Mosterdhoek Zuid"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over kunst in Mosterdhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.45080 51.90600)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.mosterdhoek-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Schoolstraat 16a, 3026 LM Mosterdhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": ""
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000107"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Stadsmuseum Oosthoek"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over speelgoed in Oosthoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.27690 52.07470)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.oosthoek-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Beukenlaan 19, 2529 NP Oosthoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0518\u001e's-Gravenhage\u001eNL-ZH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/oosthoek"
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Nederlands+Openluchtmuseum.aspx"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Oosthoek%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Nederlands%20Openluchtmuseum.JPG"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q756102\u001fhttp://www.wikidata.org/entity/Q17431399\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000108"
+          "value": "http://www.wikidata.org/entity/Q893334"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Stadsmuseum Oosthoek Zuid"
+          "value": "Fries Scheepvaart Museum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Oosthoek Museum"
+          "value": "Fries Scheepvaart Museum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over molens in Oosthoek"
+          "value": "museum in Sneek, Nederland"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about molens in Oosthoek"
+          "value": "museum"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fFries Scheepvaartmuseum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.27720 52.07520)"
+          "value": "\u001fPoint(5.66343 53.03227)"
         },
         "websites": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://www.friesscheepvaartmuseum.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Lindelaan 22, 2511 RS Oosthoek"
+          "value": "\u001fKleinzand 12-22\u001fKleinzand 16"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f8601BH"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0518\u001e's-Gravenhage\u001eNL-ZH"
+          "value": "\u001f1900\u001eSúdwest-Fryslân\u001eNL-FR"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000109"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Stadsmuseum Zuidhoek"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over het boerenleven in Zuidhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.54610 53.20260)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.zuidhoek-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Marktplein 25, 9714 TV Zuidhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "9714 TV"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0014\u001eGroningen\u001eNL-GR"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Zuidhoek%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000110"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Stadsmuseum Zuidhoek Zuid"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de spoorwegen in Zuidhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Stadsmuseum Zuidhoek Zuid\u001fNieuw alias"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.54640 53.20310)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.zuidhoek-museum.example/nl/bezoek"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Kasteellaan 28, 9717 WX Zuidhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0014\u001eGroningen\u001eNL-GR"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Fries+Scheepvaartmuseum.aspx"
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Fries%20Scheepvaart%20Museum%20-%20Kleinzand%2012-18%2C%20Sneek.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000111"
+          "value": "http://www.wikidata.org/entity/Q1258370"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Glasmuseum Elshoek"
+          "value": "Drents Museum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Elshoek Museum"
+          "value": "Drents Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Assen"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about glas in Elshoek"
+          "value": "history museum in the Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -647,779 +378,267 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(3.59400 51.50510)"
+          "value": "\u001fPoint(6.564166666 52.993333333)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.elshoek-museum.example/"
+          "value": "\u001fhttp://drentsmuseum.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Kerkstraat 31a, 4340 BC Elshoek"
+          "value": "\u001fBrink 1"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f9401HS"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0687\u001eMiddelburg\u001eNL-ZE"
+          "value": "\u001f0106\u001eAssen\u001eNL-DR"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Elshoek%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000112"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Visserijmuseum Hazelhoek"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de visserij in Hazelhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.58290 52.99250)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Molenweg 34, 9413 DE Hazelhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0106\u001eAssen\u001eNL-DR"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/hazelhoek"
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000113"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Streekmuseum Iephoek"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de streek in Iephoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.63260 52.37270)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.iephoek-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Dorpsstraat 37, 2026 FG Iephoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "2026 FG"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0392\u001eHaarlem\u001eNL-NH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.architectuur.org/bouwwerk/651/Uitbreiding_Drents_Museum.html\u001fhttps://www.museumkaart.nl/museum/Drents+Museum.aspx"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Iephoek%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Drents%20Museum.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000114"
+          "value": "http://www.wikidata.org/entity/Q1519288"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Scheepvaartmuseum Kershoek"
+          "value": "Sonnenborgh"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Kershoek Museum"
+          "value": "Utrecht Observatory"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de scheepvaart in Kershoek"
+          "value": "bolwerk en publiekssterrenwacht in de Nederlandse stad Utrecht"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about de scheepvaart in Kershoek"
+          "value": "public astronomical observatory and museum in Utrecht, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fMuseum Sterrenwacht Sonnenborgh\u001fObservatory Sonnenborgh\u001fObservatory Sonnenburgh\u001frijksmonumentnummer 18403\u001fZonnenburg"
         },
         "coords": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fPoint(5.129194444 52.085388888)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.kershoek-museum.example/"
+          "value": "\u001fhttp://www.sonnenborgh.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Havenkade 40, 8229 HJ Kershoek"
+          "value": "\u001fZonnenburg 2, 3512 NL Utrecht"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f3512NL"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0995\u001eLelystad\u001eNL-FL"
+          "value": "\u001f0344\u001eUtrecht\u001eNL-UT"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000115"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Textielmuseum Meidoornhoek"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over textiel in Meidoornhoek"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.89390 52.38050)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.meidoornhoek-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Stationsplein 43, 1011 KL Meidoornhoek"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0363\u001eAmsterdam\u001eNL-NH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Meidoornhoek%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000116"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Natuurmuseum Appelveld"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de natuur in Appelveld"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.14860 52.09310)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Schoolstraat 46a, 3514 AB Appelveld"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0344\u001eUtrecht\u001eNL-UT"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+Sterrenwacht+Sonnenborgh.aspx"
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Utrecht%20Zonnenburg2%20018%202227.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q1254933\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000117"
+          "value": "http://www.wikidata.org/entity/Q1819360"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Techniekmuseum Bergveld"
+          "value": "Stadsmuseum Steenwijk"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Bergveld Museum"
+          "value": "Steenwijk city museum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over techniek in Bergveld"
+          "value": "museum in Overijssel"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about techniek in Bergveld"
+          "value": "museum in Steenwijk, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": "Bergveld museum\u001fMuseum Bergveld"
+          "value": "\u001fMarkt 64\u001fStadsmuseum Steenwijk\u001frijksmonumentnummer 34587"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.47090 51.91630)"
+          "value": "\u001fPoint(6.11695 52.78649)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.bergveld-museum.example/"
+          "value": "\u001fhttp://www.stadsmuseumsteenwijk.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fMarkt 64"
         },
         "postcodes": {
           "type": "literal",
-          "value": "3017 CD"
+          "value": "\u001f8331HK"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0599\u001eRotterdam\u001eNL-ZH"
+          "value": "\u001f1708\u001eSteenwijkerland\u001eNL-OV"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/bergveld"
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Bergveld%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000118"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Kunstmuseum Kruidveld"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over kunst in Kruidveld"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.33130 52.09600)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.kruidveld-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Lindelaan 52, 2520 EF Kruidveld"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0518\u001e's-Gravenhage\u001eNL-ZH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q207694"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000119"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Speelgoedmuseum Lindeveld"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over speelgoed in Lindeveld"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.56310 53.23440)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.lindeveld-museum.example/nl/bezoek"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Marktplein 55, Lindeveld"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0014\u001eGroningen\u001eNL-GR"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Stadsmuseum+Steenwijk.aspx"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Lindeveld%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Markt%2064%20Steenwijk.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q41176\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000120"
+          "value": "http://www.wikidata.org/entity/Q1872824"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Molenmuseum Mosterdveld"
+          "value": "Arboretum Trompenburg"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Mosterdveld Museum"
+          "value": "Arboretum Trompenburg"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over molens in Mosterdveld"
+          "value": "hortus botanicus in Rotterdam"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about molens in Mosterdveld"
+          "value": "botanical garden in Rotterdam, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fTrompenburg Tuinen & Arboretum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(5.83390 53.20570)"
+          "value": "\u001fPoint(4.518056 51.919167)"
         },
         "websites": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://www.trompenburg.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Kasteellaan 58, 8926 JK Mosterdveld"
+          "value": "\u001fHoningerdijk 86"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f3062NX"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0080\u001eLeeuwarden\u001eNL-FR"
+          "value": "\u001f0599\u001eRotterdam\u001eNL-ZH"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000121"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Boerderijmuseum Noordveld"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over het boerenleven in Noordveld"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.08300 52.51080)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.noordveld-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Kerkstraat 61a, 8029 LM Noordveld"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "8029 LM"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0193\u001eZwolle\u001eNL-OV"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Noordveld%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q2087181"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000122"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Spoorwegmuseum Oostveld"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.86470 51.96860)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.oostveld-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0202\u001eArnhem\u001eNL-GE"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/oostveld"
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Trompenburg+Tuinen+%26+Arboretum.aspx"
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Arboretum%20Trompenburg%20Nl%202.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q22698\u001fhttp://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q167346\u001fhttp://www.wikidata.org/entity/Q272231\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000123"
+          "value": "http://www.wikidata.org/entity/Q1890193"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Glasmuseum Westerveld"
+          "value": "Museum den Aanwas"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Westerveld Museum"
+          "value": "Museum den Aanwas"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over glas in Westerveld"
+          "value": "museum in Noord-Brabant"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about glas in Westerveld"
+          "value": "museum in the Netherlands"
         },
         "aliases": {
           "type": "literal",
           "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.69430 50.86850)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.westerveld-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Dorpsstraat 67, 6214 RS Westerveld"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": ""
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Westerveld%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000124"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Visserijmuseum Zuidveld"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de visserij in Zuidveld"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Zuidveld museum\u001fMuseum Zuidveld"
         },
         "coords": {
           "type": "literal",
@@ -1431,7 +650,7 @@
         },
         "addresses": {
           "type": "literal",
-          "value": "Havenkade 70, 5617 TV Zuidveld"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
@@ -1439,10 +658,9 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0772\u001eEindhoven\u001eNL-NB"
+          "value": "\u001f0873\u001eWoensdrecht\u001eNL-NB"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -1456,90 +674,231 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000125"
+          "value": "http://www.wikidata.org/entity/Q1954787"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Streekmuseum Beukveld"
+          "value": "Beeld en Geluid Den Haag"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Sound and Vision The Hague"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de streek in Beukveld"
+          "value": "museum in Den Haag over communicatie"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "former museum in The Hague, the Netherlands, about communication"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fPostmuseum\u001fCOMM\u001fBeeld & Geluid, Den Haag  (2022–2024)\u001fBeeld en Geluid Den Haag  (2019–2022)\u001fCOMM (2017–2019)\u001fHet Nederlandsche Postmuseum (1929–1989)\u001fMuseum voor Communicatie (1999–2016)\u001fPTT Museum (1989–1999)\u001fBeeld en Geluid - Den Haag\u001fCOMM - Museum voor Communicatie\u001fCommunicatiemuseum\u001fHet Nederlandsche Postmuseum\u001fMuscom\u001fMuseum voor Communicatie\u001fPTT Museum\u001fPTT-museum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(3.61780 51.49490)"
+          "value": "\u001fPoint(4.30172222 52.08594444)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.beukveld-museum.example/"
+          "value": "\u001fhttp://www.muscom.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Stationsplein 73, 4340 WX Beukveld"
+          "value": "\u001fZeestraat 82"
         },
         "postcodes": {
           "type": "literal",
-          "value": "4340 WX"
+          "value": "\u001f2518 AD"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0687\u001eMiddelburg\u001eNL-ZE"
+          "value": "\u001f0518\u001eDen Haag\u001eNL-ZH"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/COMM.aspx"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Beukveld%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Museumvoorcommunicatie.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q2106220\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000126"
+          "value": "http://www.wikidata.org/entity/Q2004350"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Scheepvaartmuseum Elsveld"
+          "value": "Noordelijk Scheepvaartmuseum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Elsveld Museum"
+          "value": "Noordelijk Scheepvaartmuseum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de scheepvaart in Elsveld"
+          "value": "voormalig scheepvaartmuseum in Groningen, in 2022 opgegaan in Museum aan de A"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about de scheepvaart in Elsveld"
+          "value": "museum in Groningen, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fNoord. Scheepvaartmuseum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.56 53.21639)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.noordelijkscheepvaartmuseum.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fBrugstraat 24\u001fBrugstraat 24-26"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f9711 HZ"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0014\u001eGroningen\u001eNL-GR"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Noordelijk+Scheepvaartmuseum.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Brugstraat%2026%20-%2018434.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q1863818\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2098586"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum De Lakenhal"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum De Lakenhal"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Leiden"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Leiden"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fLakenhal\u001fDe Lakenhal\u001fStedelijk Museum De Lakenhal"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.4875 52.16306)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.lakenhal.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fOude Singel 32"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f2312RA"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0546\u001eLeiden\u001eNL-ZH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.architectuur.org/bouwwerk/757/Uitbreiding_Lakenhal.html\u001fhttps://www.museumkaart.nl/museum/Museum+De+Lakenhal.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/De%20Lakenhal%20Leiden.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2117962"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Oude Hortus"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Oude Hortus"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "botanische tuin in de stad Utrecht, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "botanical garden in Utrecht, Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -1547,15 +906,15 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(6.53530 52.98230)"
+          "value": "\u001fPoint(5.126389 52.084722)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.elsveld-museum.example/"
+          "value": ""
         },
         "addresses": {
           "type": "literal",
-          "value": "Schoolstraat 76a, 9413 BC Elsveld"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
@@ -1563,10 +922,9 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0106\u001eAssen\u001eNL-DR"
+          "value": "\u001f0344\u001eUtrecht\u001eNL-UT"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -1576,27 +934,103 @@
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Utrecht%20hortus.JPG"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q167346\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000127"
+          "value": "http://www.wikidata.org/entity/Q2144884"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Textielmuseum Hazelveld"
+          "value": "Nationaal Glasmuseum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Nationaal Glasmuseum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over textiel in Hazelveld"
+          "value": "museum in Leerdam (Zuid-Holland)"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Leerdam, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fHet Nationaal Glasmuseum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.086389 51.887222)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.nationaalglasmuseum.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fLingedijk 28"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f4142LD"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0545\u001eLeerdam\u001e\u001f1961\u001eVijfheerenlanden\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Nationaal+Glasmuseum.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Nationaal%20Glasmuseum%20P1050306.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2186504"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Dorestad"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum Dorestad"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Wijk bij Duurstede"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Wijk bij Duurstede, the Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -1604,15 +1038,147 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.65640 52.40660)"
+          "value": "\u001fPoint(5.3449 51.97059)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.hazelveld-museum.example/"
+          "value": "\u001fhttp://www.museumdorestad.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Beukenlaan 79, 2026 DE Hazelveld"
+          "value": "\u001fMuntstraat 42"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f3961AL"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0352\u001eWijk bij Duurstede\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+Dorestad.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Wijk%20bij%20duurstede%20culemborg%20087.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2218690"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Amsterdam Pipe Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Pijpenkabinet & Smokiana"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Amsterdam"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Amsterdam, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fAmsterdam Pipe Museum\u001fPijpenkabinet\u001fPijpmuseum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.88575 52.363861)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.pijpenkabinet.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fPrinsengracht 488"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f1017KH"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0363\u001eAmsterdam\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Amsterdam+Pipe+Museum.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Entrance-pijpenkabinet-1998.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2323095"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Het Arsenaal"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Het Arsenaal, Vlissingen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Vlissingen"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001frijksmonumentnummer 37641"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(3.57694 51.44083)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fArsenaalplein 1"
         },
         "postcodes": {
           "type": "literal",
@@ -1620,56 +1186,65 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0392\u001eHaarlem\u001eNL-NH"
+          "value": "\u001f0718\u001eVlissingen\u001eNL-ZE"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
         "museumnl": {
           "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/hazelveld"
+          "value": ""
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Hazelveld%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Arsenaal%20Miniatuur%20Walcheren.JPG\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Martitiem%20attractiecentrum%20Het%20Arsenaal.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000128"
+          "value": "http://www.wikidata.org/entity/Q2335767"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Natuurmuseum Iepveld"
+          "value": "Zijper Oudheidskamer"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Zijper Museum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de natuur in Iepveld"
+          "value": "museum in Schagerbrug, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fZijpe museum\u001fZijper Museum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(5.44760 52.52720)"
+          "value": "\u001fPoint(4.762222 52.800833)"
         },
         "websites": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.zijpermuseum.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Lindelaan 82, 8229 FG Iepveld"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
@@ -1677,10 +1252,9 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0995\u001eLelystad\u001eNL-FL"
+          "value": "\u001f0441\u001eSchagen\u001eNL-NH"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
@@ -1694,33 +1268,33 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000129"
+          "value": "http://www.wikidata.org/entity/Q2423105"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Techniekmuseum Kersveld"
+          "value": "Meierijsche Museumboerderij"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Kersveld Museum"
+          "value": "Meierijsche Museumboerderij"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over techniek in Kersveld"
+          "value": "museum in Noord-Brabant"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about techniek in Kersveld"
+          "value": "museum in Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -1728,26 +1302,157 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.91770 52.37030)"
+          "value": "\u001fPoint(5.47445 51.66572)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.kersveld-museum.example/"
+          "value": "\u001fhttps://www.museumboerderij.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Marktplein 85, 1011 HJ Kersveld"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
-          "value": "1011 HJ"
+          "value": ""
         },
         "municipalities": {
           "type": "literal",
-          "value": "0363\u001eAmsterdam\u001eNL-NH"
+          "value": "\u001f1721\u001eBernheze\u001eNL-NB"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://erfgoedbrabantverhalen.nl/erfgoedinstelling/meierijsche-museumboerderij/"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Heeswijk%20%28Bernheze%29%20Rijksmonument%2021286%20Museumboerderij%20Meerstraat%2028.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2491328"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Veenkoloniaal Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Veenkoloniaal Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "Het gebouw, waarin het Veenkoloniaal Museum is gehuisvest, was vroeger de Rijks Hoogere Burger School (RHBS).Het was een wens en streven van predikant, schrijver en dichter Anthony Winkler Prins om een scholengemeenschap op te zetten in Veendam."
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Veendam, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fVeenkoloniaal Museum Veendam"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.87584 53.10707)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://www.veenkoloniaalmuseum.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fMuseumplein 5"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f9641AD"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0047\u001eVeendam\u001eNL-GR"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museum.nl/nl/veenkoloniaal-museum"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/VdmMuseum.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2533298"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Max Euwe Centrum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Max Euwe Centrum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "schaakcentrum en museum in Amsterdam"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "chess centre and museum in Amsterdam"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMEC\u001fMax Euwecentrum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.883055555 52.362722222)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://maxeuwe.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fMax Euweplein 30a, 1017MB Amsterdam"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0363\u001eAmsterdam\u001eNL-NH"
+        },
+        "registered": {
           "type": "literal",
           "value": "false"
         },
@@ -1757,39 +1462,49 @@
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Kersveld%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/BuijsHans20020511.JPG"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q811979\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000130"
+          "value": "http://www.wikidata.org/entity/Q2538283"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Kunstmuseum Meidoornveld"
+          "value": "Museum W"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum W"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over kunst in Meidoornveld"
+          "value": "museum voor cultuurhistorie en hedendaagse kunst in de stad Weert in de Nederlandse provincie Limburg"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Weert, Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fMuseum W, Gemeente Weert"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(5.10100 52.08290)"
+          "value": "\u001fPoint(5.706208333 51.253561111)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.meidoornveld-museum.example/"
+          "value": "\u001fhttps://www.museumw.nl"
         },
         "addresses": {
           "type": "literal",
@@ -1797,71 +1512,13 @@
         },
         "postcodes": {
           "type": "literal",
-          "value": "3514KL"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0344\u001eUtrecht\u001eNL-UT"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q207694"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000131"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Speelgoedmuseum Appelvoorde"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over speelgoed in Appelvoorde"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Appelvoorde museum\u001fMuseum Appelvoorde"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.49470 51.95020)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.appelvoorde-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Kerkstraat 91a, 3017 AB Appelvoorde"
-        },
-        "postcodes": {
-          "type": "literal",
           "value": ""
         },
         "municipalities": {
           "type": "literal",
-          "value": "0599\u001eRotterdam\u001eNL-ZH"
+          "value": "\u001f0988\u001eWeert\u001eNL-LI"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
@@ -1871,146 +1528,433 @@
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Appelvoorde%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Gemeentemuseum%20Weert%20Jacob%20van%20Horne.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000132"
+          "value": "http://www.wikidata.org/entity/Q2654815"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Molenmuseum Bergvoorde"
+          "value": "Anton Pieck Museum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Bergvoorde Museum"
+          "value": "Anton Pieck Museum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over molens in Bergvoorde"
+          "value": "museum in Gelderland"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about molens in Bergvoorde"
+          "value": "museum in Hattem, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fStichting Anton Pieck Museum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.28370 52.08580)"
+          "value": "\u001fPoint(6.06694 52.475)"
         },
         "websites": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://www.antonpieckmuseum.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Molenweg 94, 2520 CD Bergvoorde"
+          "value": "\u001fAchterstraat 46-48"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f8051 GC"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0518\u001e's-Gravenhage\u001eNL-ZH"
+          "value": "\u001f0244\u001eHattem\u001eNL-GE"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
-          "value": "false"
+          "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/bergvoorde"
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Anton+Pieck+Museum.aspx"
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Hattem%20Anton%20Pieck%20Museum%20seen%20from%20the%20west.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000133"
+          "value": "http://www.wikidata.org/entity/Q2755458"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Boerderijmuseum Kruidvoorde"
+          "value": "Maritiem Museum Rotterdam"
         },
-        "aliases": {
+        "labelEn": {
           "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.58690 53.22420)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.kruidvoorde-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Dorpsstraat 97, 9723 EF Kruidvoorde"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "9723 EF"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0014\u001eGroningen\u001eNL-GR"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Kruidvoorde%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q2087181"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000134"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Spoorwegmuseum Lindevoorde"
+          "value": "Maritime Museum Rotterdam"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de spoorwegen in Lindevoorde"
+          "value": "museum in Rotterdam"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Rotterdam, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMaritiem Museum Rotterdam\u001fMaritiem Museum, Prins Hendrik\u001fRotterdam Maritiem Museum Prins Hendrik\u001fMaritiem Museum „Prins Hendrik\""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.481888888 51.9175)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.maritiemmuseum.nl/home"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fLeuvehaven 1"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f3011EA"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0599\u001eRotterdam\u001eNL-ZH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Maritiem+Museum+Rotterdam.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Maritiem%20museum%202007.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q1863818\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2780274"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Fort bij Vijfhuizen"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Fort Vijfhuizen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "bouwwerk in Haarlemmermeer"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "one of forty-two forts in the Defense Line of Amsterdam (stelling van Amsterdam), a World Heritage Site"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fKunstfort Vijfhuizen\u001fKunstfort\u001fKunstfort bij Vijfhuizen"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.67057 52.3474)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://www.kunstfort.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fFortwachter 1\u001fFortwachter 1, 2141EE Vijfhuizen"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f2141 EE"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0394\u001eHaarlemmermeer\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Kunstfort+bij+Vijfhuizen.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Fort%20bij%20Vijfhuizen.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Fort%20bij%20Vijfhuizen.tif"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q1785071\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2874177"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Dordrechts Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Dordrechts Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Dordrecht, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "art museum in Dordrecht, Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fDordrecht Museum\u001fDordrechts Museum - Huis van Gijn - Het Hof van Nederland\u001fDordrechtsmuseum\u001fDortsmuseum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.671944 51.813889)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.dordrechtsmuseum.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fMuseumstraat 40"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f3311XP"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0505\u001eDordrecht\u001eNL-ZH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Dordrechts+Museum.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Dordrecht%20-%20Dordrechts%20Museum.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q3371370"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Nationaal Militair Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Nationaal Militair Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Soesterberg over de Nederlandse krijgsmacht"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Soest, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.27625 52.1314)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.nmm.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fVerlengde Paltzerweg 1"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f3768MX"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0342\u001eSoest\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Nationaal+Militair+Museum.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Nationaal%20Militair%20Museum%20Soesterberg%20%2815566273373%29.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q4288330"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Veere"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum De Schotse Huizen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Zeeland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Veere, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuseum Veere / Delta Cultureel\u001fMuseum De Schotse Huizen\u001fMuseum Veere Museum De Schotse Huizen\u001fMuseum Veere Stadhuismuseum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(3.66806 51.54833)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.museumveere.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fKaai 25-27"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f4351AA"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0717\u001eVeere\u001eNL-ZE"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+Veere++Museum+De+Schotse+Huizen.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Veere%20schotsehuizen%204140169.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q4383559"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Historisch Centrum Bergen op Zoom"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": ""
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Noord-Brabant"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": ""
         },
         "aliases": {
           "type": "literal",
@@ -2022,11 +1966,11 @@
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.lindevoorde-museum.example/"
+          "value": ""
         },
         "addresses": {
           "type": "literal",
-          "value": "Havenkade 3, 8926 GH Lindevoorde"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
@@ -2034,10 +1978,1131 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0080\u001eLeeuwarden\u001eNL-FR"
+          "value": "\u001f0748\u001eBergen op Zoom\u001eNL-NB"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Bergen%20op%20zoom%20003.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q4623539"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Stedelijk Museum Alkmaar"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Stedelijk Museum Alkmaar"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Alkmaar, Noord-Holland, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "municipal museum of Alkmaar, North Holland, Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuseum Alkmaar\u001fStichting Stedelijk Museum Alkmaar"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.7436 52.6334)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://stedelijkmuseumalkmaar.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fCanadaplein 1"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f1811KE"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0361\u001eAlkmaar\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Stedelijk+Museum+Alkmaar.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Bibliotheek%20en%20Stedelijk%20Museum%2C%20Alkmaar.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q7605588"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Design Museum Den Bosch"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Design Museum Den Bosch"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in 's-Hertogenbosch"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in 's-Hertogenbosch, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fSMS\u001fDMDB\u001fStedelijk Museum 's-Hertogenbosch"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.30392 51.686156)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.designmuseum.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fDe Mortel 4"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f5211HV"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0796\u001e's-Hertogenbosch\u001eNL-NB"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Design+Museum+Den+Bosch.aspx\u001fhttps://erfgoedbrabantverhalen.nl/erfgoedinstelling/design-museum-den-bosch/"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stedelijk%20Museum%20%27s-Hertogenbosch%20DSCF1199.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q13136229"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": ""
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": ""
+        },
+        "descNl": {
+          "type": "literal",
+          "value": ""
+        },
+        "descEn": {
+          "type": "literal",
+          "value": ""
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": ""
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f1940\u001eDe Friese Meren\u001eNL-FR"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q13137164"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Dekemastate"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum Dekemastate"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Jelsum, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Jelsum, Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fDekema State\u001fStichting Dekema State"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.783563888 53.233261111)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://www.dekemastate.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0080\u001eLeeuwarden\u001eNL-FR"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Dekemastate-Jelsum.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q13726962"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Historisch Museum Hengelo"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum Hengelo"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "bouwwerk in Hengelo"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Hengelo, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fHistorisch Museum Hengelo\u001fMuseum Hengelo"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.791883333 52.264169444)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.museumhengelo.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fBeekstraat 51"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f7551DP"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0164\u001eHengelo\u001eNL-OV"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+Hengelo.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Hengelo-Beekstraat%2051.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q14853444"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Oud Soest"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum Old Soest"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum over de geschiedenis en leefgewoonten van Soest en Soesterberg"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum about the history and living habits in Soest and Soesterberg"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuseum Soest"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.304192 52.180617)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0342\u001eSoest\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Soest-stjoseph12.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q14856958"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Weegschaalmuseum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Weegschaalmuseum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Noord-Holland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Naarden, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fWeegschaal Museum Naarden"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.16459 52.29565)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.weegschaalmuseum.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fTurfpoortstraat 27"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f1411ED"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f1942\u001eGooise Meren\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Weegschaal+Museum+Naarden.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/20100621%20Naarden%20Turfpoortstraat%2027%20001.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q17441421"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Staphorst"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Gemeenteweg 67, Staphorst"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "Rijksmonument op Gemeenteweg 67"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": ""
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuseum Staphorst\u001fboerderij van het Staphorstse type\u001frijksmonumentnummer 34196"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.20708 52.64673)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://museumstaphorst.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fGemeenteweg 67"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f7951CE"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0180\u001eStaphorst\u001eNL-OV"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Museumboerderij%2C%20Gemeenteweg%2067%2C%20Staphorst.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q16735822\u001fhttp://www.wikidata.org/entity/Q107357065\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q18088761"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Kristalmuseum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Kristalmuseum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Borculo, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Borculo, Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.52297 52.1165)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f1859\u001eBerkelland\u001eNL-GE"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/2006-09-06%2009.20%20Borculo%2C%20kristal%20museum.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q19831513"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Stedelijk Museum Coevorden"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Stedelijk Museum Coevorden"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Coevorden"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Coevorden, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.742853 52.661203)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.museumcoevorden.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fHaven 4"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f7741JV"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0109\u001eCoevorden\u001eNL-DR"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Stedelijk+Museum+Coevorden.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Het%20Arsenaal%20Coevorden.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q20623554"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Puzzelmuseum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Puzelmuseum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Joure, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fPuzzelmuseum Joure"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.8315 52.963677777)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://puzzelmuseum.nl/Home.html"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f1940\u001eDe Friese Meren\u001eNL-FR"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q20979832"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum De Zwarte Tulp"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum de Zwarte Tulp"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Lisse, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Lisse, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuseum de Zwarte Tulp"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.554652 52.259031)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.museumdezwartetulp.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fGrachtweg 2a"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f2161HN"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0553\u001eLisse\u001eNL-ZH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+De+Zwarte+Tulp.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Museum%20De%20Zwarte%20Tulp%20-%20Lisse.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q23900561"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Museum Spakenburg"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Museum Spakenburg (voorheen Museum 't Vurhuus)"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Bunschoten"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Bunschoten, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuseum Spakenburg"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.3779335 52.2545955)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.museumspakenburg.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fOude Schans 47-63"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f3752AH"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0313\u001eBunschoten\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Museum+Spakenburg.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Spakenburch%20museum.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q28151214"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Beatles Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Beatles Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Alkmaar, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Alkmaar, Netherlands, dedicated to The Beatles"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.749856 52.637406)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://beatlesmuseum.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fPettemerstraat 12A"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f1823 CW"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0361\u001eAlkmaar\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Beatles%20Museum%20Alkmaar%20entry.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q28465538"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Kessels Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Kessels Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "muziekinstrumentenmakersmuseum"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "music instruments producers museum"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fMuzima\u001fKessels Muziek Instrumenten Museum\u001fMuziekinstrumentenmakersmuseum Muzima\u001fStichting Kessels\u001fKessels, Muziek Instrumenten Tilburg"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.079508 51.570824)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://www.kesselsmuseum.nl/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fGoirkestraat 96"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0855\u001eTilburg\u001eNL-NB"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://erfgoedbrabantverhalen.nl/erfgoedinstelling/kessels-muziek-instrumenten-museum/"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stationsstraat%2026%2C%20Tilburg%20%282%29.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q17438516\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q47090581"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Nederlands drukkerijmuseum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Drukkerijmuseum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Etten-Leur"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fNederlands Drukkerij Museum\u001fdrukkerijmuseum\u001fStichting Nederlands Drukkerijmuseum"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.6512064 51.578032)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0777\u001eEtten-Leur\u001eNL-NB"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://erfgoedbrabantverhalen.nl/erfgoedinstelling/nederlands-drukkerij-museum/"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Drukkerijmuseum%20Etten-Leur%2015.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q56459461"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "De Nollen"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Stichting De Nollen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "beeldentuin en museum in Den Helder, Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Den helder, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fStichting De Nollen"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(4.760833333 52.932777777)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.projectdenollen.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fBurgemeester Ritmeesterweg 10, 1784NV Den Helder"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f1784NV"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0400\u001eDen Helder\u001eNL-NH"
+        },
+        "registered": {
           "type": "literal",
           "value": "true"
         },
@@ -2051,271 +3116,99 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q1759852\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000135"
+          "value": "http://www.wikidata.org/entity/Q56459713"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Glasmuseum Mosterdvoorde"
+          "value": "Stadsmuseum Harderwijk"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Mosterdvoorde Museum"
+          "value": "Stadsmuseum Harderwijk"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over glas in Mosterdvoorde"
+          "value": "museum in Harderwijk"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about glas in Mosterdvoorde"
+          "value": "museum in Harderwijk, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fStadsmuseum Harderwijk & dependance Marius van Dokkum Museum\u001fVeluws Museum\u001fStichting Stadsmuseum Harderwijk\u001fStichting Veluws Museum van Oudheden"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(6.10680 52.54470)"
+          "value": "\u001fPoint(5.6162527 52.3478638)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.mosterdvoorde-museum.example/"
+          "value": "\u001fhttp://www.stadsmuseum-harderwijk.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Stationsplein 6, 8029 JK Mosterdvoorde"
+          "value": "\u001fDonkerstraat 4"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f3841 CC"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0193\u001eZwolle\u001eNL-OV"
+          "value": "\u001f0243\u001eHarderwijk\u001eNL-GE"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Mosterdvoorde%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000136"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Visserijmuseum Noordvoorde"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de visserij in Noordvoorde"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.88850 52.00250)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Schoolstraat 9a, 6811 LM Noordvoorde"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0202\u001eArnhem\u001eNL-GE"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000137"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Streekmuseum Oostvoorde"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de streek in Oostvoorde"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.71810 50.85830)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.oostvoorde-museum.example/nl/bezoek"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Beukenlaan 12, Oostvoorde"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "6214 NP"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0935\u001eMaastricht\u001eNL-LI"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/oostvoorde"
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Stadsmuseum+Harderwijk.aspx"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Oostvoorde%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Binnenstad%2C%203841%20Harderwijk%2C%20Netherlands%20-%20panoramio%20%28126%29.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000138"
+          "value": "http://www.wikidata.org/entity/Q56460838"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Scheepvaartmuseum Westervoorde"
+          "value": "Openluchtmuseum Ootmarsum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Westervoorde Museum"
+          "value": "Openluchtmuseum Ootmarsum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de scheepvaart in Westervoorde"
+          "value": "museum in Ootmarsum"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about de scheepvaart in Westervoorde"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Westervoorde museum\u001fMuseum Westervoorde"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.46290 51.43800)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.westervoorde-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Lindelaan 15, 5617 RS Westervoorde"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0772\u001eEindhoven\u001eNL-NB"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000139"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Textielmuseum Zuidvoorde"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over textiel in Zuidvoorde"
+          "value": "museum in Ootmarsum, the Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -2323,89 +3216,31 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(3.64160 51.52880)"
+          "value": "\u001fPoint(6.8988006 52.405175)\u001fPoint(6.8981974 52.4058513)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.zuidvoorde-museum.example/"
+          "value": "\u001fhttp://www.openluchtmuseumootmarsum.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Marktplein 18, 4340 TV Zuidvoorde"
+          "value": "\u001fSmithuisstraat 2"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f7631 EA"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0687\u001eMiddelburg\u001eNL-ZE"
+          "value": "\u001f0176\u001eOotmarsum\u001eNL-OV\u001f1774\u001eDinkelland\u001eNL-OV"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Zuidvoorde%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000140"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Natuurmuseum Beukvoorde"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de natuur in Beukvoorde"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(6.55910 53.01620)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Kasteellaan 21, 9413 WX Beukvoorde"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": ""
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Openluchtmuseum+Ootmarsum.aspx"
         },
         "images": {
           "type": "literal",
@@ -2413,33 +3248,99 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q756102\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000141"
+          "value": "http://www.wikidata.org/entity/Q56461097"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Techniekmuseum Elsvoorde"
+          "value": "Stedelijk Museum Vianen"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Elsvoorde Museum"
+          "value": "Stedelijk Museum Vianen"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over techniek in Elsvoorde"
+          "value": "museum in Vianen, Utrecht, Nederland"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about techniek in Elsvoorde"
+          "value": "museum in Vianen ut, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fStedelijk Museum (Vianen)"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.0926753 51.9928305)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.stedelijkmuseumvianen.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fVoorstraat 97"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f4132AP"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0620\u001eVianen\u001e\u001f1961\u001eVijfheerenlanden\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Stedelijk+Museum+Vianen.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stedelijk%20Museum%20Vianen%20%282022%29.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q63535754"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Eendenmuseum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Eendenmuseum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum over het autotype Citroën 2CV"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum on the car type Citroën 2CV"
         },
         "aliases": {
           "type": "literal",
@@ -2447,26 +3348,25 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.68020 52.39640)"
+          "value": "\u001fPoint(5.221944444 52.738888888)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.elsvoorde-museum.example/"
+          "value": ""
         },
         "addresses": {
           "type": "literal",
-          "value": "Kerkstraat 24a, 2026 BC Elsvoorde"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
-          "value": "2026 BC"
+          "value": ""
         },
         "municipalities": {
           "type": "literal",
-          "value": "0392\u001eHaarlem\u001eNL-NH"
+          "value": ""
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -2476,39 +3376,49 @@
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Elsvoorde%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Eendenmuseum%2C%20voorzijde%20-%201%20%28cropped%29.JPG"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000142"
+          "value": "http://www.wikidata.org/entity/Q94015061"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Kunstmuseum Hazelvoorde"
+          "value": "Rijks Ethnographisch Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "'s Rijks Ethnographisch Museum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over kunst in Hazelvoorde"
+          "value": "voormalig museum in Leiden"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "former museum in Leiden (Netherlands)"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f's Rijks Ethnographisch Museum\u001fEthnographisch Museum"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(5.47140 52.51700)"
+          "value": ""
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.hazelvoorde-museum.example/"
+          "value": ""
         },
         "addresses": {
           "type": "literal",
@@ -2516,20 +3426,19 @@
         },
         "postcodes": {
           "type": "literal",
-          "value": "8229DE"
+          "value": ""
         },
         "municipalities": {
           "type": "literal",
-          "value": "0995\u001eLelystad\u001eNL-FL"
+          "value": "\u001f0546\u001eLeiden\u001eNL-ZH"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
         "museumnl": {
           "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/hazelvoorde"
+          "value": ""
         },
         "images": {
           "type": "literal",
@@ -2537,50 +3446,59 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q207694"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000143"
+          "value": "http://www.wikidata.org/entity/Q97323422"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Speelgoedmuseum Iepvoorde"
+          "value": "Honig Breethuis"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Honig Breethuis"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over speelgoed in Iepvoorde"
+          "value": "museum in Zaandijk"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fHonig-Breethuis"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(4.87010 52.36010)"
+          "value": "\u001fPoint(4.813 52.473)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.iepvoorde-museum.example/"
+          "value": "\u001fhttps://www.honigbreethuis.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Dorpsstraat 30, 1011 FG Iepvoorde"
+          "value": "\u001fLagedijk 80"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f1544 BJ"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0363\u001eAmsterdam\u001eNL-NH"
+          "value": "\u001f0479\u001eZaanstad\u001eNL-NH"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
@@ -2590,48 +3508,53 @@
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Iepvoorde%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Zaandijk%2C%20Lagedijk%2080%20-%20RM40110.JPG"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000144"
+          "value": "http://www.wikidata.org/entity/Q99346823"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Molenmuseum Kersvoorde"
+          "value": "CODA Museum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Kersvoorde Museum"
+          "value": "CODA Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Apeldoorn"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about molens in Kersvoorde"
+          "value": "museum in Apeldoorn, Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fCODA / Cultuur Onder Dak Apeldoorn\u001fCODA\u001fCultuur Onder Dak Apeldoorn"
         },
         "coords": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fPoint(5.958719957 52.215479347)"
         },
         "websites": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.coda-apeldoorn.nl/nl/english\u001fhttps://www.coda-apeldoorn.nl/nl/museum"
         },
         "addresses": {
           "type": "literal",
-          "value": "Havenkade 33, 3514 HJ Kersvoorde"
+          "value": "\u001fVosselmanstraat 299"
         },
         "postcodes": {
           "type": "literal",
@@ -2639,180 +3562,65 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0344\u001eUtrecht\u001eNL-UT"
+          "value": "\u001f0200\u001eApeldoorn\u001eNL-GE"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000145"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Boerderijmuseum Meidoornvoorde"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over het boerenleven in Meidoornvoorde"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Meidoornvoorde museum\u001fMuseum Meidoornvoorde"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.44710 51.94000)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.meidoornvoorde-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Stationsplein 36, 3017 KL Meidoornvoorde"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "3017 KL"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0599\u001eRotterdam\u001eNL-ZH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Meidoornvoorde%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q2087181"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000146"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Spoorwegmuseum Appeldam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de spoorwegen in Appeldam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.30750 52.07560)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.appeldam-museum.example/nl/bezoek"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Schoolstraat 39a, 2520 AB Appeldam"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0518\u001e's-Gravenhage\u001eNL-ZH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.architectuur.org/bouwwerk/265/CODA.html\u001fhttps://www.museumkaart.nl/museum/CODA.aspx"
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/CODA%20Centrale%20Entree%20Apeldoorn%202019.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000147"
+          "value": "http://www.wikidata.org/entity/Q104441744"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Glasmuseum Bergdam"
+          "value": "Van Doesburg-Rinsemahuis"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Bergdam Museum"
+          "value": "Van Doesburg-Rinsemahuis"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over glas in Bergdam"
+          "value": "museumwoning in Drachten"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about glas in Bergdam"
+          "value": "house museum in Drachten, the Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
+          "value": "\u001frijksmonumentnummer 532515"
         },
         "coords": {
           "type": "literal",
-          "value": "Point(6.53930 53.21400)"
+          "value": "\u001fPoint(6.1005 53.10788)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.bergdam-museum.example/"
+          "value": "\u001fhttps://www.museumdrachten.nl/museumwoning-vdrh/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Beukenlaan 42, 9723 CD Bergdam"
+          "value": "\u001fTorenstraat 3, 9203BC Drachten"
         },
         "postcodes": {
           "type": "literal",
@@ -2820,67 +3628,9 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0014\u001eGroningen\u001eNL-GR"
+          "value": "\u001f0090\u001eSmallingerland\u001eNL-FR"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/bergdam"
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Bergdam%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000148"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Visserijmuseum Kruiddam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de visserij in Kruiddam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.81010 53.22940)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0080\u001eLeeuwarden\u001eNL-FR"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -2890,27 +3640,37 @@
         },
         "images": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/20180722%20026%20drachten.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q3947\u001fhttp://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000149"
+          "value": "http://www.wikidata.org/entity/Q110906682"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Streekmuseum Lindedam"
+          "value": "Museum 't Oude Slot"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": ""
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de streek in Lindedam"
+          "value": ""
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -2918,66 +3678,65 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(6.05920 52.53450)"
+          "value": "\u001fPoint(5.416611111 51.428372222)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.lindedam-museum.example/"
+          "value": "\u001fhttp://www.museumoudeslot.nl"
         },
         "addresses": {
           "type": "literal",
-          "value": "Marktplein 48, 8029 GH Lindedam"
+          "value": "\u001fHemelrijken 6"
         },
         "postcodes": {
           "type": "literal",
-          "value": "8029 GH"
+          "value": "\u001f5502HM"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0193\u001eZwolle\u001eNL-OV"
+          "value": ""
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "true"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://www.museum.nl/nl/museum-t-oude-slot\u001fhttps://erfgoedbrabantverhalen.nl/erfgoedinstelling/museum-t-oude-slot/"
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Lindedam%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Oude-Slot-Zeelst.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000150"
+          "value": "http://www.wikidata.org/entity/Q110907358"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Scheepvaartmuseum Mosterddam"
+          "value": "De Holle Roffel ambachts- en gereedschapsmuseum"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Mosterddam Museum"
+          "value": "De Holle Roffel ambachts- en gereedschapsmuseum"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over de scheepvaart in Mosterddam"
+          "value": ""
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about de scheepvaart in Mosterddam"
+          "value": "museum in Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -2985,15 +3744,15 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(5.91230 51.99230)"
+          "value": ""
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.mosterddam-museum.example/"
+          "value": "\u001fhttps://deholleroffel.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Kasteellaan 51, Mosterddam"
+          "value": ""
         },
         "postcodes": {
           "type": "literal",
@@ -3001,16 +3760,15 @@
         },
         "municipalities": {
           "type": "literal",
-          "value": "0202\u001eArnhem\u001eNL-GE"
+          "value": ""
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
         "museumnl": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fhttps://erfgoedbrabantverhalen.nl/erfgoedinstelling/de-holle-roffel-ambachts-en-gereedschapsmuseum/"
         },
         "images": {
           "type": "literal",
@@ -3018,208 +3776,37 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000151"
+          "value": "http://www.wikidata.org/entity/Q110986324"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Textielmuseum Noorddam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over textiel in Noorddam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.67050 50.84810)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.noorddam-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "6214 LM"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0935\u001eMaastricht\u001eNL-LI"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Noorddam%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000152"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Natuurmuseum Oostdam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de natuur in Oostdam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "Oostdam museum\u001fMuseum Oostdam"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.48670 51.47190)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Molenweg 57, 5617 NP Oostdam"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0772\u001eEindhoven\u001eNL-NB"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "true"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/oostdam"
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000153"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Techniekmuseum Westerdam"
+          "value": "Bevrijdingsmuseum Noord Nederland"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Westerdam Museum"
+          "value": "Stichting Bevrijdingsmuseum Noord Nederland"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over techniek in Westerdam"
+          "value": ""
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about techniek in Westerdam"
+          "value": "museum in Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(3.59400 51.51860)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.westerdam-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Dorpsstraat 60, 4340 RS Westerdam"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "4340 RS"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0687\u001eMiddelburg\u001eNL-ZE"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Westerdam%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000154"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Kunstmuseum Zuiddam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over kunst in Zuiddam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
+          "value": "\u001fStichting Bevrijdingsmuseum Noord Nederland"
         },
         "coords": {
           "type": "literal",
@@ -3227,22 +3814,21 @@
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.zuiddam-museum.example/"
+          "value": "\u001fhttps://www.museumnoord.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Havenkade 63, 9413 TV Zuiddam"
+          "value": "\u001fPostbus 672"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f9700 AR"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0106\u001eAssen\u001eNL-DR"
+          "value": ""
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -3256,85 +3842,33 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q207694"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000155"
+          "value": "http://www.wikidata.org/entity/Q111991806"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Speelgoedmuseum Beukdam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.63260 52.38620)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.beukdam-museum.example/nl/bezoek"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Stationsplein 66, 2026 WX Beukdam"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0392\u001eHaarlem\u001eNL-NH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "true"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Beukdam%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000156"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Molenmuseum Elsdam"
+          "value": "NEST - ruimte voor kunst"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Elsdam Museum"
+          "value": "NEST - ruimte voor kunst"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over molens in Elsdam"
+          "value": ""
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about molens in Elsdam"
+          "value": "museum in Netherlands"
         },
         "aliases": {
           "type": "literal",
@@ -3342,7 +3876,7 @@
         },
         "coords": {
           "type": "literal",
-          "value": "Point(5.49520 52.55090)"
+          "value": "\u001fPoint(4.2915 52.07634)"
         },
         "websites": {
           "type": "literal",
@@ -3354,14 +3888,13 @@
         },
         "postcodes": {
           "type": "literal",
-          "value": "8229BC"
+          "value": ""
         },
         "municipalities": {
           "type": "literal",
-          "value": "0995\u001eLelystad\u001eNL-FL"
+          "value": ""
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -3375,174 +3908,59 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
         }
       },
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000157"
+          "value": "http://www.wikidata.org/entity/Q125566850"
         },
         "labelNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Boerderijmuseum Hazeldam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over het boerenleven in Hazeldam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.89390 52.39400)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.hazeldam-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Beukenlaan 72, 1011 DE Hazeldam"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "1011 DE"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": ""
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "https://www.museum.nl/nl/museum/hazeldam"
-        },
-        "images": {
-          "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Hazeldam%20voorgevel.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q2087181"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000158"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Spoorwegmuseum Iepdam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de spoorwegen in Iepdam"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(5.14860 52.10660)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "https://www.iepdam-museum.example/"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0344\u001eUtrecht\u001eNL-UT"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "true"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q588140"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000159"
-        },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Glasmuseum Kersdam"
+          "value": "Museum Scheldewerf"
         },
         "labelEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Kersdam Museum"
+          "value": "Museum Scheldewerf"
         },
         "descNl": {
-          "xml:lang": "nl",
           "type": "literal",
-          "value": "Museum over glas in Kersdam"
+          "value": "museum in Vlissingen, Nederland"
         },
         "descEn": {
-          "xml:lang": "en",
           "type": "literal",
-          "value": "Museum about glas in Kersdam"
+          "value": "museum in Vlissingen, Netherlands"
         },
         "aliases": {
           "type": "literal",
-          "value": "Kersdam museum\u001fMuseum Kersdam"
+          "value": "\u001fStichting Scheepsbouwgeschiedenis Vlissingen"
         },
         "coords": {
           "type": "literal",
-          "value": ""
+          "value": "\u001fPoint(3.577861111 51.446388888)"
         },
         "websites": {
           "type": "literal",
-          "value": "https://www.kersdam-museum.example/"
+          "value": "\u001fhttps://www.museumscheldewerf.nl/"
         },
         "addresses": {
           "type": "literal",
-          "value": "Marktplein 78, 3017 HJ Kersdam"
+          "value": "\u001fDe Willem Ruysstraat 100"
         },
         "postcodes": {
           "type": "literal",
-          "value": ""
+          "value": "\u001f4381 NK"
         },
         "municipalities": {
           "type": "literal",
-          "value": "0599\u001eRotterdam\u001eNL-ZH"
+          "value": "\u001f0718\u001eVlissingen\u001eNL-ZE"
         },
         "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
           "type": "literal",
           "value": "false"
         },
@@ -3552,68 +3970,15 @@
         },
         "images": {
           "type": "literal",
-          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Voorbeeldmuseum%20Kersdam%20voorgevel.jpg"
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/MSW%20museumgebouw%20%281%29%2001.jpg"
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q99000160"
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
-        "labelNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Visserijmuseum Meidoorndam"
-        },
-        "descNl": {
-          "xml:lang": "nl",
-          "type": "literal",
-          "value": "Museum over de visserij in Meidoorndam"
-        },
-        "aliases": {
+        "dissolved": {
           "type": "literal",
           "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "Point(4.33130 52.10950)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "Kasteellaan 81, 2520 KL Meidoorndam"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "0518\u001e's-Gravenhage\u001eNL-ZH"
-        },
-        "registered": {
-          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q16735822"
         }
       }
     ]
