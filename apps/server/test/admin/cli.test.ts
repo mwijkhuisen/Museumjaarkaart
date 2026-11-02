@@ -19,7 +19,7 @@ function harness() {
 }
 
 describe('runAdmin', () => {
-  it.each([['invite'], ['user'], ['match'], ['change']])('%s is not built yet: exit 2', async (group) => {
+  it.each([['invite'], ['user']])('%s is not built yet: exit 2', async (group) => {
     const h = harness();
     expect(await runAdmin([group, 'list'], {}, h.io)).toBe(2);
     expect(h.err).toEqual([`admin ${group} is not built yet`]);
@@ -57,6 +57,29 @@ describe('runAdmin', () => {
     expect(await runAdmin(['museum', 'price', 'Q1', '--clear', '5'], env, h.io)).toBe(64);
     expect(h.err.join('\n')).not.toMatch(/s3cret|postgres/);
   });
+
+  it.each([
+    [['match', 'resolve', 'wikidata:Q1']],
+    [['match', 'resolve', 'junk', '--new']],
+    [['match', 'resolve', 'rce:x', '--new', '--ignore']],
+    [['match', 'resolve', 'rce:x', '--ignore', '--replace-qid']],
+    [['match', 'list', '--reason', 'whatever']],
+    [['match', 'list', '--source', 'osm']],
+    [['change', 'list', '--field', 'nope']],
+    [['change', 'apply', '--close', '2026-02-30', '019a0000-0000-7000-8000-000000000000']],
+  ])('match and change usage error %j: exit 64 before any query', async (argv) => {
+    const h = harness();
+    expect(await runAdmin(argv, { DATABASE_URL: SECRET_URL }, h.io)).toBe(64);
+    expect(h.err.join('\n')).not.toMatch(/s3cret|postgres/);
+  });
+
+  it.each([[['change', 'apply']], [['change', 'reject']], [['match', 'resolve']]])(
+    'missing arguments %j: exit 64 before any connection',
+    async (argv) => {
+      const h = harness();
+      expect(await runAdmin(argv, {}, h.io)).toBe(64);
+    },
+  );
 
   it('a bad price is exit 65', async () => {
     const h = harness();

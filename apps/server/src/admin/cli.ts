@@ -18,6 +18,16 @@ import {
   type Summary,
   showList,
 } from '../museums/curation.ts';
+import {
+  applyChange,
+  listChanges,
+  listMatchQueue,
+  type PresenceChoice,
+  parseSourceRef,
+  type ResolveAction,
+  rejectChange,
+  resolveMatch,
+} from '../museums/review.ts';
 
 // The `admin` role (A§5, plan §2.6): the owner's curation tool, run as `mjk_api`. Exit codes:
 // 0 ok · 64 usage · 65 bad data · 66 not found · 78 config · 2 a command a later phase builds.
@@ -175,13 +185,88 @@ const list: Group = {
   },
 };
 
-/** The groups that are built. Part b adds `match` and `change` here and drops them from NOT_BUILT. */
-export const GROUPS: Record<string, Group> = { museum, list };
-/** Groups of later phases (and of part b): exit 2. */
-export const NOT_BUILT: readonly string[] = ['invite', 'user', 'match', 'change'];
+/** One value, compact, safe for a terminal: JSON, cut short, without control or bidi characters. */
+const compact = (v: unknown): string => {
+  const t = clean(JSON.stringify(v) ?? 'null');
+  return t.length > 60 ? `${t.slice(0, 59)}…` : t;
+};
+
+const match: Group = {
+  list: {
+    spec: { min: 0, max: 0, values: ['source', 'reason'] },
+    async run(ctx) {
+      const rows = await listMatchQueue(ctx.db, given({ source: flag(ctx, 'source'), reason: flag(ctx, 'reason') }));
+      for (const r of rows) {
+        const where = [r.postcode, r.place].filter((x) => x !== '').join(' ');
+        const cands = r.candidates.length === 0 ? '' : `  candidates: ${r.candidates.join(',')}`;
+        ctx.io.out(`${r.source}:${r.externalId}  ${r.reason ?? '-'}  ${clean(r.name)}  ${clean(where)}${cands}`);
+      }
+      ctx.io.out(`${rows.length} queued`);
+      return 0;
+    },
+  },
+  resolve: {
+    spec: { min: 1, max: 1, values: ['museum'], bools: ['new', 'ignore', 'replace-qid'] },
+    async run(ctx) {
+      const ref = parseSourceRef(ctx.pos[0] as string);
+      const m = flag(ctx, 'museum');
+      const choices = [m !== undefined, ctx.flags.has('new'), ctx.flags.has('ignore')].filter(Boolean).length;
+      if (ref === undefined || choices !== 1 || (ctx.flags.has('replace-qid') && m === undefined)) {
+        throw new AdminError(EXIT_USAGE, 'usage');
+      }
+      const action: ResolveAction =
+        m !== undefined
+          ? { kind: 'museum', museum: m, replaceQid: ctx.flags.has('replace-qid') }
+          : ctx.flags.has('new')
+            ? { kind: 'new' }
+            : { kind: 'ignore' };
+      const r = await resolveMatch(ctx.db, ref, action);
+      ctx.io.out(`${ref.source}:${ref.externalId} ${r.outcome}${r.slug === null ? '' : ` ${r.slug}`}`);
+      return 0;
+    },
+  },
+};
+
+const change: Group = {
+  list: {
+    spec: { min: 0, max: 0, values: ['field', 'museum'] },
+    async run(ctx) {
+      const rows = await listChanges(ctx.db, given({ field: flag(ctx, 'field'), museum: flag(ctx, 'museum') }));
+      for (const r of rows) ctx.io.out(`${r.id}  ${r.slug}  ${r.field}  ${compact(r.old)} -> ${compact(r.new)}`);
+      ctx.io.out(`${rows.length} pending`);
+      return 0;
+    },
+  },
+  apply: {
+    spec: { min: 1, max: 1, values: ['close'], bools: ['keep', 'hide'] },
+    async run(ctx) {
+      const choice: PresenceChoice = {};
+      if (ctx.flags.has('keep')) choice.keep = true;
+      if (ctx.flags.has('hide')) choice.hide = true;
+      const close = flag(ctx, 'close');
+      if (close !== undefined) choice.close = close;
+      const r = await applyChange(ctx.db, ctx.pos[0] as string, choice);
+      ctx.io.out(`${r.slug} ${r.field} ${r.outcome}`);
+      return 0;
+    },
+  },
+  reject: {
+    spec: { min: 1, max: 1 },
+    async run(ctx) {
+      const r = await rejectChange(ctx.db, ctx.pos[0] as string);
+      ctx.io.out(`${r.slug} ${r.field} ${r.outcome}`);
+      return 0;
+    },
+  },
+};
+
+/** The groups that are built. */
+export const GROUPS: Record<string, Group> = { museum, list, match, change };
+/** Groups of later phases: exit 2. */
+export const NOT_BUILT: readonly string[] = ['invite', 'user'];
 
 const USAGE =
-  'usage: admin <museum flag|price|export|import | list publish|show> …  (admin <group> <command> --help is not built)';
+  'usage: admin <museum flag|price|export|import | list publish|show | match list|resolve | change list|apply|reject> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 
