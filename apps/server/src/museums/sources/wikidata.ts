@@ -1,16 +1,19 @@
 // The Wikidata source (plan §2.2): the query, its one POST and the parser.
 // Wikidata text is untrusted (invariant 5): every string passes cleanText, every
 // URL is checked, and a P18 URL is reduced to a file name and never kept.
-// parseWikidata never throws; a problem becomes a fixed code in `invalid` or `notes`.
+// parseWikidata never throws; a problem becomes a fixed code in `invalid` or `notes`. Every row it
+// returns fits the database's columns (sources/payload.ts), or it is invalid `bad_payload`.
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { setTimeout as sleepFor } from 'node:timers/promises';
 import { z } from 'zod';
 import { CBS_CODE, LIMITS, NL_BOX, PROVINCE_CODE, QID } from '../fields.ts';
 import { museumnlUrl } from '../museumnl.ts';
 import { type FetchJsonResult, fetchJson, type HttpDeps } from './http.ts';
+import { wikidataPayload } from './payload.ts';
 import { cleanText, codePointLength, hasInvisible, postcode } from './text.ts';
 import type { ParseResult, WikidataRow } from './types.ts';
+import { WIKIDATA_QUERY } from './wikidata-query.ts';
 
 export const WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql';
 /** Separates the values of a GROUP_CONCAT (a C0 control: cleanText would remove it, so it cannot occur in a value we keep). */
@@ -22,12 +25,13 @@ const VALUES_MARKER = /^[ \t]*# @@MJK_VALUES@@[ \t]*$/m;
 /** A restricted recording stays a small list; the full run has no list at all. */
 const MAX_QIDS = 500;
 
-let queryText: string | undefined;
-
-/** The query exactly as committed (its sha256 is pinned by the fixtures' meta files). */
+/**
+ * The query exactly as committed (its sha256 is pinned by the fixtures' meta files). It is a module
+ * constant, not a file read at run time, so it is part of the emitted `dist`; `wikidata.sparql` is the
+ * same text for reading and for the runbook's curl (a unit test keeps them identical).
+ */
 export function wikidataQueryText(): string {
-  queryText ??= readFileSync(new URL('./wikidata.sparql', import.meta.url), 'utf8');
-  return queryText;
+  return WIKIDATA_QUERY;
 }
 
 export function wikidataQuerySha256(): string {
@@ -49,7 +53,78 @@ export function wikidataQuery(opts: { qids?: readonly string[] } = {}): string {
   return text.replace(VALUES_MARKER, `  VALUES ?item { ${opts.qids.map((q) => `wd:${q}`).join(' ')} }`);
 }
 
-/** One POST per run, as WDQS asks (a descriptive User-Agent comes from the HTTP helper). */
+/**
+ * The item list: the query's own item set (its WITH block, with the Caribbean filter) and nothing per
+ * item, for the batched fetch. Derived from WIKIDATA_QUERY, so the two always select the same items.
+ */
+export function wikidataItemsQuery(): string {
+  const text = wikidataQueryText();
+  const open = '\nWITH {\n';
+  const start = text.indexOf(open);
+  const end = text.indexOf('\n} AS %items');
+  const select = '  SELECT DISTINCT ?item WHERE {';
+  if (start < 0 || end < start || !text.includes(select)) throw new Error('wikidata_query_usage: no item set');
+  const prefixes = text
+    .split('\n')
+    .filter((l) => l.startsWith('PREFIX '))
+    .join('\n');
+  const body = text
+    .slice(start + open.length, end)
+    .replace(VALUES_MARKER, '')
+    .replace(select, `${select}\n    hint:Query hint:optimizer "None" .`);
+  return `${prefixes}\n\n${body}\n`;
+}
+
+/** Museums per detail request: far under WDQS's 60 s (three items took 1.4 s, all 1,430 timed out). */
+export const WIKIDATA_BATCH = 200;
+/** The pause before each detail request, so the run stays well inside WDQS's per-client query budget. */
+export const WIKIDATA_PAUSE_MS = 2_000;
+
+/** The QIDs of an item-list answer, unique and in QID order; undefined for a malformed answer. */
+export function itemsOf(json: unknown): string[] | undefined {
+  const envelope = Envelope.safeParse(json);
+  if (!envelope.success) return undefined;
+  const qids = new Set<string>();
+  for (const b of envelope.data.results.bindings) {
+    if (!isRecord(b) || !isRecord(b.item) || typeof b.item.value !== 'string') continue;
+    const qid = qidOf(b.item.value);
+    if (qid !== undefined) qids.add(qid);
+  }
+  return [...qids].sort(byQid);
+}
+
+/**
+ * The sync's Wikidata fetch (A§7.1): the item list, then the details in batches of WIKIDATA_BATCH with
+ * the restricted query (the same text and sha256 the fixtures pin), one request at a time. The answers
+ * merge into one `application/sparql-results+json` body, so the parser and the guards see one answer.
+ * Any failed request fails the fetch with its code; a malformed answer is returned as it is, for the
+ * parser to report as `schema`. `ms` and `bytes` add up the requests (the pauses are not counted).
+ */
+export async function fetchWikidataAll(deps: HttpDeps = {}): Promise<FetchJsonResult> {
+  const sleep = deps.sleep ?? ((ms: number) => sleepFor(ms));
+  const list = await fetchWikidata(wikidataItemsQuery(), deps);
+  if (!list.ok) return list;
+  const qids = itemsOf(list.body);
+  if (qids === undefined) return list;
+  let ms = list.ms;
+  let bytes = list.bytes;
+  let head: unknown = { vars: ['item'] };
+  const bindings: unknown[] = [];
+  for (let i = 0; i < qids.length; i += WIKIDATA_BATCH) {
+    await sleep(WIKIDATA_PAUSE_MS);
+    const part = await fetchWikidata(wikidataQuery({ qids: qids.slice(i, i + WIKIDATA_BATCH) }), deps);
+    if (!part.ok) return part;
+    const envelope = Envelope.safeParse(part.body);
+    if (!envelope.success) return part;
+    ms += part.ms;
+    bytes += part.bytes;
+    head = envelope.data.head;
+    bindings.push(...envelope.data.results.bindings);
+  }
+  return { ok: true, body: { head, results: { bindings } }, ms, bytes };
+}
+
+/** One POST (a descriptive User-Agent comes from the HTTP helper). The sync calls fetchWikidataAll. */
 export function fetchWikidata(query: string, deps: HttpDeps = {}): Promise<FetchJsonResult> {
   return fetchJson(
     WIKIDATA_ENDPOINT,
@@ -528,6 +603,11 @@ function parse(json: unknown): ParseResult<WikidataRow> {
     const built = build(qid, items.get(qid) ?? new Map(), itemNotes);
     if ('invalid' in built) {
       bump(invalid, built.invalid);
+      continue;
+    }
+    // The column shapes, checked once more: a row the database would refuse is dropped here, not in the run.
+    if (!wikidataPayload.safeParse(built.row).success) {
+      bump(invalid, 'bad_payload');
       continue;
     }
     rows.push(built.row);

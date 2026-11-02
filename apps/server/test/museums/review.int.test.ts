@@ -32,6 +32,8 @@ const CFG: SyncConfig = {
   floors: { wikidata: 10, rce: 10 },
   minShare: 0.9,
   maxInvalidShare: 0.02,
+  maxChangedShare: 0.1,
+  minChanged: 50,
   plan: DEFAULT_PLAN_CONFIG,
 };
 

@@ -140,6 +140,30 @@ describe('record-fixture: record() with an injected fetch', () => {
     if (r.ok) expect(r.rows).toBeGreaterThan(0);
   });
 
+  it("a full Wikidata recording (no --qids) is the sync's batched fetch: the item list, then the batches", async () => {
+    const out = tmp();
+    const bodies: string[] = [];
+    const list = JSON.stringify({
+      head: { vars: ['item'] },
+      results: { bindings: [{ item: { type: 'uri', value: 'http://www.wikidata.org/entity/Q99000101' } }] },
+    });
+    const fetchFn = (async (_url, init) => {
+      const query = new URLSearchParams(String(init?.body ?? '')).get('query') ?? '';
+      bodies.push(query);
+      const body = query.includes('VALUES ?item') ? fixtureBody : list;
+      return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    const r = await record(
+      { source: 'wikidata', case: 'normal', qids: undefined, out, contact: undefined },
+      { fetch: fetchFn, today: () => '2026-11-02', stampFile: join(tmp(), 'stamp'), sleep: async () => {} },
+    );
+    expect(r.ok).toBe(true);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toContain('VALUES ?item { wd:Q99000101 }');
+    const meta = FixtureMeta.parse(JSON.parse(readFileSync(join(out, 'wikidata/normal.meta.json'), 'utf8')));
+    expect(meta.querySha256).toBe(wikidataQuerySha256());
+  });
+
   it('records RCE with the PDM licence and no query hash', async () => {
     const out = tmp();
     const body = readFileSync(join(fixtures, 'rce/normal.json'), 'utf8');

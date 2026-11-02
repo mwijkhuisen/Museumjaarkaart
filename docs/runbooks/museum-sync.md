@@ -1,6 +1,6 @@
 # Runbook: museum sync and curation
 
-For the owner. It covers the weekly Wikidata and RCE sync, the first import, the two queues, the empty guard, curation of the Museumkaart flag and prices, fixture recording and the P1a [box] dry run. The code wins where this text differs: report the difference.
+For the owner. It covers the weekly Wikidata and RCE sync, the first import, the two queues, the empty guard and the mass-change brake, curation of the Museumkaart flag and prices, fixture recording and the P1a [box] dry run. The code wins where this text differs: report the difference.
 
 Commands run from the repository root as `node apps/server/src/main.ts <role> …` (Node 26.10.0). In production the database login comes from the file secrets (`sync-museums` and `worker` as `mjk_worker`, `admin` as `mjk_api`). `DATABASE_URL` overrides every login and is for a throw-away database only (§11).
 
@@ -8,7 +8,7 @@ Commands run from the repository root as `node apps/server/src/main.ts <role> �
 
 - One run is one Wikidata SPARQL query and one RCE WFS request, as `mjk_worker`. Hosts: `query.wikidata.org` and `services.rce.geovoorziening.nl` only; no other host is reachable (`apps/server/src/museums/sources/http.ts`).
 - One advisory lock allows one sync at a time. A second run ends `sync_busy`.
-- Both answers are parsed, then the empty guard (§6) decides whether anything is applied. Then the whole plan is written in one transaction.
+- Both answers are parsed, then the empty guard (§6) decides whether anything is applied. Then the plan is made, the mass-change brake (§6) checks it, and the whole plan is written in one transaction.
 - **Auto-applied (the safe set, default deny):** website, street, house number, postcode, place, municipality, `name_en`, both descriptions, `museumnl_url`, `registered`, `rce_id`, coordinates that appear or move less than 250 m, and new aliases. Each leaves a `museum_change` with origin `sync` and state `applied`.
 - **Waits for you (a `pending` change):**
   - the name
@@ -19,7 +19,7 @@ Commands run from the repository root as `node apps/server/src/main.ts <role> �
   - any safe field that goes from a value to null
   - `presence`: a source row that disappeared
 - **Waits for you in the match queue (§5):** a museum that is new after the seed (`no_candidate`), a new QID at a museum we hold (`qid_link`, `qid_conflict`), two candidates (`ambiguous`), two RCE rows on one museum (`duplicate`). A new QID never links by itself.
-- Fields you pinned (`pinned_fields`) are skipped.
+- Fields you pinned (`pinned_fields`, `admin museum pin`, §7) are skipped and counted as `pinned`.
 - **Nothing is ever deleted.** Not a museum, not an alias. A museum that vanishes from a source gets a `presence` change; you decide. Aliases are only added.
 - A re-run on unchanged input writes no row.
 - **Every museum starts as `unknown` for the Museumkaart.** The sync cannot touch the Museumkaart columns, prices or lists (`mjk_worker` has no grant on them).
@@ -28,7 +28,7 @@ Commands run from the repository root as `node apps/server/src/main.ts <role> �
 ## 2. The schedule
 
 - `worker` enqueues `museum_sync` every Tuesday at 03:17 Europe/Amsterdam [U] (`apps/server/src/worker/schedule.ts`), unless one is already queued or running. The job has no payload and runs the same code as `sync-museums` without flags (mode `sync`).
-- **Final, the job fails at once with its code:** `empty_guard`, `not_seeded`, `unknown_kind`.
+- **Final, the job fails at once with its code:** `empty_guard`, `mass_change`, `not_seeded`, `unknown_kind`.
 - **Retried:** `sync_busy`, `wikidata_unavailable`, `rce_unavailable`, `apply_failed` and `internal`. Up to `max_attempts` = 5 tries in all. The wait after attempt n is 15 minutes doubling, capped at 6 hours [U]: 15, 30, 60, 120 minutes.
 - Inside one try the fetcher itself retries 429 and 503 (§10).
 - **Lease:** a running job unfinished after 30 minutes [U] can be taken over by a worker. One with no attempts left becomes `failed` with `lease_expired`.
@@ -55,9 +55,9 @@ node apps/server/src/main.ts sync-museums --dry-run   # the plan; nothing writte
 node apps/server/src/main.ts sync-museums             # apply
 ```
 
-- Flags (`apps/server/src/main.ts`): `--dry-run`, `--seed`, `--accept-drop wikidata|rce`. Each at most once; anything else is a usage error (exit 64).
+- Flags (`apps/server/src/main.ts`): `--dry-run`, `--seed`, `--accept-drop wikidata|rce`, `--accept-changes`. Each at most once; anything else is a usage error (exit 64).
 - The dry run plans inside a READ ONLY transaction. It still fetches both sources, so it counts as a run for Wikimedia's limits (§10).
-- Summary keys: `mode`, `dryRun`, `outcome`, `code`, `sources` (status, rows, ms), `invalid`, `notes`, `baseline`, `coverage`, `counts` (created, matched per rule, kept, queued per reason, ignored, applied and pending per field, superseded, pinned, gone, returned, unchanged).
+- Summary keys: `mode`, `dryRun`, `outcome`, `code`, `sources` (status, rows, ms), `invalid`, `notes`, `baseline`, `coverage`, `counts` (created, matched per rule, kept, queued per reason, ignored, applied and pending per field, superseded, pinned, gone, returned, unchanged), `changed` (the museums with an applied change, and the museums held: the brake's numbers; null for the seed).
 
 ## 5. Working the two queues
 
@@ -128,7 +128,7 @@ node apps/server/src/main.ts admin change reject <id>
   - `--keep`: the museum stays as it is; the change becomes `rejected`
   - `--hide`: `hidden`
   - `--close <date>`: `closed_on`
-- `reject` keeps the museum as it is. **A rejection stands:** a later sync with the same news does not queue it again (it is counted as `declined`); different news for that field queues as usual. To keep a value against every future source change, pin the field instead.
+- `reject` keeps the museum as it is. **A rejection stands:** a later sync with the same news does not queue it again (it is counted as `declined`); different news for that field queues as usual. To keep a value against every future source change, pin the field instead (`admin museum pin`, §7).
 - **Superseded:** when the source later shows other news for the same field, the older pending change becomes `superseded`; when the source reverts to what we hold, the change is moot and also `superseded`. Nothing to do for a superseded change.
 - Fixed codes (exit 65): `not_pending`, `bad_value`, `unsupported_field`, `check_failed`. An unknown id (`change_not_found`) exits 66.
 
@@ -154,6 +154,22 @@ node apps/server/src/main.ts sync-museums --accept-drop wikidata   # or rce
 - The baseline is the row count of the last **applied** run, so it moves only with an applied run. A refused or failed run never lowers it. After an accepted drop the lower count is the new baseline.
 - Every refusal, with its `accept_drop` value, is kept in `museum_sync_run`.
 
+### The mass-change brake
+
+A source can look healthy and still be wrong: RCE's feature ids are contiguous (`overzichtmusea.1` to `.629`) and may be positional, so a reload that renumbers them keeps every decided row by its id and hands it the neighbour's data. The sync would then put a neighbour's address on hundreds of museums as safe changes.
+
+- A sync (not the seed) is **refused** (`mass_change`, exit 65, not retried) when it would apply safe changes to more than 10 % [U] of the museums held, and to at least 50 [U] museums (`maxChangedShare`, `minChanged` in `apps/server/src/museums/sync.ts`). Nothing is applied; the refused run, with its counts, is kept in `museum_sync_run`.
+- What to check: `changed` in the summary (museums that would change, museums held) and `counts.applied` per field. A renumbering shows as street, house number, postcode and place changes on most museums matched to RCE. Compare a few museums with the source by hand.
+- If the changes are real (a genuine mass correction at the source):
+
+```bash
+node apps/server/src/main.ts sync-museums --dry-run --accept-changes
+node apps/server/src/main.ts sync-museums --accept-changes
+```
+
+- `--accept-changes` lets that one run through, and the run row records it (`accept_changes`). The next run checks again.
+- If it is a renumbering, do not accept it. Nothing was applied, and the weekly job stays refused until the source or the code changes: open an issue.
+
 ## 7. Curation
 
 **The rule:** the Museumkaart flag comes from each museum's own website and members' moderated reports. **Never** from museum.nl's list or filter, and never copied from them (A§7.5, A§13.3). The sync never sets it. A9's database-right answer comes before you curate real flags (A6).
@@ -167,6 +183,17 @@ node apps/server/src/main.ts admin museum price <museum> --clear [--verified D]
 - `<museum>` is a QID, a slug or an id. Dates are `YYYY-MM-DD`. `--verified` defaults to now. `left` needs `--until`; an `until` before `since` is refused.
 - A price is whole cents, 0 to 20000.
 - Each changed column leaves a `museum_change` (origin `admin`, state `applied`).
+- `participating` or `unknown` without `--until` clears `mk_until` (a museum that rejoins has no end date); with `--until` the date is kept.
+
+**Pinned fields.** A pinned field keeps the value it has: the sync skips it (counted as `pinned`), whatever a source says. Fix the value first (`change apply`, or the source itself), then pin it.
+
+```bash
+node apps/server/src/main.ts admin museum pin <museum> <field> [<field> …]
+node apps/server/src/main.ts admin museum pin <museum> <field> [<field> …] --unpin
+```
+
+- Fields: the ones the sync writes: `rce_id`, `name`, `name_en`, `description_nl`, `description_en`, `lat`, `lon`, `website`, `street`, `house_number`, `postcode`, `place`, `municipality_code`, `registered`, `museumnl_url`, `categories`, `closed_on`, `commons_file`. Anything else is refused (`not_pinnable`, exit 65). `lat` and `lon` pin and unpin the coordinates together.
+- Idempotent: pinning a pinned field (or unpinning one that is not) writes nothing. A change leaves one `museum_change` of field `pinned_fields` with the old and new lists.
 
 **Bulk: the CSV.**
 
@@ -191,7 +218,7 @@ node apps/server/src/main.ts admin list show
 ```
 
 - `publish` copies the museums that are `participating` and not hidden into a new list version. N is the number of members copied. Changing a flag afterwards changes neither N nor its date.
-- It refuses a second version on the same date (`list_exists`) and an empty list (`list_empty`).
+- It refuses a second version on the same date (`list_exists`), an empty list (`list_empty`), a date after today in Europe/Amsterdam (`list_in_future`) and a date that is not after the newest version (`list_not_newest`). A version is never removed, so check the date: the default is today.
 - `show` prints N and the list date, or `no list published`.
 
 ## 8. Exit codes and fixed codes
@@ -202,7 +229,7 @@ node apps/server/src/main.ts admin list show
 |---|---|---|
 | 0 | applied, or a dry run | none |
 | 64 | usage | a bad or repeated flag |
-| 65 | refused | `empty_guard`, `not_seeded`, `already_seeded` |
+| 65 | refused | `empty_guard`, `mass_change`, `not_seeded`, `already_seeded` |
 | 69 | a source is unavailable | `wikidata_unavailable`, `rce_unavailable` |
 | 70 | the transaction failed | `apply_failed` |
 | 75 | another run holds the lock | `sync_busy` |
@@ -216,7 +243,7 @@ node apps/server/src/main.ts admin list show
 | 1 | unexpected failure | `admin: failed (<SQLSTATE>)` |
 | 2 | a group a later phase builds (`invite`, `user`) | none |
 | 64 | usage | `bad_status`, `left_needs_until`, `bad_date`, `usage`, `presence_needs_choice`, `choice_only_for_presence`, or the usage line |
-| 65 | bad data | `bad_price`, `check_failed`, `until_before_since`, `import_refused`, `list_exists`, `list_empty`, `not_queued`, `qid_conflict`, `rce_conflict`, `bad_payload`, `already_taken`, `not_pending`, `bad_value`, `unsupported_field` |
+| 65 | bad data | `bad_price`, `check_failed`, `until_before_since`, `import_refused`, `list_exists`, `list_empty`, `list_in_future`, `list_not_newest`, `not_pinnable`, `not_queued`, `qid_conflict`, `rce_conflict`, `bad_payload`, `already_taken`, `not_pending`, `bad_value`, `unsupported_field` |
 | 66 | not found | `museum_not_found`, `file_not_found`, `row_not_found`, `change_not_found` |
 | 78 | database configuration missing or invalid | none |
 
@@ -225,6 +252,7 @@ Job codes (`job.last_error`):
 | Code | Meaning | Retried |
 |---|---|---|
 | `empty_guard` | the guard refused | no |
+| `mass_change` | the brake refused (too many museums would change) | no |
 | `not_seeded` | `museum` is empty | no |
 | `sync_busy` | another run holds the lock | yes |
 | `wikidata_unavailable`, `rce_unavailable` | a source could not be fetched | yes |
@@ -259,7 +287,7 @@ git diff apps/server/test/fixtures
 
 Check the golden diff for what you expect (row counts, no odd names or hosts) before you commit.
 
-`failed (http_status)` keeps neither the status nor the body, on purpose. To see them, send the same query by hand, a minute after the last one:
+`failed (http_status)` keeps neither the status nor the body, on purpose. To see them, send a query by hand, a minute after the last one. The full query (below) is expected to time out on a busy WDQS: that is why the sync and a full recording fetch in batches. To test one batch instead, put a `VALUES ?item { wd:Q190804 wd:Q224124 }` line at the `# @@MJK_VALUES@@` marker of a copy and send that.
 
 ```bash
 curl -sS -o /tmp/wdqs-answer.txt -w 'HTTP %{http_code} in %{time_total} s\n' -H 'Accept: application/sparql-results+json' -H "User-Agent: mjk-museum-sync/1.0 (+$MJK_SYNC_CONTACT)" --data-urlencode query@apps/server/src/museums/sources/wikidata.sparql https://query.wikidata.org/sparql
@@ -270,7 +298,7 @@ An HTTP 504 after about 60 s ("upstream request timeout") or a 500 with `Timeout
 ## 10. Wikimedia etiquette
 
 - Every request carries `User-Agent: mjk-museum-sync/1.0 (+<contact>)`. `<contact>` is `MJK_SYNC_CONTACT`: an email address or an https URL, printable ASCII, at most 200 characters. It is config, not a secret. Without a valid value the repository URL is sent. Set it in the worker's environment before the first real run.
-- One query per source per run. A dry run counts too.
+- Per run: RCE is one request; Wikidata is the item list, then the details in batches of 200 museums, one request at a time, 2 s apart (about 8 requests; A§7.1). A dry run counts too.
 - 429 and 503 are retried, 3 tries in all. The wait is `Retry-After` (seconds or a date, capped at 10 minutes), else 30 s, then 60 s. After the third the code is `rate_limited` and the run ends `*_unavailable`.
 - Redirects are never followed. A body over 20 MB [U] is refused. The timeout is 90 s.
 - Never hammer WDQS: no loops, no repeated runs within minutes, no recording and a sync at the same time. After a 429, wait.

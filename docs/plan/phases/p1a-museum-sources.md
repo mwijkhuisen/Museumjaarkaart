@@ -86,11 +86,12 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
   - `User-Agent: mjk-museum-sync/<version> (+https://github.com/mwijkhuisen/Museumjaarkaart)`. The owner may add an email address; it is config, not a secret.
   - On 429 or 503 it waits `Retry-After` (seconds or an HTTP date, capped at 10 min) or a backoff, three tries at most. It waits through an injected `sleep`, so the test needs no fake timers.
 - **Wikidata:**
-  - The query lives in `museums/sources/wikidata.sparql`. A unit test pins its sha256 to the one in the `normal` fixture's meta file, so changing the query forces a re-recording. One POST per run, `Accept: application/sparql-results+json`.
+  - The query lives in `museums/sources/wikidata.sparql`, and the code sends the byte-identical constant in `museums/sources/wikidata-query.ts` (the image runs from `dist`, which holds no `.sparql` file; a unit test keeps the two equal). A unit test pins its sha256 to the one in the `normal` fixture's meta file, so changing the query forces a re-recording. One POST per run, `Accept: application/sparql-results+json`.
   - Items: `wdt:P31/wdt:P279* wd:Q33506` with `wdt:P17 wd:Q55`, **including** items with P576 (closures need them; a new item that is already dissolved becomes `ignored`). Caribbean Netherlands excluded (Q3).
   - Per item: nl/en labels and descriptions, aliases, P625, P856, P6375, P281, the municipality's P382 code and name, its province's P300 code, P166 = Q110989587, P973, P18 (the Commons file, Q5), the P31 classes and P576. P18 comes back as a `Special:FilePath` URL; the parser keeps only the decoded file name.
   - Truthy (`wdt:`) values only. Multi-values come back through `GROUP_CONCAT` and are reduced deterministically in TypeScript.
   - It must run well under the WDQS 60 s limit; the recording proves it (→ A§7.1). If the `P279*` path times out, the fallback is a `VALUES` list of the subclass QIDs, still one query.
+  - **Changed (owner, 2026-11-02, after O2):** the full query timed out from the box, so the sync fetches the item list and then the details in batches of 200 with the restricted query (A§7.1). The query text and its sha256 stay as the fixtures pin them.
 - **RCE:** WFS 2.0 `GetFeature` on `overzichtmusea`, GeoJSON in EPSG:4326, one request for all 629 rows [U output format, typeName and axis order → A§7.2]. A test asserts that every fixture coordinate lies inside the NL box, which catches swapped axes.
 - **Parsers:**
   - A zod envelope per source, then row by row. The result is `{ ok: true, rows, invalid: counts by code } | { ok: false, code }`, and a parser never throws. fast-check runs them on arbitrary JSON and on mutated fixtures.
@@ -155,6 +156,7 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
   - more than 2 % [U] of its rows are invalid
 
   The run is recorded `refused`, and the job fails with `empty_guard` (no retry). The baseline moves only with an applied run. After checking, the owner can apply one run below the guard with `sync-museums --accept-drop <source>` (→ A§7.4).
+- **Mass-change brake** (added after the PR review): a sync that would apply safe changes to more than 10 % [U] of the museums held, and to at least 50 [U], applies nothing and is recorded `refused` with `mass_change` (no retry); `sync-museums --accept-changes` lets one run through (→ A§7.4). The seed is exempt.
 - **Safe set** (A§7.4 + Q4): website, street, house number, postcode, place, municipality, `name_en`, the descriptions, `museumnl_url`, coordinates that appear or move less than 250 m, new aliases, `registered`.
   - These auto-apply, and each writes a `museum_change` with origin `sync` and state `applied`, so the history is complete.
   - Everything else becomes a `pending` `museum_change`: the name, a move of 250 m or more, `categories`, `commons_file` (Q8: a new or changed image; the seed sets it directly), P576 → `closed_on`, `new_museum` (after the seed), `presence`, `qid_link`, and any safe field going to null.
@@ -185,7 +187,7 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
   - P0's heartbeat while the loop is healthy.
   - On SIGTERM it stops claiming and exits after the current job.
 - **croner 10.0.1** with `protect: true` (F1's busy guard) enqueues `museum_sync` weekly, Tuesday 03:17 Europe/Amsterdam [U → A§7.4], unless one is already queued or running.
-- **`sync-museums [--dry-run] [--seed] [--accept-drop <source>]`** calls the same `runSync()` as the job handler, as `mjk_worker`.
+- **`sync-museums [--dry-run] [--seed] [--accept-drop <source>] [--accept-changes]`** calls the same `runSync()` as the job handler, as `mjk_worker`.
 - **Job-row retention** (A§13.2, 30 days) waits for P2a, which adds the first job that carries personal data; P1a's jobs hold run ids only. The PR says so.
 - **Tests:**
   - two workers with separate pools take 200 jobs at once, and each job runs exactly once
@@ -200,6 +202,7 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
 
 - **`museum flag <museum> participating|left|unknown [--since D] [--until D] [--verified D]`**: `mk_last_verified_at` defaults to now; `left` needs `--until`.
 - **`museum price <museum> <cents>|--clear [--verified D]`**.
+- **`museum pin <museum> <field…> [--unpin]`** (added after the PR review): adds the source-fed fields to `pinned_fields` or removes them; the sync then skips them (→ A§7.5).
 - **`museum export --csv <file>`** and **`museum import --csv <file> [--dry-run]`** (A6's bulk tool):
   - Read-only context columns: `id`, `wikidata_qid`, `slug`, `name`, `place`.
   - Editable columns: `museumkaart_status`, `mk_since`, `mk_until`, `mk_last_verified_at`, `admission_adult_cents`, `price_verified_at`, `photo_policy`, `closed_on`, `temp_closed`, `temp_closed_until`, `hidden`.
@@ -213,7 +216,7 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
 - **`change list [--field F]`**, **`change apply <id>`** and **`change reject <id>`** (Q2). A `presence` change resolves with `--keep`, `--hide` or `--close <date>`.
 - **`list publish [--date D]`**:
   - one transaction copies the museums that are `participating` now into `mk_list_member`, under a new `mk_list_version`
-  - it refuses an empty list and a second version on the same date
+  - it refuses an empty list, a second version on the same date, a future date and a date that is not after the newest version
   - `list show` prints N and the date from `mk_list`
 - **Exit codes:** 0, 64 usage, 65 bad data (CSV), 66 not found, 78 config.
 - **Tests:**

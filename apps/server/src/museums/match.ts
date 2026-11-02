@@ -57,7 +57,7 @@ export type MatchConfig = {
   distanceSimilarity: number;
 };
 
-/** [U] Calibrated on the recorded fixtures and the [box] run (A§7.3). */
+/** Calibrated on the owner's full recording (O1, 2026-11-02, A§7.3); the [box] run re-checks them. */
 export const DEFAULT_MATCH_CONFIG: MatchConfig = {
   postcodeSimilarity: 0.4,
   distanceMetres: 150,

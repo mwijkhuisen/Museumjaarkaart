@@ -40,6 +40,8 @@ const CFG: SyncConfig = {
   floors: { wikidata: 10, rce: 10 },
   minShare: 0.9,
   maxInvalidShare: 0.5, // the hostile rows are invalid on purpose; this test is about the log, not the guard
+  maxChangedShare: 0.1,
+  minChanged: 50,
   plan: DEFAULT_PLAN_CONFIG,
 };
 

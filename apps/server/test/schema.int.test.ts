@@ -242,6 +242,7 @@ describe('reference data and other tables', () => {
     expect(await r({ mode: 'sync', code: 'Not seeded: details' })).toBe(CHECK);
     expect(await r({ mode: 'sync', code: 'x'.repeat(41) })).toBe(CHECK);
     expect(await r({ mode: 'sync', accept_drop: 'osm' })).toBe(CHECK);
+    expect(await r({ mode: 'sync', outcome: 'refused', code: 'mass_change', accept_changes: true })).toBe('ok');
     expect(await r({ mode: 'sync', wikidata_rows: -1 })).toBe(CHECK);
     expect(await r({ mode: 'sync', rce_rows: -1 })).toBe(CHECK);
   });

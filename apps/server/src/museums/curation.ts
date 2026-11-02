@@ -4,7 +4,7 @@ import { formatInstant, parseDate, parseInstantMs, startOfDayMs, todayAmsterdam 
 import type { Db } from '../db/kysely.ts';
 import type { DB } from '../db/types.ts';
 import { escapeCell, readCsv, unescapeCell, writeCsv } from './csv.ts';
-import { MUSEUMKAART_STATUSES, PHOTO_POLICIES, QID } from './fields.ts';
+import { MUSEUMKAART_STATUSES, PHOTO_POLICIES, PINNABLE_FIELDS, QID } from './fields.ts';
 
 // The owner's curation of the museum catalogue (A§7.5, plan §2.6): the Museumkaart flag, the price,
 // the bulk CSV and the frozen list. Everything here writes as `mjk_api`, one transaction per call,
@@ -207,6 +207,8 @@ export async function flagMuseum(db: Db, ref: string, status: string, opts: Flag
     const patch: Partial<Curated> = { museumkaart_status: status, mk_last_verified_at: verifiedMs(opts.verified) };
     if (opts.since !== undefined) patch.mk_since = opts.since;
     if (opts.until !== undefined) patch.mk_until = opts.until;
+    // A museum that rejoins (or goes back to unknown) no longer has an end date, unless one is given.
+    else if (status !== 'left') patch.mk_until = null;
     const final = { ...m.cur, ...patch };
     if (final.mk_since !== null && final.mk_until !== null && final.mk_until < final.mk_since) {
       throw new AdminError(EXIT_DATA, 'until_before_since');
@@ -226,6 +228,57 @@ export async function priceMuseum(db: Db, ref: string, price: number | null, ver
     const m = await findMuseum(trx, ref);
     const patch = { admission_adult_cents: price, price_verified_at: verifiedMs(verified) };
     return summary(m, await applyPatch(trx, m.id, m.cur, patch));
+  });
+}
+
+// --- pinned fields -------------------------------------------------------------------------------
+
+export type PinResult = { slug: string; name: string; changed: boolean; pinned: string[] };
+
+const PINNABLE: readonly string[] = PINNABLE_FIELDS;
+
+/**
+ * Adds fields to (or with `unpin` removes them from) `pinned_fields`: the sync then leaves them as they
+ * are and counts them as `pinned`. `lat` and `lon` go together (plan() pins the coordinates on either).
+ * Idempotent: an unchanged set writes nothing. A change leaves one `museum_change` with both arrays.
+ */
+export async function pinFields(db: Db, ref: string, fields: readonly string[], unpin: boolean): Promise<PinResult> {
+  if (fields.length === 0) throw new AdminError(EXIT_USAGE, 'usage');
+  if (fields.some((f) => !PINNABLE.includes(f))) throw new AdminError(EXIT_DATA, 'not_pinnable');
+  const named = new Set(fields);
+  if (named.has('lat') || named.has('lon')) {
+    named.add('lat');
+    named.add('lon');
+  }
+  return db.transaction().execute(async (trx) => {
+    const m = await findMuseum(trx, ref);
+    const row = await trx.selectFrom('museum').select('pinned_fields').where('id', '=', m.id).executeTakeFirstOrThrow();
+    const before = row.pinned_fields;
+    const set = new Set(before);
+    for (const f of named) {
+      if (unpin) set.delete(f);
+      else set.add(f);
+    }
+    // In SOURCE_FIELDS order, so the same set is always the same array.
+    const after = PINNABLE.filter((f) => set.has(f));
+    const changed = after.length !== before.length || after.some((f, i) => before[i] !== f);
+    if (changed) {
+      await trx.updateTable('museum').set({ pinned_fields: after }).where('id', '=', m.id).execute();
+      await trx
+        .insertInto('museum_change')
+        .values({
+          museum_id: m.id,
+          field: 'pinned_fields',
+          // jsonb goes in as JSON text: pg would turn a JS array into a PostgreSQL array literal.
+          old: JSON.stringify(before),
+          new: JSON.stringify(after),
+          origin: 'admin',
+          state: 'applied',
+          decided_at: sql<Date>`now()`,
+        })
+        .execute();
+    }
+    return { slug: m.slug, name: m.name, changed, pinned: after };
   });
 }
 
@@ -395,7 +448,11 @@ export type PublishResult = { n: number; publishedOn: string };
 /** Copies the participating, visible museums into a new version. N is later the count of its members. */
 export async function publishList(db: Db, date?: string): Promise<PublishResult> {
   if (date !== undefined && parseDate(date) === undefined) throw new AdminError(EXIT_USAGE, 'bad_date');
-  const publishedOn = date ?? todayAmsterdam();
+  // A version is never removed, so a wrong date would stand for good: no future date, and only a newer one
+  // (the view shows the newest version, so an older date would be published but never shown).
+  const today = todayAmsterdam();
+  const publishedOn = date ?? today;
+  if (publishedOn > today) throw new AdminError(EXIT_DATA, 'list_in_future');
   return db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('mk_list_version')
@@ -403,6 +460,12 @@ export async function publishList(db: Db, date?: string): Promise<PublishResult>
       .where('published_on', '=', publishedOn)
       .executeTakeFirst();
     if (existing !== undefined) throw new AdminError(EXIT_DATA, 'list_exists');
+    const newest = await trx
+      .selectFrom('mk_list_version')
+      .select(sql<string | null>`max(published_on)::text`.as('d'))
+      .executeTakeFirst();
+    if (newest !== undefined && newest.d !== null && publishedOn <= newest.d)
+      throw new AdminError(EXIT_DATA, 'list_not_newest');
     let versionId: string;
     try {
       const v = await trx

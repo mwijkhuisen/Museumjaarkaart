@@ -15,7 +15,15 @@ import {
 } from '../../../src/museums/sources/http.ts';
 import { fetchRce, rceUrl } from '../../../src/museums/sources/rce.ts';
 import { SOURCE_ERROR_CODES } from '../../../src/museums/sources/types.ts';
-import { fetchWikidata, wikidataQuery } from '../../../src/museums/sources/wikidata.ts';
+import {
+  fetchWikidata,
+  fetchWikidataAll,
+  parseWikidata,
+  WIKIDATA_BATCH,
+  WIKIDATA_PAUSE_MS,
+  wikidataItemsQuery,
+  wikidataQuery,
+} from '../../../src/museums/sources/wikidata.ts';
 
 const WD = 'https://query.wikidata.org/sparql';
 const RCE = 'https://services.rce.geovoorziening.nl/some/path';
@@ -411,5 +419,80 @@ describe('the source requests', () => {
     });
     expect(accept).toBe('application/json');
     expect(allowedUrl(rceUrl())).toBeDefined();
+  });
+});
+
+describe('the batched Wikidata fetch (A§7.1)', () => {
+  const ENTITY = 'http://www.wikidata.org/entity/';
+  const qids = Array.from({ length: 450 }, (_, i) => `Q${1000 + i}`);
+  const valuesOf = (query: string): string[] => {
+    const m = /VALUES \?item \{ ([^}]*) \}/.exec(query);
+    return m?.[1]?.split(' ').map((v) => v.replace('wd:', '')) ?? [];
+  };
+  /** Answers the item list with `list`, and each batch with one labelled binding per QID in its VALUES. */
+  const wdqs = (list: string[], seen: string[][], fail?: number) =>
+    http.post(WD, async ({ request }) => {
+      const query = new URLSearchParams(await request.text()).get('query') ?? '';
+      if (!query.includes('VALUES ?item')) {
+        seen.push([]);
+        return json({
+          head: { vars: ['item'] },
+          results: { bindings: list.map((q) => ({ item: { type: 'uri', value: `${ENTITY}${q}` } })) },
+        });
+      }
+      const batch = valuesOf(query);
+      seen.push(batch);
+      if (fail !== undefined && seen.length - 1 === fail)
+        return new HttpResponse('upstream request timeout', { status: 504 });
+      return json({
+        head: { vars: ['item', 'labelNl'] },
+        results: {
+          bindings: batch.map((q) => ({
+            item: { type: 'uri', value: `${ENTITY}${q}` },
+            labelNl: { type: 'literal', value: `Museum ${q}` },
+          })),
+        },
+      });
+    });
+
+  it("the item list is the query's own item set, with nothing per item", () => {
+    const items = wikidataItemsQuery();
+    expect(items.match(/\bSELECT\b/g)).toHaveLength(1);
+    expect(items).toContain('SELECT DISTINCT ?item WHERE {\n    hint:Query hint:optimizer "None" .');
+    expect(items).toContain('?class wdt:P279* wd:Q33506 .');
+    expect(items).toContain('FILTER(!BOUND(?up1) && !BOUND(?up2) && !BOUND(?up3))');
+    expect(items).not.toMatch(/INCLUDE|UNION|GROUP BY|@@MJK_VALUES@@/);
+    for (const prefix of ['hint:', 'wd:', 'wdt:']) expect(items).toContain(`PREFIX ${prefix}`);
+  });
+
+  it('fetches the item list, then the details in batches with a pause before each, and merges them', async () => {
+    const seen: string[][] = [];
+    server.use(wdqs(qids, seen));
+    const d = deps();
+    const r = await fetchWikidataAll(d);
+    expect(r.ok).toBe(true);
+    // One list, then ceil(450 / 200) = 3 batches of at most 200, each item exactly once, in QID order.
+    expect(seen.map((b) => b.length)).toEqual([0, WIKIDATA_BATCH, WIKIDATA_BATCH, 50]);
+    expect(seen.flat()).toEqual(qids);
+    expect(d.waits).toEqual([WIKIDATA_PAUSE_MS, WIKIDATA_PAUSE_MS, WIKIDATA_PAUSE_MS]);
+    if (!r.ok) return;
+    const parsed = parseWikidata(r.body);
+    expect(parsed.ok && parsed.rows.length).toBe(450);
+  });
+
+  it('a failed batch fails the whole fetch with its code: no partial answer', async () => {
+    server.use(wdqs(qids, [], 2));
+    expect(await fetchWikidataAll(deps())).toEqual({ ok: false, code: 'http_status' });
+  });
+
+  it('an empty list makes no detail request; a malformed list goes to the parser as it is', async () => {
+    const seen: string[][] = [];
+    server.use(wdqs([], seen));
+    const empty = await fetchWikidataAll(deps());
+    expect(seen).toEqual([[]]);
+    expect(empty.ok && parseWikidata(empty.body)).toEqual({ ok: true, rows: [], invalid: {}, notes: {} });
+    server.use(http.post(WD, () => json({ nope: true })));
+    const bad = await fetchWikidataAll(deps());
+    expect(bad.ok && parseWikidata(bad.body)).toEqual({ ok: false, code: 'schema' });
   });
 });

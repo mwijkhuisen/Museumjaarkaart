@@ -5,9 +5,21 @@ import type { Db } from '../db/kysely.ts';
 import type { DB } from '../db/types.ts';
 import { AdminError, EXIT_DATA, EXIT_NOT_FOUND, EXIT_USAGE, findMuseum } from './curation.ts';
 import { fieldsFromSources } from './diff.ts';
-import { CATEGORIES, CBS_CODE, CHANGE_FIELDS, LIMITS, NL_BOX, POSTCODE, QID, SOURCES, type Source } from './fields.ts';
-import { museumnlUrl } from './museumnl.ts';
+import { CATEGORIES, CBS_CODE, CHANGE_FIELDS, LIMITS, POSTCODE, QID, SOURCES, type Source } from './fields.ts';
 import { uniqueSlug } from './slug.ts';
+import {
+  commonsFile,
+  date,
+  lat,
+  lon,
+  museumnl,
+  opt,
+  RCE_ID,
+  rcePayload,
+  text,
+  website,
+  wikidataPayload,
+} from './sources/payload.ts';
 import type { RceRow, WikidataRow } from './sources/types.ts';
 
 // The owner's two queues (plan §2.4, §2.6): which museum a source row is (`match …`), and field news
@@ -20,7 +32,6 @@ export const MATCH_REASONS = ['no_candidate', 'ambiguous', 'qid_conflict', 'qid_
 export type QueueReason = (typeof MATCH_REASONS)[number];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const RCE_ID = /^[A-Za-z0-9_.:-]{1,64}$/;
 
 const fail = (exit: number, code: string): never => {
   throw new AdminError(exit, code);
@@ -131,58 +142,6 @@ export async function listMatchQueue(db: Db, filter: { source?: string; reason?:
   });
 }
 
-// The payload came from our own parser but is stored data: it is checked again before it becomes a museum.
-const text = (max: number) => z.string().min(1).max(max);
-const opt = <T extends z.ZodType>(s: T) => z.union([z.null(), s]);
-const lat = z.number().min(NL_BOX.latMin).max(NL_BOX.latMax);
-const lon = z.number().min(NL_BOX.lonMin).max(NL_BOX.lonMax);
-const pointOk = (r: { lat: number | null; lon: number | null }) => (r.lat === null) === (r.lon === null);
-
-const wikidataPayload = z
-  .strictObject({
-    qid: z.string().regex(QID),
-    name: text(LIMITS.label),
-    nameEn: opt(text(LIMITS.label)),
-    descriptionNl: opt(text(LIMITS.description)),
-    descriptionEn: opt(text(LIMITS.description)),
-    aliases: z.array(text(LIMITS.alias)).max(100),
-    lat: opt(lat),
-    lon: opt(lon),
-    website: opt(
-      z
-        .string()
-        .regex(/^https:\/\/\S+$/)
-        .max(LIMITS.url),
-    ),
-    street: opt(text(LIMITS.street)),
-    houseNumber: opt(text(LIMITS.houseNumber)),
-    postcode: opt(z.string().regex(POSTCODE)),
-    place: opt(text(LIMITS.place)),
-    municipalityCode: opt(z.string().regex(CBS_CODE)),
-    municipalityName: opt(text(LIMITS.municipalityName)),
-    provinceCode: opt(z.string()),
-    registered: z.boolean(),
-    museumnlUrl: opt(z.string().refine((v) => museumnlUrl(v) !== undefined)),
-    commonsFile: opt(text(LIMITS.commonsFile)),
-    classes: z.array(z.string().regex(QID)),
-    dissolvedOn: opt(z.string().refine((v) => parseDate(v) !== undefined)),
-  })
-  .refine(pointOk);
-
-const rcePayload = z
-  .strictObject({
-    rceId: z.string().regex(RCE_ID),
-    name: text(LIMITS.label),
-    street: opt(text(LIMITS.street)),
-    houseNumber: opt(text(LIMITS.houseNumber)),
-    postcode: opt(z.string().regex(POSTCODE)),
-    place: opt(text(LIMITS.place)),
-    municipalityName: opt(text(LIMITS.municipalityName)),
-    lat: opt(lat),
-    lon: opt(lon),
-  })
-  .refine(pointOk);
-
 export type ResolveAction =
   | { kind: 'museum'; museum: string; replaceQid: boolean }
   | { kind: 'new' }
@@ -266,6 +225,7 @@ export function resolveMatch(db: Db, ref: SourceRef, action: ResolveAction): Pro
       const knownMunicipality = (code: string | null) => (code !== null && known.has(code) ? code : null);
       let fields: ReturnType<typeof fieldsFromSources>;
       let aliases: string[] = [];
+      // The payload came from our own parser but is stored data: it is checked again (sources/payload.ts).
       if (ref.source === 'wikidata') {
         const parsed = wikidataPayload.safeParse(row.payload);
         if (!parsed.success || parsed.data.qid !== ref.externalId) return fail(EXIT_DATA, 'bad_payload');
@@ -328,7 +288,6 @@ export async function listChanges(db: Db, filter: { field?: string; museum?: str
   });
 }
 
-const date = z.string().refine((v) => parseDate(v) !== undefined);
 /** The value a column accepts, per field. `coordinates` and `presence` are handled apart. */
 const COLUMN_VALUE: Record<string, z.ZodType> = {
   rce_id: opt(z.string().regex(RCE_ID)),
@@ -336,22 +295,17 @@ const COLUMN_VALUE: Record<string, z.ZodType> = {
   name_en: opt(text(LIMITS.label)),
   description_nl: opt(text(LIMITS.description)),
   description_en: opt(text(LIMITS.description)),
-  website: opt(
-    z
-      .string()
-      .regex(/^https:\/\/\S+$/)
-      .max(LIMITS.url),
-  ),
+  website: opt(website),
   street: opt(text(LIMITS.street)),
   house_number: opt(text(LIMITS.houseNumber)),
   postcode: opt(z.string().regex(POSTCODE)),
   place: opt(text(LIMITS.place)),
   municipality_code: opt(z.string().regex(CBS_CODE)),
   registered: z.boolean(),
-  museumnl_url: opt(z.string().refine((v) => museumnlUrl(v) !== undefined)),
+  museumnl_url: opt(museumnl),
   categories: z.array(z.enum(CATEGORIES)).max(CATEGORIES.length),
   closed_on: opt(date),
-  commons_file: opt(text(LIMITS.commonsFile)),
+  commons_file: opt(commonsFile),
 };
 const coordinates = opt(z.strictObject({ lat, lon }));
 
