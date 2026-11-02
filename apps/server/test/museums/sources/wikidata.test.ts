@@ -14,7 +14,6 @@ import {
 } from '../../../src/museums/sources/wikidata.ts';
 import {
   allStrings,
-  CASES,
   CH,
   type FixtureCase,
   FORBIDDEN_CHARS,
@@ -22,6 +21,7 @@ import {
   goldenText,
   readFixture,
   readMeta,
+  WIKIDATA_CASES,
 } from './golden.ts';
 
 const LINK_OUT_HOST = MUSEUMNL_HOST;
@@ -123,14 +123,14 @@ function assertResult(result: ParseResult<WikidataRow>): void {
 }
 
 describe('fixtures', () => {
-  it.each(CASES)('%s: parses, holds the invariants and matches its golden file', async (name) => {
+  it.each(WIKIDATA_CASES)('%s: parses, holds the invariants and matches its golden file', async (name) => {
     const result = parseWikidata(readFixture('wikidata', name));
     assertResult(result);
     expect(result.ok).toBe(true);
     await expect(goldenText(result)).toMatchFileSnapshot(fixturePath('wikidata', name, 'golden.json'));
   });
 
-  it.each(CASES)('%s: has a valid meta file written for this query', (name) => {
+  it.each(WIKIDATA_CASES)('%s: has a valid meta file written for this query', (name) => {
     const meta = parseFixtureMeta(readMeta('wikidata', name));
     expect(meta).toMatchObject({ source: 'wikidata', case: name, licence: 'CC0-1.0' });
     expect(meta?.querySha256).toBe(wikidataQuerySha256());
@@ -142,30 +142,53 @@ describe('fixtures', () => {
     expect(meta?.querySha256).toBe(wikidataQuerySha256());
   });
 
-  it('normal: about 60 items, most with coordinates, some without', () => {
+  // The recorded cases (O1): what the QID picker chose and what the parser guarantees, never the exact
+  // contents, so a re-recording keeps these true. The golden files hold the exact rows.
+  const total = (counts: Record<string, number>) => Object.values(counts).reduce((a, b) => a + b, 0);
+  const recordedQids = (name: FixtureCase): string[] => parseFixtureMeta(readMeta('wikidata', name))?.qids ?? [];
+
+  it('normal: the recorded sample; every listed QID is a row or counted invalid', () => {
     const r = parseCase('normal');
-    expect(r.rows).toHaveLength(60);
-    expect(r.invalid).toEqual({});
+    const qids = recordedQids('normal');
+    expect(qids).toHaveLength(60);
+    expect(r.rows.length + total(r.invalid)).toBe(qids.length);
+    expect(r.rows.every((x) => qids.includes(x.qid))).toBe(true);
+    // The only invalid kind in real data: an item with neither an nl nor an en label (10 of 1,430).
+    expect(Object.keys(r.invalid).filter((k) => k !== 'no_label')).toEqual([]);
     expect(r.rows.map((x) => x.qid)).toEqual(
       r.rows.map((x) => x.qid).sort((a, b) => a.length - b.length || (a < b ? -1 : 1)),
     );
-    const withCoords = r.rows.filter((x) => x.lat !== null).length;
-    expect(withCoords).toBeGreaterThanOrEqual(50);
-    expect(withCoords).toBeLessThan(60);
-    expect(r.rows.filter((x) => x.registered).length).toBeGreaterThanOrEqual(15);
-    expect(r.rows.filter((x) => x.museumnlUrl !== null).length).toBeGreaterThanOrEqual(8);
+    // The picker took 40 registered museums with coordinates, then 20 others spread over the list.
+    expect(r.rows.filter((x) => x.registered && x.lat !== null).length).toBeGreaterThanOrEqual(38);
+    expect(r.rows.filter((x) => x.lat === null).length).toBeGreaterThanOrEqual(1);
     expect(r.rows.filter((x) => x.commonsFile !== null).length).toBeGreaterThanOrEqual(25);
-    expect(r.rows.filter((x) => x.postcode !== null && x.street === null).length).toBeGreaterThanOrEqual(3);
-    expect(r.notes.address_parsed).toBeGreaterThan(40);
-    expect(r.notes.address_unparsed).toBeUndefined();
+    expect(r.rows.filter((x) => x.municipalityCode !== null).length).toBeGreaterThanOrEqual(45);
+    expect(r.notes.address_parsed).toBeGreaterThan(30);
+    expect(r.notes.address_unparsed ?? 0).toBeLessThanOrEqual(3);
+    // About half of the P856 values are http only: upgraded, not dropped (owner, 2026-11-02).
+    expect(r.notes.website_upgraded).toBeGreaterThan(0);
+    expect(r.notes.website_not_https).toBeUndefined();
+  });
+
+  it('edge: the recorded odd items keep what the picker chose them for', () => {
+    const r = parseCase('edge');
+    const qids = recordedQids('edge');
+    expect(r.rows.length + total(r.invalid)).toBe(qids.length);
+    expect(r.rows.filter((x) => x.lat === null).length).toBeGreaterThanOrEqual(3);
+    expect(r.rows.filter((x) => x.dissolvedOn !== null).length).toBeGreaterThanOrEqual(2);
+    expect(r.notes.coord_multiple).toBeGreaterThanOrEqual(2);
+    // Museums of the same name stay apart by their municipality.
+    const same = r.rows.filter((x) => /stedelijk museum/i.test(x.name));
+    expect(same.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(same.map((x) => x.municipalityCode)).size).toBe(same.length);
   });
 
   it('empty: a valid envelope with no rows', () => {
     expect(parseCase('empty')).toEqual({ ok: true, rows: [], invalid: {}, notes: {} });
   });
 
-  it('edge: counts what it drops and what it keeps', () => {
-    const r = parseCase('edge');
+  it('synthetic: counts what it drops and what it keeps', () => {
+    const r = parseCase('synthetic');
     expect(r.invalid).toEqual({ bad_qid: 2, bad_row: 2, no_label: 1 });
     const byName = (name: string) => r.rows.find((x) => x.name === name);
     expect(byName('Museum Zonder Plek')).toMatchObject({
@@ -183,7 +206,7 @@ describe('fixtures', () => {
     expect(byName('Museum Met Twee Foto’s')?.commonsFile).toBe('Voorbeeld eerste gevel.jpg');
     expect(byName('Museum Met Twee Punten')).toMatchObject({ lat: 52.3, lon: 4.9 });
     expect(byName('Museum Verkeerde Host')?.museumnlUrl).toBeNull();
-    expect(byName('Museum Zonder Slot')?.website).toBeNull();
+    expect(byName('Museum Zonder Slot')?.website).toBe('https://www.zonder-slot.example/');
     expect(byName('Museum In Twee Rijen')).toMatchObject({
       aliases: ['Dubbelmuseum', 'Rij Twee'],
       website: 'https://www.dubbelmuseum.example/',
@@ -218,7 +241,7 @@ describe('fixtures', () => {
       museumnl_bad_host: 1,
       postcode_invalid: 1,
       website_invalid: 1,
-      website_not_https: 1,
+      website_upgraded: 1,
     });
   });
 

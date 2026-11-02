@@ -51,10 +51,45 @@ const reclassified = base.results.bindings.find(
   (b) => b !== sameName && !usedQids.has(qidOf(b)) && live(b) && categoriesNow(b).join() !== 'art',
 ) as Binding;
 const DUP_QID = 'Q99000997';
+// Real data has no RCE row with two candidates in a 60-item sample, so the file adds one: two museums
+// at one postcode with close names, and an RCE row that names both (rule 2 finds two: ambiguous).
+const twin = (qid: string, name: string, lon: number) => ({
+  item: { type: 'uri', value: `${ENTITY}${qid}` },
+  labelNl: { type: 'literal', 'xml:lang': 'nl', value: name },
+  postcodes: literal('1011 ZZ'),
+  coords: literal(`Point(${lon} 52.90000)`),
+  classes: literal(`${ENTITY}Q33506`),
+});
+const TWINS = [twin('Q99000995', 'Tweelingmuseum Noord', 6.0), twin('Q99000996', 'Tweelingmuseum Zuid', 6.1)];
+const TWIN_RCE = 'overzichtmusea.990001';
+const servedRce = {
+  ...normalRce,
+  features: [
+    ...normalRce.features,
+    {
+      type: 'Feature',
+      id: TWIN_RCE,
+      geometry: { type: 'Point', coordinates: [6.5, 52.5] },
+      properties: {
+        Museum: 'Tweelingmuseum',
+        Adres: 'Tweelingstraat',
+        Huisnummer: '1',
+        Pc6: '1011ZZ',
+        Woonplaats: 'Ergens',
+        Gemeente: 'Ergens',
+      },
+    },
+  ],
+};
+const seedWikidata: SparqlAnswer = {
+  ...normalWikidata,
+  results: { bindings: [...normalWikidata.results.bindings, ...TWINS] },
+};
 const answer: SparqlAnswer = {
   head: base.head,
   results: {
     bindings: [
+      ...TWINS,
       ...base.results.bindings.map((b) => (b === reclassified ? { ...b, classes: literal(`${ENTITY}Q207694`) } : b)),
       {
         item: { type: 'uri', value: `${ENTITY}${DUP_QID}` },
@@ -68,13 +103,15 @@ const answer: SparqlAnswer = {
 };
 
 let h: Harness;
+/** Five RCE rows that match nothing after the seed (set in beforeAll). */
+let QUEUED: [string, string, string, string, string] = ['', '', '', '', ''];
 let worker: Db;
 let owner: pg.Client;
 
 const rows = async <T extends pg.QueryResultRow>(text: string, values: unknown[] = []) =>
   (await h.api.query<T>(text, values)).rows;
 const sync = async () => {
-  const r = await runSync(worker, serve(answer, normalRce), silentLogger, { mode: 'sync' }, CFG);
+  const r = await runSync(worker, serve(answer, servedRce), silentLogger, { mode: 'sync' }, CFG);
   expect(r.outcome).toBe('applied');
   return r;
 };
@@ -119,10 +156,18 @@ beforeAll(async () => {
   worker = createDb(pool);
   owner = new pg.Client({ connectionString: h.db.urls.admin });
   await owner.connect();
-  expect((await runSync(worker, serve(normalWikidata, normalRce), silentLogger, { mode: 'seed' }, CFG)).outcome).toBe(
+  expect((await runSync(worker, serve(seedWikidata, servedRce), silentLogger, { mode: 'seed' }, CFG)).outcome).toBe(
     'applied',
   );
   await sync();
+  // RCE rows that match nothing, for the resolve tests: looked up, since real ids carry no design.
+  QUEUED = (
+    await rows<{ external_id: string }>(
+      `SELECT external_id FROM museum_source_row
+        WHERE source = 'rce' AND match_state = 'new' AND match_reason = 'no_candidate' ORDER BY external_id LIMIT 5`,
+    )
+  ).map((x) => x.external_id) as typeof QUEUED;
+  expect(QUEUED).toHaveLength(5);
 });
 afterAll(async () => {
   await owner?.end();
@@ -138,8 +183,8 @@ describe('match list', () => {
     expect(ids).toEqual([...ids].sort());
     expect(ids).toContain(`wikidata:${picks.added}`);
     expect(ids).toContain(`wikidata:${DUP_QID}`);
-    expect(ids).toContain('rce:overzichtmusea.35');
-    const line = r.out.find((l) => l.startsWith('rce:overzichtmusea.30  '));
+    expect(ids).toContain(`rce:${QUEUED[0]}`);
+    const line = r.out.find((l) => l.startsWith(`rce:${TWIN_RCE}  `));
     expect(line).toMatch(/ambiguous/);
     expect(line).toMatch(/candidates: \S+,\S+/);
     expect(r.out.at(-1)).toBe(`${ids.length} queued`);
@@ -165,53 +210,51 @@ describe('match resolve', () => {
       id: string;
       slug: string;
     };
-    const r = await h.admin('match', 'resolve', 'rce:overzichtmusea.35', '--museum', target.slug);
+    const r = await h.admin('match', 'resolve', `rce:${QUEUED[0]}`, '--museum', target.slug);
     expect(r.code).toBe(0);
-    expect(await rows('SELECT rce_id FROM museum WHERE id = $1', [target.id])).toEqual([
-      { rce_id: 'overzichtmusea.35' },
-    ]);
-    expect(await sourceRow('rce', 'overzichtmusea.35')).toMatchObject({
+    expect(await rows('SELECT rce_id FROM museum WHERE id = $1', [target.id])).toEqual([{ rce_id: QUEUED[0] }]);
+    expect(await sourceRow('rce', QUEUED[0])).toMatchObject({
       match_state: 'matched',
       match_rule: 'admin',
       match_reason: null,
       museum: target.id,
     });
     expect(await changeRows(target.id, 'rce_id')).toEqual([
-      { old: null, new: 'overzichtmusea.35', origin: 'admin', state: 'applied' },
+      { old: null, new: QUEUED[0], origin: 'admin', state: 'applied' },
     ]);
 
-    const again = await h.admin('match', 'resolve', 'rce:overzichtmusea.36', '--museum', target.slug);
+    const again = await h.admin('match', 'resolve', `rce:${QUEUED[1]}`, '--museum', target.slug);
     expect(again.code).toBe(65);
     expect(again.err[0]).toBe('admin: rce_conflict');
-    expect(await sourceRow('rce', 'overzichtmusea.36')).toMatchObject({ match_state: 'new' });
+    expect(await sourceRow('rce', QUEUED[1])).toMatchObject({ match_state: 'new' });
   });
 
   it('a row that is not queued is 65, an unknown row is 66', async () => {
-    const done = await h.admin('match', 'resolve', 'rce:overzichtmusea.35', '--ignore');
+    const done = await h.admin('match', 'resolve', `rce:${QUEUED[0]}`, '--ignore');
     expect([done.code, done.err[0]]).toEqual([65, 'admin: not_queued']);
     expect((await h.admin('match', 'resolve', 'rce:nope', '--ignore')).code).toBe(66);
     expect((await h.admin('match', 'resolve', 'wikidata:Q1', '--ignore')).code).toBe(66);
-    expect((await h.admin('match', 'resolve', 'rce:overzichtmusea.36', '--museum', 'no-such-museum')).code).toBe(66);
+    expect((await h.admin('match', 'resolve', `rce:${QUEUED[1]}`, '--museum', 'no-such-museum')).code).toBe(66);
   });
 
   it('--ignore keeps the reason and records nothing; the next sync keeps the decision', async () => {
     const changes = Number((await rows<{ n: string }>('SELECT count(*) AS n FROM museum_change'))[0]?.n);
-    const r = await h.admin('match', 'resolve', 'rce:overzichtmusea.37', '--ignore');
+    const r = await h.admin('match', 'resolve', `rce:${QUEUED[2]}`, '--ignore');
     expect(r.code).toBe(0);
-    expect(await sourceRow('rce', 'overzichtmusea.37')).toMatchObject({
+    expect(await sourceRow('rce', QUEUED[2])).toMatchObject({
       match_state: 'ignored',
       match_reason: 'no_candidate',
     });
     expect(Number((await rows<{ n: string }>('SELECT count(*) AS n FROM museum_change'))[0]?.n)).toBe(changes);
-    const before = await sourceRow('rce', 'overzichtmusea.37');
+    const before = await sourceRow('rce', QUEUED[2]);
     const s = await sync();
-    expect(await sourceRow('rce', 'overzichtmusea.37')).toEqual(before);
-    expect((await h.admin('match', 'list')).out.join('\n')).not.toContain('overzichtmusea.37');
+    expect(await sourceRow('rce', QUEUED[2])).toEqual(before);
+    expect((await h.admin('match', 'list')).out.some((l) => l.startsWith(`rce:${QUEUED[2]}  `))).toBe(false);
     expect(s.summary.counts?.ignored).toBeGreaterThanOrEqual(1);
   });
 
   it('--new from an RCE row creates a museum without a QID; a Wikidata row then links to it and sets the QID', async () => {
-    const r = await h.admin('match', 'resolve', 'rce:overzichtmusea.38', '--new');
+    const r = await h.admin('match', 'resolve', `rce:${QUEUED[3]}`, '--new');
     expect(r.code).toBe(0);
     const slug = r.out[0]?.split(' ').at(-1) as string;
     const created = (
@@ -220,11 +263,11 @@ describe('match resolve', () => {
         [slug],
       )
     )[0] as { id: string; rce_id: string; wikidata_qid: string | null };
-    expect(created).toMatchObject({ rce_id: 'overzichtmusea.38', wikidata_qid: null });
+    expect(created).toMatchObject({ rce_id: QUEUED[3], wikidata_qid: null });
     expect(await changeRows(created.id, 'new_museum')).toEqual([
-      { old: null, new: { source: 'rce', external_id: 'overzichtmusea.38' }, origin: 'admin', state: 'applied' },
+      { old: null, new: { source: 'rce', external_id: QUEUED[3] }, origin: 'admin', state: 'applied' },
     ]);
-    expect(await sourceRow('rce', 'overzichtmusea.38')).toMatchObject({ match_state: 'matched', museum: created.id });
+    expect(await sourceRow('rce', QUEUED[3])).toMatchObject({ match_state: 'matched', museum: created.id });
 
     const link = await h.admin('match', 'resolve', `wikidata:${picks.added}`, '--museum', slug);
     expect(link.code).toBe(0);
@@ -280,12 +323,13 @@ describe('match resolve', () => {
 
   it('a payload that fails its schema is 65 bad_payload and writes nothing', async () => {
     await owner.query(
-      'UPDATE museum_source_row SET payload = payload || \'{"postcode": "nonsense"}\' WHERE external_id = \'overzichtmusea.39\'',
+      'UPDATE museum_source_row SET payload = payload || \'{"postcode": "nonsense"}\' WHERE external_id = $1',
+      [QUEUED[4]],
     );
-    const before = await sourceRow('rce', 'overzichtmusea.39');
-    const r = await h.admin('match', 'resolve', 'rce:overzichtmusea.39', '--new');
+    const before = await sourceRow('rce', QUEUED[4]);
+    const r = await h.admin('match', 'resolve', `rce:${QUEUED[4]}`, '--new');
     expect([r.code, r.err[0]]).toEqual([65, 'admin: bad_payload']);
-    expect(await sourceRow('rce', 'overzichtmusea.39')).toEqual(before);
+    expect(await sourceRow('rce', QUEUED[4])).toEqual(before);
   });
 });
 

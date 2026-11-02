@@ -184,5 +184,5 @@ if (import.meta.main) {
     process.exit(1);
   }
   console.log(`record-fixture: ${args.source}/${args.case}: ${result.rows} rows in ${result.ms} ms`);
-  console.log('Regenerate the goldens with `pnpm test -- -u`, then look at the diff before you commit.');
+  console.log('Regenerate the goldens with `pnpm test -u`, then look at the diff before you commit.');
 }

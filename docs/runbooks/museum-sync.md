@@ -253,7 +253,7 @@ node scripts/record-fixture.ts wikidata empty --qids Q1          # a QID the que
 - Then regenerate the goldens, read the whole diff and commit:
 
 ```bash
-pnpm test -- -u
+pnpm test -u
 git diff apps/server/test/fixtures
 ```
 

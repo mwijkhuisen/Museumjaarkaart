@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 export const FIXTURE_DIR = fileURLToPath(new URL('../../fixtures/museums/', import.meta.url));
 export const CASES = ['normal', 'edge', 'empty', 'hostile'] as const;
-export type FixtureCase = (typeof CASES)[number];
+/** Wikidata also keeps its hand-made edge cases, which the recorded `edge` replaced (O1). */
+export const WIKIDATA_CASES = [...CASES, 'synthetic'] as const;
+export type FixtureCase = (typeof WIKIDATA_CASES)[number];
 
 export function fixturePath(source: 'wikidata' | 'rce', name: FixtureCase, ext: 'json' | 'meta.json' | 'golden.json') {
   return `${FIXTURE_DIR}${source}/${name}.${ext}`;

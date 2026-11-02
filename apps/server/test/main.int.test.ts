@@ -53,9 +53,14 @@ it('sync-museums --seed --dry-run prints a summary of counts and writes nothing'
 
 it('sync-museums --accept-drop lets one source below its floor through, and records the refusal of the other', async () => {
   const out: string[] = [];
+  // The recorded RCE answer (629 rows) passes its 500-row floor; its first 100 features do not.
+  const rce = read('rce/normal') as { features: unknown[] };
   const code = await run(['sync-museums', '--seed', '--accept-drop', 'wikidata'], asWorker(), () => {}, hb, {
     out: (l) => out.push(l),
-    fetchers: fixtures('wikidata/normal', 'rce/normal'),
+    fetchers: {
+      wikidata: fixtures('wikidata/normal', 'rce/normal').wikidata,
+      rce: async () => ({ ok: true, body: { ...rce, features: rce.features.slice(0, 100) }, ms: 1 }),
+    },
   });
   expect(code).toBe(EXIT_REFUSED);
   const summary = JSON.parse(out.join('\n'));

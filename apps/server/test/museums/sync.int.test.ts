@@ -8,9 +8,13 @@ import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger, silentLogger } from '../../src/lib/log.ts';
 import { DEFAULT_PLAN_CONFIG } from '../../src/museums/diff.ts';
+import { haversineMetres, type LatLon } from '../../src/museums/geo.ts';
+import { DEFAULT_MATCH_CONFIG } from '../../src/museums/match.ts';
+import { normaliseName } from '../../src/museums/normalise.ts';
 import { fetchRce, parseRce } from '../../src/museums/sources/rce.ts';
 import { fetchWikidata, parseWikidata, wikidataQuery } from '../../src/museums/sources/wikidata.ts';
 import { type Fetchers, type FetchResult, runSync, type SyncConfig } from '../../src/museums/sync.ts';
+import { similarity } from '../../src/museums/trigram.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 import { week2 } from '../fixtures/museums/week2.ts';
 
@@ -130,22 +134,44 @@ describe('the seed and an unchanged re-run', () => {
     expect(await count('museum_change')).toBe(0);
     expect(r.summary.counts).toMatchObject({ created: MUSEUMS });
 
-    // The intended pairs of rce/normal.meta.json: rules 2 and 3 match, two neighbours queue, nothing else matches.
-    const meta = JSON.parse(readFileSync(`${FIXTURES}rce/normal.meta.json`, 'utf8')) as { notes?: string };
-    const notes = meta.notes ?? '';
-    const rows = await q<{ external_id: string; match_state: string; match_reason: string | null; qid: string | null }>(
-      `SELECT s.external_id, s.match_state, s.match_reason, m.wikidata_qid AS qid
+    // Every match the seed makes holds its own rule (A§7.3), checked from the stored rows: the same
+    // postcode and a name similarity of at least 0.4, or under 150 m and at least 0.5. The real sample:
+    // 38 of the 40 registered museums with coordinates find their RCE row.
+    const rows = await q<{
+      match_state: string;
+      match_rule: string | null;
+      payload: { name: string; postcode: string | null; lat: number | null; lon: number | null };
+      name: string | null;
+      postcode: string | null;
+      lat: number | null;
+      lon: number | null;
+      aliases: string[] | null;
+    }>(
+      `SELECT s.match_state, s.match_rule, s.payload, m.name, m.postcode, m.lat, m.lon,
+              (SELECT array_agg(a.alias) FROM museum_alias a WHERE a.museum_id = m.id) AS aliases
          FROM museum_source_row s LEFT JOIN museum m ON m.id = s.matched_museum_id WHERE s.source = 'rce'`,
     );
-    const byId = new Map(rows.map((x) => [x.external_id, x]));
-    for (const [, id, a, b] of notes.matchAll(/(overzichtmusea\.\d+)=(Q\d+)(?:\|(Q\d+))?/g)) {
-      const row = byId.get(id as string);
-      if (b === undefined) expect(row, id).toMatchObject({ match_state: 'matched', qid: a });
-      else expect(row, id).toMatchObject({ match_state: 'ambiguous', match_reason: 'ambiguous' });
+    const sim = (x: (typeof rows)[number]) =>
+      Math.max(
+        ...[x.name ?? '', ...(x.aliases ?? [])].map((n) => similarity(normaliseName(x.payload.name), normaliseName(n))),
+      );
+    for (const x of rows.filter((y) => y.match_state === 'matched')) {
+      if (x.match_rule === 'postcode_name') {
+        expect(x.payload.postcode).toBe(x.postcode);
+        expect(sim(x)).toBeGreaterThanOrEqual(Math.fround(DEFAULT_MATCH_CONFIG.postcodeSimilarity));
+      } else {
+        expect(x.match_rule).toBe('distance_name');
+        const d = haversineMetres(x.payload as LatLon, { lat: x.lat as number, lon: x.lon as number });
+        expect(d).toBeLessThan(DEFAULT_MATCH_CONFIG.distanceMetres);
+        expect(sim(x)).toBeGreaterThanOrEqual(Math.fround(DEFAULT_MATCH_CONFIG.distanceSimilarity));
+      }
     }
-    for (const [, id] of notes.split('Match nothing:')[1]?.matchAll(/(overzichtmusea\.\d+)/g) ?? []) {
-      expect(byId.get(id as string), id).toMatchObject({ match_state: 'new', match_reason: 'no_candidate' });
-    }
+    // Rows that match nothing wait as new; a seed sample this small has no RCE row with two candidates.
+    expect(new Set(rows.map((x) => x.match_state))).toEqual(new Set(['matched', 'new']));
+    const registeredWithCoords = parsedW.rows.filter((x) => x.registered && x.lat !== null).length;
+    expect(rows.filter((x) => x.match_state === 'matched').length).toBeGreaterThanOrEqual(
+      Math.floor(registeredWithCoords * 0.8),
+    );
     // A matched RCE row gives its museum the rce_id and the RCE address.
     const matched = rows.filter((x) => x.match_state === 'matched').length;
     expect(matched).toBe(
