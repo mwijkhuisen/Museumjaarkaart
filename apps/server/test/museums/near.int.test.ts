@@ -1,5 +1,6 @@
 import { ErrorBody, NearList } from '@mjk/contracts';
 import fc from 'fast-check';
+import { sql } from 'kysely';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../../src/api/app.ts';
@@ -9,7 +10,7 @@ import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger, silentLogger } from '../../src/lib/log.ts';
 import { NL_BOX } from '../../src/museums/fields.ts';
 import { haversineMetres } from '../../src/museums/geo.ts';
-import { findNearest } from '../../src/museums/near.ts';
+import { findNearest, NL_TODAY } from '../../src/museums/near.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 
@@ -18,6 +19,8 @@ import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 // (libm and V8 differ in the last ulp), and a tie group may be ordered either way.
 
 const TIE_M = 1e-6;
+/** Today in the Netherlands, as near.ts computes it. */
+const TODAY = "(now() AT TIME ZONE 'Europe/Amsterdam')::date";
 
 type Row = { id: string; lat: number; lon: number };
 
@@ -105,18 +108,18 @@ beforeAll(async () => {
   reader = await login(db.urls.mjk_api);
   app = buildApp({ db: apiDb, logger: silentLogger, ping: async () => true }, (v1, deps) => mountMuseumsNear(v1, deps));
 
-  // The database's own current_date decides who is permanently closed.
+  // Today in the Netherlands decides who is permanently closed (closed_on is a Dutch date).
   const q = await reader.query<Row>(
-    'SELECT id, lat, lon FROM pub_museum WHERE lat IS NOT NULL AND (closed_on IS NULL OR closed_on > current_date)',
+    `SELECT id, lat, lon FROM pub_museum WHERE lat IS NOT NULL AND (closed_on IS NULL OR closed_on > ${TODAY})`,
   );
   qualifying = q.rows;
   byId = new Map(qualifying.map((r) => [r.id, r]));
   const out = await reader.query<{ id: string }>(
-    'SELECT id FROM museum WHERE hidden OR lat IS NULL OR closed_on <= current_date',
+    `SELECT id FROM museum WHERE hidden OR lat IS NULL OR closed_on <= ${TODAY}`,
   );
   forbidden = new Set(out.rows.map((r) => r.id));
   const future = await reader.query<{ id: string; closed_on: string }>(
-    'SELECT id, closed_on::text AS closed_on FROM museum WHERE closed_on > current_date AND NOT hidden AND lat IS NOT NULL',
+    `SELECT id, closed_on::text AS closed_on FROM museum WHERE closed_on > ${TODAY} AND NOT hidden AND lat IS NOT NULL`,
   );
   expect(future.rows.length).toBe(1);
   futureClosed = future.rows[0] as { id: string; closed_on: string };
@@ -212,7 +215,7 @@ describe('GET /museums/near equals the brute force', () => {
 
   it('never returns a hidden, permanently closed or coordinate-less museum, even right next to one', async () => {
     const rows = await reader.query<{ id: string; lat: number; lon: number }>(
-      'SELECT id, lat, lon FROM museum WHERE lat IS NOT NULL AND (hidden OR closed_on <= current_date)',
+      `SELECT id, lat, lon FROM museum WHERE lat IS NOT NULL AND (hidden OR closed_on <= ${TODAY})`,
     );
     expect(rows.rows.length).toBeGreaterThan(cat.hiddenIds.length - 1);
     for (const r of rows.rows) {
@@ -364,6 +367,50 @@ describe('fewer museums than the limit', () => {
     } finally {
       await owner.end().catch(() => {});
       await d?.destroy();
+      await small.drop();
+    }
+  }, 60_000);
+});
+
+describe('closed_on is a Dutch date', () => {
+  it('drops a museum that closes today in the Netherlands and keeps one that closes tomorrow, in any session time zone', async () => {
+    const small = await createMigratedDb();
+    const owner = new pg.Client({ connectionString: small.urls.mjk_api });
+    const dbs: Db[] = [];
+    try {
+      await owner.connect();
+      for (const [slug, days] of [
+        ['today', 0],
+        ['tomorrow', 1],
+        ['open', null],
+      ] as const)
+        await owner.query(
+          `INSERT INTO museum (slug, name, lat, lon, closed_on)
+           VALUES ($1, $1, 52.0, 5.0, CASE WHEN $2::int IS NULL THEN NULL ELSE ${TODAY} + $2::int END)`,
+          [slug, days],
+        );
+      // Two session time zones 26 hours apart: at any moment one of them has a current_date that is not
+      // today in the Netherlands, so a comparison with current_date fails in at least one of them.
+      const local: string[] = [];
+      let nl = '';
+      for (const zone of ['Pacific/Kiritimati', 'Etc/GMT+12']) {
+        const p = new pg.Pool({ connectionString: small.urls.mjk_api, max: 1, options: `-c TimeZone=${zone}` });
+        const d = createDb(p);
+        dbs.push(d);
+        const { rows } = await sql<{ local: string; nl: string }>`SELECT current_date::text AS local,
+          ${NL_TODAY}::text AS nl`.execute(d);
+        local.push(rows[0]?.local ?? '');
+        nl = rows[0]?.nl ?? '';
+        const { items } = await findNearest(d, { lat: 52.0, lon: 5.0, limit: 50 });
+        expect(items.map((i) => i.slug).sort(), zone).toEqual(['open', 'tomorrow']);
+      }
+      expect(
+        local.some((l) => l !== nl),
+        `current_date ${local.join(', ')}, NL ${nl}`,
+      ).toBe(true);
+    } finally {
+      await owner.end().catch(() => {});
+      for (const d of dbs) await d.destroy();
       await small.drop();
     }
   }, 60_000);

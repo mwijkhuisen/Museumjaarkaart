@@ -1,7 +1,7 @@
 import { ErrorBody, Healthz } from '@mjk/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { type ApiDeps, BODY_LIMIT_BYTES, buildApp, createApp } from '../../src/api/app.ts';
+import { type ApiDeps, BODY_LIMIT_BYTES, buildApp, createApp, unavailable } from '../../src/api/app.ts';
 import { ApiError } from '../../src/api/errors.ts';
 import { parseParam, parseQuery } from '../../src/api/query.ts';
 import { sendJson } from '../../src/api/respond.ts';
@@ -177,24 +177,80 @@ describe('fixed errors', () => {
   });
 });
 
-describe('the 64 KB body cap', () => {
-  it('passes 64 KB and refuses one byte more, with and without Content-Length', async () => {
+describe('the 64 KB body cap (headers only; socket.int.test.ts runs it over a real socket)', () => {
+  const post = (app: ReturnType<typeof setup>['app'], path: string, headers: Record<string, string>, body?: string) =>
+    get(app, path, { method: 'POST', headers, ...(body === undefined ? {} : { body }) });
+
+  it('passes a Content-Length of 64 KB and refuses one byte more with 413 too_large', async () => {
     const { app } = setup();
-    const ok = await get(app, '/api/v1/sink', { method: 'POST', body: new Uint8Array(BODY_LIMIT_BYTES) });
-    expect(ok.status).toBe(200);
-    const big = await get(app, '/api/v1/sink', { method: 'POST', body: new Uint8Array(BODY_LIMIT_BYTES + 1) });
-    expect(big.status).toBe(413);
-    expect(big.headers.get('cache-control')).toBe('private, no-store');
-    expect(await json(big)).toEqual({ error: 'too_large' });
-    const stream = new ReadableStream({
-      start(c) {
-        c.enqueue(new Uint8Array(BODY_LIMIT_BYTES));
-        c.enqueue(new Uint8Array(1));
-        c.close();
-      },
+    const ok = await get(app, '/api/v1/sink', {
+      method: 'POST',
+      headers: { 'Content-Length': String(BODY_LIMIT_BYTES) },
+      body: new Uint8Array(BODY_LIMIT_BYTES),
     });
-    const chunked = await get(app, '/api/v1/sink', { method: 'POST', body: stream, duplex: 'half' } as RequestInit);
-    expect(chunked.status).toBe(413);
+    expect(ok.status).toBe(200);
+    for (const length of [String(BODY_LIMIT_BYTES + 1), '9'.repeat(20)]) {
+      const big = await post(app, '/api/v1/sink', { 'Content-Length': length }, 'x');
+      expect(big.status, length).toBe(413);
+      expect(big.headers.get('cache-control')).toBe('private, no-store');
+      expect(await json(big)).toEqual({ error: 'too_large' });
+    }
+  });
+
+  it('refuses a body of unknown length (Transfer-Encoding) and a malformed Content-Length with 400', async () => {
+    const { app } = setup();
+    for (const headers of [
+      { 'Transfer-Encoding': 'chunked' },
+      { 'Transfer-Encoding': 'gzip, chunked' },
+      { 'Content-Length': '1e3' },
+    ]) {
+      const r = await post(app, '/api/v1/sink', headers, 'abc');
+      expect(r.status, JSON.stringify(headers)).toBe(400);
+      expect(r.headers.get('cache-control')).toBe('private, no-store');
+      expect(await json(r)).toEqual({ error: 'bad_request', fields: [] });
+    }
+  });
+
+  it('never reads the body, and an admin path is a 404 before the cap', async () => {
+    const { app } = setup();
+    const admin = await post(app, '/api/admin/x', { 'Transfer-Encoding': 'chunked', 'Content-Length': '999999' }, 'x');
+    expect(admin.status).toBe(404);
+    expect(await json(admin)).toEqual({ error: 'not_found' });
+    const bodyless = await get(app, '/api/v1/healthz', { method: 'DELETE' });
+    expect(bodyless.status).toBe(404);
+    expect(await json(bodyless)).toEqual({ error: 'not_found' });
+  });
+});
+
+describe('the database is unavailable', () => {
+  const MESSAGES = [
+    'timeout exceeded when trying to connect',
+    'Connection terminated due to connection timeout',
+    'Connection terminated unexpectedly',
+    'Connection terminated',
+  ];
+
+  it.each(MESSAGES)('node-postgres "%s" (no code) → 503 unavailable, the message never logged', async (message) => {
+    const { logger, lines } = memoryLogger('api');
+    const app = buildApp({ db: {} as Db, logger, ping: async () => true }, (v1) => {
+      v1.get('/pool', () => {
+        throw new Error(message);
+      });
+    });
+    const r = await get(app, '/api/v1/pool');
+    expect(r.status).toBe(503);
+    expect(r.headers.get('cache-control')).toBe('private, no-store');
+    expect(await json(r)).toEqual({ error: 'unavailable' });
+    expect(lines()[0]).toMatchObject({ msg: 'db_unavailable', sqlstate: null });
+    expect(JSON.stringify(lines())).not.toContain(message);
+  });
+
+  it('only those exact messages: a near miss or a message with a code of its own stays 500', () => {
+    expect(unavailable(new Error('Connection terminated by the admin'))).toBe(false);
+    expect(unavailable(new Error('connection terminated'))).toBe(false);
+    expect(unavailable({ message: 'Connection terminated' })).toBe(false);
+    expect(unavailable(Object.assign(new Error('Connection terminated'), { code: '42P01' }))).toBe(false);
+    for (const m of MESSAGES) expect(unavailable(new Error(m)), m).toBe(true);
   });
 });
 

@@ -102,7 +102,27 @@ CREATE TRIGGER municipality_search_touch AFTER UPDATE OF name ON municipality
   FOR EACH ROW WHEN (OLD.name IS DISTINCT FROM NEW.name)
   EXECUTE FUNCTION public.municipality_search_touch();
 
--- Backfill: every existing row is recomputed by the trigger (NULL is replaced before the NOT NULL check).
+-- updated_at says when a museum's own fields last changed. A recompute of the search document alone
+-- (the touch functions above, the backfill below) is not such a change: an update whose only
+-- changes are `search` and `updated_at` keeps OLD.updated_at. museum_search_refresh fires first
+-- (BEFORE triggers fire in name order), so NEW.search already holds the recomputed document here.
+-- P1a's function (20261102000002_museums.sql) is replaced in place; the down section restores it.
+CREATE OR REPLACE FUNCTION public.museum_set_updated_at() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  IF (to_jsonb(NEW) - 'search' - 'updated_at') = (to_jsonb(OLD) - 'search' - 'updated_at') THEN
+    NEW.updated_at := OLD.updated_at;
+  ELSE
+    NEW.updated_at := now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- Backfill: every existing row is recomputed by the trigger (NULL is replaced before the NOT NULL
+-- check); updated_at stays as it was.
 UPDATE museum SET search = NULL;
 
 CREATE INDEX museum_search_idx ON museum USING gin (search);
@@ -122,8 +142,12 @@ CREATE TABLE museum_slug_redirect (
 );
 CREATE INDEX museum_slug_redirect_museum_idx ON museum_slug_redirect (museum_id);
 
+-- SECURITY DEFINER (owner mjk_migrator), so no login needs INSERT on museum_slug_redirect: the
+-- table is written only here, with the pair the trigger derives from OLD (never a forged one).
+-- No parameters, a pinned search_path, every name schema-qualified; EXECUTE is the owner's only.
 CREATE FUNCTION public.museum_slug_keep() RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $$
 BEGIN
@@ -132,6 +156,7 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+REVOKE EXECUTE ON FUNCTION public.museum_slug_keep() FROM PUBLIC;
 
 CREATE TRIGGER museum_slug_keep AFTER UPDATE OF slug ON museum
   FOR EACH ROW WHEN (OLD.slug IS DISTINCT FROM NEW.slug)
@@ -157,10 +182,9 @@ CREATE TRIGGER museum_slug_guard BEFORE INSERT OR UPDATE OF slug ON museum
   FOR EACH ROW EXECUTE FUNCTION public.museum_slug_guard();
 
 -- Grants (A§8: each phase grants its own tables). The guard runs as whoever writes a slug
--- (mjk_api, mjk_worker) and the keep trigger as mjk_api, the only login that may change one.
--- Nothing for mjk_ssr; no UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER for any login.
+-- (mjk_api, mjk_worker), who read the table; the keep trigger runs as its owner. Nothing for
+-- mjk_ssr; no INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES or TRIGGER for any login.
 GRANT SELECT ON museum_slug_redirect TO mjk_api, mjk_worker;
-GRANT INSERT ON museum_slug_redirect TO mjk_api;
 
 -- migrate:down
 DROP TRIGGER museum_slug_guard ON museum;
@@ -173,6 +197,15 @@ DROP INDEX museum_sort_idx;
 DROP INDEX museum_alias_trgm_idx;
 DROP INDEX museum_name_trgm_idx;
 DROP INDEX museum_search_idx;
+CREATE OR REPLACE FUNCTION public.museum_set_updated_at() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
 DROP TRIGGER municipality_search_touch ON municipality;
 DROP FUNCTION public.municipality_search_touch();
 DROP TRIGGER museum_alias_search_touch_upd ON museum_alias;

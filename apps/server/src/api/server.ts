@@ -19,6 +19,9 @@ export const API_PORT = 8080;
 /** How long a drain waits for open requests before it closes their connections. */
 export const DRAIN_MS = 10_000;
 const PING_TIMEOUT_MS = 2_000;
+/** Above Caddy's upstream keep-alive (A§17.2). */
+export const KEEP_ALIVE_TIMEOUT_MS = 65_000;
+export const HEADERS_TIMEOUT_MS = 66_000;
 
 /** `select 1` within PING_TIMEOUT_MS. */
 export function pinger(db: Db): () => Promise<boolean> {
@@ -45,17 +48,31 @@ export async function listen(
 ): Promise<Server> {
   // overrideGlobalObjects: false keeps Node's own Request and Response globals.
   const server = serve({ fetch: app.fetch, port, hostname, overrideGlobalObjects: false }) as Server;
+  // Behind Caddy (A§17.2): an idle upstream connection must be closed by Caddy, never by Node, or
+  // Caddy can reuse a connection at the moment Node closes it (a 502 that no api log shows). So
+  // Node keeps it longer than Caddy's upstream keep-alive, which must stay below 65 s [U P1e], and
+  // headersTimeout stays above keepAliveTimeout, as Node requires.
+  server.keepAliveTimeout = KEEP_ALIVE_TIMEOUT_MS;
+  server.headersTimeout = HEADERS_TIMEOUT_MS;
   await Promise.race([once(server, 'listening'), once(server, 'error').then(([err]) => Promise.reject(err))]);
   return server;
 }
 
+/** How often a drain closes the keep-alive connections that have gone idle since it began. */
+const DRAIN_IDLE_POLL_MS = 100;
+
 /** Stops accepting, lets open requests finish for up to `ms`, then closes what is left. */
 export async function drain(server: Server, ms = DRAIN_MS): Promise<void> {
   const closed = new Promise<void>((resolve) => server.close(() => resolve()));
+  // close() closes only the connections idle at that moment. One whose request finishes later would
+  // stay open for keepAliveTimeout (65 s, longer than the drain), so each is closed once it is idle.
   server.closeIdleConnections();
+  const idle = setInterval(() => server.closeIdleConnections(), DRAIN_IDLE_POLL_MS);
   const force = setTimeout(() => server.closeAllConnections(), ms);
+  idle.unref();
   force.unref();
   await closed;
+  clearInterval(idle);
   clearTimeout(force);
 }
 

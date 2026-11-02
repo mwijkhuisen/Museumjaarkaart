@@ -82,7 +82,13 @@ describe('headers per route and status', () => {
       noLeaks(r, method);
       await r.arrayBuffer();
     }
-    const big = await s.req(`${V1}/museums`, { method: 'POST', body: 'x'.repeat(70 * 1024) });
+    // The cap reads Content-Length, which a real client sends (app.request() does not add it);
+    // socket.int.test.ts covers the same over a real socket.
+    const big = await s.req(`${V1}/museums`, {
+      method: 'POST',
+      headers: { 'Content-Length': String(70 * 1024) },
+      body: 'x'.repeat(70 * 1024),
+    });
     expect(big.status).toBe(413);
     expect(big.headers.get('cache-control')).toBe('private, no-store');
     expect(ErrorBody.parse(await big.json())).toEqual({ error: 'too_large' });

@@ -14,6 +14,7 @@
 ## Decision
 
 - **Search:** PostgreSQL full-text search with `unaccent` and the `dutch` configuration, through an immutable `unaccent` wrapper (A§8), plus `pg_trgm` for fuzzy names. Trusted extensions only: `pg_trgm`, `unaccent`, `citext`.
+  - The search runs in one `SECURITY DEFINER` SQL function, `pub_search(q)` (P1b review): the public views are `security_barrier`, which keeps the non-leakproof `@@` and `<%` off their GIN indexes, so the function reads the tables with a pinned `search_path` and trigram threshold, a static body and `q` bound as `$1`, and returns only visible museums' ids (A§8).
 - **Near me:** a bounding box, then haversine in SQL on `lat`/`lon`; no PostGIS.
 - **Filters:** province, municipality, category, Museumkaart, visited or not and wishlist (logged in), minimum rating, kid-friendly.
 - **Jobs:** our own `job` table (A§8) with `FOR UPDATE SKIP LOCKED` and `LISTEN/NOTIFY`, no library. Payloads hold ids only, with one exception: `mail_code`, `mail_invite` and the two account-notice mails add a sealed code and/or recipient address (AES-256-GCM under the `code_seal` key in `app_keys`), nulled once sent, a code also at `expires_at` (A§9). Attempts, `run_at` backoff and a fixed error code; finished rows are deleted after 30 days, mail jobs on success. Schedules use croner with F1's busy guard. Photo jobs run one at a time.
@@ -24,7 +25,7 @@
 - No extra container, backup or dependency.
 - We own the retry and backoff code; integration tests on real PostgreSQL 18 cover locking and retries (A§18).
 - Typo tolerance (tuned in P1b on the seeded 1,400-museum catalogue):
-  - Typos within a word are found by trigram word similarity (`<%`), with threshold 0.55. At 0.6, "tylers" misses Teylers (similarity 0.57); at 0.5, "rijksmusem" gives 15 museums instead of 8, and the exact word "rijksmuseum" adds 95 compound hits.
+  - Typos within a word are found by trigram word similarity (`<%`), with threshold 0.55 (pinned on `pub_search`). At 0.6, "tylers" misses Teylers (similarity 0.57); at 0.5, "rijksmusem" gives 15 museums instead of 8, and the exact word "rijksmuseum" adds 95 compound hits.
   - Across words, full-text search (`websearch_to_tsquery`, AND semantics) needs every word, so a typo in one word of several falls back to the trigram tiers.
   - That is enough for ~1,400 rows.
 - Planner at this size (P1b, PostgreSQL 18.6):

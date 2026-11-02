@@ -35,8 +35,8 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 - **Middleware, in order:**
   1. a request id
   2. the request log: one line with method, route pattern, status, duration and request id, never the raw path or query (so near-me's coordinates never reach a log)
-  3. a 64 KB body cap
-  4. `/api/admin/*` → 404 (no admin route exists before P1e, which adds the `Host` and Access checks)
+  3. `/api/admin/*` → 404, whatever the method and body (no admin route exists before P1e, which adds the `Host` and Access checks)
+  4. a 64 KB body cap that reads only the headers (review of PR #37: Hono's `bodyLimit` throws on node-server's request object): `Content-Length` over 64 KB → 413, `Transfer-Encoding` → 400 until P2a
   5. strict query parsing: an unknown parameter → 400
   6. the route
   7. the fixed error handler: `{"error":"<code>"}`, plus `fields` (schema paths only) on 400 and 422; never a value, a header or a database message

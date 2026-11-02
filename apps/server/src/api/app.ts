@@ -1,10 +1,10 @@
 import { EmptyQuery, Healthz } from '@mjk/contracts';
 import { type Context, Hono } from 'hono';
-import { bodyLimit } from 'hono/body-limit';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { CACHE_NONE } from './cache.ts';
 import { ApiError, ContractMismatch, respondError } from './errors.ts';
+import { bodyCap } from './middleware/body-cap.ts';
 import { type ApiEnv, requestLog } from './middleware/request.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
@@ -15,8 +15,9 @@ import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2): request id and log →
-// 64 KB body cap → /api/admin/* is a 404 (P1e adds the Host and Access checks) → each route parses
-// its query strictly → the route → the fixed error handler.
+// /api/admin/* is a 404 whatever the method and body (P1e adds the Host and Access checks) → the
+// header-only 64 KB body cap (middleware/body-cap.ts) → each route parses its query strictly → the
+// route → the fixed error handler.
 
 export type ApiDeps = {
   /** The pool as mjk_api; public queries read only the pub_* views. */
@@ -32,10 +33,22 @@ export type Mount = (v1: ApiApp, deps: ApiDeps) => void;
 
 export const BODY_LIMIT_BYTES = 64 * 1024;
 
-/** SQLSTATEs and socket errors that mean the database is unavailable rather than a bug. */
-function unavailable(err: unknown): boolean {
+/**
+ * The fixed messages of the node-postgres errors that carry no `code`: a saturated pool
+ * (pg-pool 3.14) and a dropped or timed-out connection (pg 8.23). Compared exactly; the message
+ * only chooses the status and is never logged or returned.
+ */
+const POOL_MESSAGES: ReadonlySet<string> = new Set([
+  'timeout exceeded when trying to connect',
+  'Connection terminated due to connection timeout',
+  'Connection terminated unexpectedly',
+  'Connection terminated',
+]);
+
+/** SQLSTATEs, socket errors and pool errors that mean the database is unavailable rather than a bug. */
+export function unavailable(err: unknown): boolean {
   const code = (err as { code?: unknown }).code;
-  if (typeof code !== 'string') return false;
+  if (typeof code !== 'string') return err instanceof Error && POOL_MESSAGES.has(err.message);
   return (
     code.startsWith('08') || // connection exception
     ['57014', '57P01', '57P02', '57P03', '53300'].includes(code) || // timeout, shutdown, too many connections
@@ -68,9 +81,10 @@ function onError(err: Error, c: Context, logger: Logger): Response {
 export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   const app = new Hono<ApiEnv>();
   app.use('*', requestLog(deps.logger));
-  app.use('*', bodyLimit({ maxSize: BODY_LIMIT_BYTES, onError: (c) => respondError(c, 'too_large') }));
   // Invariant 3: no admin route on this host. P1e adds the admin host's Host and Access checks.
+  // Registered before the body cap, so an admin path is a 404 whatever the method and body.
   app.all('/api/admin/*', (c) => respondError(c, 'not_found'));
+  app.use('*', bodyCap(BODY_LIMIT_BYTES));
 
   const v1 = new Hono<ApiEnv>();
   // A§14: select 1 → 200 {"ok":true}, else 503 {"ok":false}; no-store.

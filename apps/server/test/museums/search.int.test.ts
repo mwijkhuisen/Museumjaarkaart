@@ -7,7 +7,7 @@ import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { silentLogger } from '../../src/lib/log.ts';
 import { listMuseums } from '../../src/museums/query.ts';
-import { matches, setThreshold, suggestMuseums, WORD_SIMILARITY_THRESHOLD } from '../../src/museums/search.ts';
+import { matches, suggestMuseums } from '../../src/museums/search.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 
@@ -74,13 +74,13 @@ describe('search', () => {
   it('finds the Rijksmuseum first by the typo "rijksmusem", and the threshold is not too broad', async () => {
     const page = await listOk({ q: 'rijksmusem' });
     expect(page.items[0]?.id).toBe(cat.named.rijksmuseum.id);
-    console.info(`threshold ${WORD_SIMILARITY_THRESHOLD}: q=rijksmusem finds ${page.total} museums`);
+    console.info(`threshold 0.55 (pub_search): q=rijksmusem finds ${page.total} museums`);
     expect(page.total).toBeLessThan(20);
     expect(page.items.length).toBe(page.total);
     // The exact word finds the Rijksmuseum first, too, and not a hundred unrelated names.
     const exact = await listOk({ q: 'rijksmuseum' });
     expect(exact.items[0]?.id).toBe(cat.named.rijksmuseum.id);
-    console.info(`threshold ${WORD_SIMILARITY_THRESHOLD}: q=rijksmuseum finds ${exact.total} museums`);
+    console.info(`threshold 0.55 (pub_search): q=rijksmuseum finds ${exact.total} museums`);
     expect(exact.total).toBeLessThan(30);
   });
 
@@ -179,7 +179,6 @@ describe('the three tiers', () => {
       .transaction()
       .setAccessMode('read only')
       .execute(async (trx) => {
-        await setThreshold(trx);
         return (await sql<{ id: string; tier: number; score: number }>`${matches(q)}`.execute(trx)).rows;
       });
 

@@ -2,10 +2,10 @@ import type { MuseumList, MuseumListItem, MuseumListQuery } from '@mjk/contracts
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
 import { decodeCursor, encodeCursor, type PageCursor } from './cursor.ts';
-import { matches, setThreshold } from './search.ts';
+import { matches } from './search.ts';
 
 // The catalogue list (A§14): filters combined with AND, keyset paging, `total` under the same filters.
-// Reads only pub_museum (and pub_museum_alias through search), so it runs as mjk_api and as mjk_ssr.
+// Reads only pub_museum and the search function pub_search, so it runs as mjk_api and as mjk_ssr.
 //
 // Order without `q`: (sort_name, id). With `q`: (tier, score descending, sort_name, id). `sort=rank`
 // orders like `name` until P3a (owner decision Q2), and with `q` both values give the relevance order:
@@ -97,7 +97,6 @@ export async function listMuseums(db: Db, p: ListParams): Promise<MuseumList> {
         const count = await sql<{ n: string }>`SELECT count(*) AS n FROM pub_museum m WHERE ${where}`.execute(trx);
         total = Number(count.rows[0]?.n ?? 0);
       } else {
-        await setThreshold(trx);
         rows = (
           await sql<Row>`WITH best AS (${matches(q)})
             SELECT ${COLUMNS}, b.tier, b.score

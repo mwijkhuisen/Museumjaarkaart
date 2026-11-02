@@ -122,7 +122,7 @@ describe('access', () => {
 });
 
 describe('definitions', () => {
-  it('each view is owned by mjk_migrator and has neither security_invoker nor security_barrier', async () => {
+  it('each view is owned by mjk_migrator, is security_barrier and not security_invoker', async () => {
     const { rows } = await owner.query<{ relname: string; owner: string; opts: string[] | null }>(
       `SELECT c.relname, pg_get_userbyid(c.relowner) AS owner, c.reloptions AS opts
          FROM pg_class c WHERE c.relkind = 'v' AND c.relnamespace = 'public'::regnamespace AND c.relname LIKE 'pub\\_%'
@@ -134,7 +134,7 @@ describe('definitions', () => {
       expect(
         (r.opts ?? []).filter((o) => /^security_(invoker|barrier)/.test(o)),
         r.relname,
-      ).toEqual([]);
+      ).toEqual(['security_barrier=true']);
     }
   });
 
@@ -312,22 +312,99 @@ describe('hidden museums', () => {
     expect(await memberIds()).toEqual([visible, visible2].sort());
     expect((await ssr.query('SELECT n FROM pub_mk_list')).rows).toEqual([{ n: 3 }]);
   });
+
+  describe('the barrier (a compromised mjk_ssr)', () => {
+    // The canonical leak: a qual that raises only for a hidden row's value. Through a view without a
+    // barrier, the planner may run it on the base table before the view's own filter, and the error
+    // tells the caller that the value exists. The divisor depends on the row, so the planner cannot
+    // fold it away.
+    const probe = (view: string, col: string, extra = '') =>
+      `SELECT count(*)::int AS n FROM ${view}
+        WHERE CASE WHEN ${col} = $1 ${extra}
+                   THEN 1 / (char_length(${col}::text) - char_length(${col}::text)) ELSE 1 END = 1`;
+    const DIV0 = '22012';
+    const hiddenValues = () =>
+      [
+        ['pub_museum', 'name', 'Verborgen', ''],
+        ['pub_museum', 'slug', 'verborgen-nieuw', ''],
+        ['pub_museum', 'lat', 52.0123, ''],
+        ['pub_museum_alias', 'alias', 'Verborgen alias', ''],
+        ['pub_slug_redirect', 'old_slug', 'verborgen-oud', ''],
+        // NL-ZH holds only the hidden museum: its count must stay 0 under any qual.
+        ['pub_province', 'code', 'NL-ZH', 'AND museum_count > 0'],
+        // an older list version is not public either
+        ['pub_mk_list', 'published_on', '2026-01-01', ''],
+      ] as const;
+
+    beforeAll(async () => {
+      await api.query('UPDATE museum SET lat = 52.0123, lon = 4.5 WHERE id = $1', [hidden]);
+      expect((await api.query<{ h: boolean }>('SELECT hidden AS h FROM museum WHERE id = $1', [hidden])).rows).toEqual([
+        { h: true },
+      ]);
+    });
+
+    it('a qual that raises only for a hidden value never raises, through every view', async () => {
+      for (const [view, col, value, extra] of hiddenValues()) {
+        const all = (await ssr.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${view}`)).rows[0]?.n;
+        const r = await ssr.query<{ n: number }>(probe(view, col, extra), [value]).then(
+          (x) => x.rows[0]?.n,
+          (e: { code?: string }) => `error ${e.code}`,
+        );
+        expect(r, `${view}.${col}`).toBe(all);
+      }
+    });
+
+    it('the probe works: it raises for a visible value', async () => {
+      for (const [view, col, value] of [
+        ['pub_museum', 'name', 'Tweede'],
+        ['pub_museum_alias', 'alias', 'Zichtbaar alias'],
+        ['pub_slug_redirect', 'old_slug', 'tweede'],
+        ['pub_mk_list', 'published_on', '2026-06-01'],
+      ] as const)
+        expect(await code(ssr.query(probe(view, col), [value])), `${view}.${col}`).toBe(DIV0);
+    });
+
+    it('without the barrier the same probe leaks a hidden alias and a hidden old slug', async () => {
+      const leaky = ['pub_museum_alias', 'pub_slug_redirect'];
+      try {
+        for (const v of leaky) await owner.query(`ALTER VIEW ${v} SET (security_barrier = false)`);
+        expect(await code(ssr.query(probe('pub_museum_alias', 'alias'), ['Verborgen alias']))).toBe(DIV0);
+        expect(await code(ssr.query(probe('pub_slug_redirect', 'old_slug'), ['verborgen-oud']))).toBe(DIV0);
+      } finally {
+        for (const v of leaky) await owner.query(`ALTER VIEW ${v} SET (security_barrier = true)`);
+      }
+      expect(await code(ssr.query(probe('pub_museum_alias', 'alias'), ['Verborgen alias']))).toBe('ok');
+    });
+  });
 });
 
 describe('the planner', () => {
-  it('uses the GIN indexes through the views (no security barrier)', async () => {
+  it('the barrier keeps the leakproof quals on their indexes, and the non-leakproof search operators off them', async () => {
     await api.query('SET enable_seqscan = off');
     const plan = async (sql: string) =>
       (await api.query<Record<string, string>>(`EXPLAIN ${sql}`)).rows.map((r) => r['QUERY PLAN']).join('\n');
     try {
+      // text, uuid and float8 comparisons are leakproof: they pass the barrier and reach the indexes.
+      expect(await plan("SELECT id FROM pub_museum WHERE slug = 'zichtbaar'")).toContain('museum_slug_key');
+      expect(await plan("SELECT id FROM pub_museum WHERE id = '0197f0a2-0000-7000-8000-000000000001'")).toContain(
+        'museum_pkey',
+      );
+      expect(await plan('SELECT id FROM pub_museum WHERE lat >= 52 AND lat <= 52.1')).toContain('museum_lat_lon_idx');
+      // The keyset qual (text and uuid, leakproof) passes the barrier and reaches museum_sort_idx; the
+      // ORDER BY itself is a top-N sort above the barrier (search-explain.int.test.ts prints the plans).
+      expect(
+        await plan(
+          "SELECT id FROM pub_museum WHERE (sort_name, id) > ('k', '0197f0a2-0000-7000-8000-000000000001') ORDER BY sort_name, id LIMIT 10",
+        ),
+      ).toContain('museum_sort_idx');
+      // `@@` and `<%` are not: through the views they never reach the GIN indexes, which is why search
+      // goes through pub_search (search-explain.int.test.ts proves its plans).
       expect(
         await plan("SELECT id FROM pub_museum WHERE search @@ plainto_tsquery('pg_catalog.dutch', 'kroller')"),
-      ).toContain('museum_search_idx');
-      expect(await plan("SELECT id FROM pub_museum WHERE 'kroller' <% name_folded")).toContain('museum_name_trgm_idx');
-      expect(await plan("SELECT museum_id FROM pub_museum_alias WHERE 'kroller' <% alias_folded")).toContain(
-        'museum_alias_trgm_idx',
+      ).not.toContain('museum_search_idx');
+      expect(await plan("SELECT id FROM pub_museum WHERE 'kroller' <% name_folded")).not.toContain(
+        'museum_name_trgm_idx',
       );
-      expect(await plan('SELECT id FROM pub_museum ORDER BY sort_name, id LIMIT 10')).toContain('museum_sort_idx');
     } finally {
       await api.query('RESET enable_seqscan');
     }

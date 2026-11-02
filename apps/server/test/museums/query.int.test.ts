@@ -8,7 +8,7 @@ import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { silentLogger } from '../../src/lib/log.ts';
 import { encodeCursor } from '../../src/museums/cursor.ts';
-import { matches, setThreshold } from '../../src/museums/search.ts';
+import { matches } from '../../src/museums/search.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 import { seedCatalogue } from '../seed-catalogue.ts';
 
@@ -90,7 +90,6 @@ const hitsOf = (q: string): Promise<Hit[]> =>
     .transaction()
     .setAccessMode('read only')
     .execute(async (trx) => {
-      await setThreshold(trx);
       return (await sql<Hit>`${matches(q)}`.execute(trx)).rows;
     });
 

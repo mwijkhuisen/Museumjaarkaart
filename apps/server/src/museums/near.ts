@@ -18,6 +18,9 @@ export const START_RADIUS_M = 2_000;
 /** Widening of the box, in degrees: absorbs floating-point rounding, and only ever makes it safe. */
 const MARGIN_DEG = 1e-9;
 
+/** Today in the Netherlands, whatever the session's time zone. */
+export const NL_TODAY = sql<string>`(now() AT TIME ZONE 'Europe/Amsterdam')::date`;
+
 export type Box = { latMin: number; latMax: number; lonMin: number; lonMax: number };
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -111,7 +114,9 @@ export async function findNearest(db: Db, q: { lat: number; lon: number; limit: 
           .where('m.lat', '<=', box.latMax)
           .where('m.lon', '>=', box.lonMin)
           .where('m.lon', '<=', box.lonMax)
-          .where((eb) => eb.or([eb('m.closed_on', 'is', null), eb('m.closed_on', '>', sql<string>`current_date`)]))
+          // closed_on is a Dutch calendar date (P1a): compare it with today in the Netherlands, never with
+          // current_date, which follows the session's time zone (UTC in the containers).
+          .where((eb) => eb.or([eb('m.closed_on', 'is', null), eb('m.closed_on', '>', NL_TODAY)]))
           .orderBy('distance')
           .orderBy('m.id')
           .limit(limit)

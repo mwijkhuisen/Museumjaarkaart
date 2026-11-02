@@ -183,6 +183,34 @@ describe('the search document', () => {
     expect(await xminOf(id)).not.toBe(before);
   });
 
+  it('a recompute of the document alone leaves updated_at; a real field change moves it', async () => {
+    const updatedAt = async (id: string) =>
+      (await worker.query<{ t: string }>('SELECT updated_at::text AS t FROM museum WHERE id = $1', [id])).rows[0]?.t;
+    await worker.query(
+      "INSERT INTO municipality (cbs_code, name) VALUES ('GM0903', 'Tijdloos') ON CONFLICT DO NOTHING",
+    );
+    const id = await newMuseum(worker, { name: 'Klokhuis', municipality_code: 'GM0903' });
+    await api.query("UPDATE museum SET name_en = 'Clockhouse' WHERE id = $1", [id]);
+    const before = await updatedAt(id);
+    const xmin = await xminOf(id);
+
+    await worker.query("INSERT INTO museum_alias (museum_id, alias, source) VALUES ($1, 'Uurwerk', 'wikidata')", [id]);
+    expect(await has(id, 'uurwerk', 'B')).toBe(true);
+    await worker.query("UPDATE municipality SET name = 'Tijdrijk' WHERE cbs_code = 'GM0903'");
+    expect(await has(id, 'tijdrijk', 'C')).toBe(true);
+    expect(await xminOf(id)).not.toBe(xmin); // the row was rewritten…
+    expect(await updatedAt(id)).toBe(before); // …but none of its own fields changed
+
+    await worker.query("UPDATE museum SET place = 'Elders' WHERE id = $1", [id]);
+    const after = await updatedAt(id);
+    expect(after).not.toBe(before);
+    const later = await worker.query<{ later: boolean }>(
+      'SELECT updated_at > $2::timestamptz AS later FROM museum WHERE id = $1',
+      [id, before],
+    );
+    expect(later.rows[0]?.later).toBe(true);
+  });
+
   it('mjk_worker and mjk_api cannot write the column, whatever the statement', async () => {
     const id = await newMuseum(api);
     for (const c of [worker, api]) {
@@ -217,9 +245,10 @@ describe('the trigger functions', () => {
     'museum_slug_keep',
     'museum_slug_guard',
   ];
-  const TOUCH = ['museum_alias_search_touch', 'municipality_search_touch'];
+  // The SECURITY DEFINER trigger functions: they write what no login holds a grant for.
+  const TOUCH = ['museum_alias_search_touch', 'municipality_search_touch', 'museum_slug_keep'];
 
-  it('are owned by mjk_migrator, pin their search_path and are SECURITY DEFINER only for the touch functions', async () => {
+  it('are owned by mjk_migrator, pin their search_path and are SECURITY DEFINER only for the touch and keep functions', async () => {
     const { rows } = await owner.query<{
       proname: string;
       owner: string;
@@ -244,7 +273,7 @@ describe('the trigger functions', () => {
     }
   });
 
-  it('nobody but the owner may EXECUTE the touch functions', async () => {
+  it('nobody but the owner may EXECUTE the touch and keep functions', async () => {
     for (const fn of TOUCH)
       for (const login of ['mjk_api', 'mjk_worker', 'mjk_ssr', 'mjk_backup', 'mjk_migrator']) {
         const { rows } = await owner.query<{ has: boolean }>('SELECT has_function_privilege($1, $2, $3) AS has', [
@@ -256,6 +285,7 @@ describe('the trigger functions', () => {
       }
     // and a call as mjk_api is refused outright
     expect(await attempt(api, 'SELECT public.museum_alias_search_touch()')).toBe(DENIED);
+    expect(await attempt(api, 'SELECT public.museum_slug_keep()')).toBe(DENIED);
   });
 
   it('the triggers exist with the documented timing and events', async () => {
@@ -343,14 +373,25 @@ describe('old-slug redirects', () => {
     expect(await attempt(api, 'DELETE FROM museum_slug_redirect')).toBe(DENIED);
   });
 
+  it('no login can write a redirect directly (no forged pairs); a slug change still writes its own', async () => {
+    const id = await newMuseum(api, { slug: 'forge-a' });
+    for (const c of [api, worker, ssr])
+      expect(
+        await attempt(c, "INSERT INTO museum_slug_redirect (old_slug, museum_id) VALUES ('forged-slug', $1)", [id]),
+      ).toBe(DENIED);
+    await setSlug(id, 'forge-b');
+    expect(await redirects(id)).toEqual(['forge-a']);
+  });
+
   it('old_slug has the slug format and the table points at a museum', async () => {
+    // As the owner: no login may insert a redirect at all.
     const id = await newMuseum(api);
     expect(
-      await attempt(api, "INSERT INTO museum_slug_redirect (old_slug, museum_id) VALUES ('Bad Slug', $1)", [id]),
+      await attempt(owner, "INSERT INTO museum_slug_redirect (old_slug, museum_id) VALUES ('Bad Slug', $1)", [id]),
     ).toBe('23514');
     expect(
       await attempt(
-        api,
+        owner,
         "INSERT INTO museum_slug_redirect (old_slug, museum_id) VALUES ('ok-slug', '0197f0a2-0000-7000-8000-000000000001')",
       ),
     ).toBe('23503');
