@@ -187,12 +187,18 @@ importers:
 
   apps/server:
     dependencies:
+      '@hono/node-server':
+        specifier: 2.1.5
+        version: 2.1.5(hono@4.13.13)
       '@mjk/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       croner:
         specifier: 10.0.1
         version: 10.0.1
+      hono:
+        specifier: 4.13.13
+        version: 4.13.13
       kysely:
         specifier: 0.29.7
         version: 0.29.7
@@ -225,7 +231,11 @@ importers:
         specifier: 1.64.1
         version: 1.64.1
 
-  packages/contracts: {}
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
 packages:
 
@@ -382,6 +392,12 @@ packages:
 
   '@emnapi/wasi-threads@1.2.2':
     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
+
+  '@hono/node-server@2.1.5':
+    resolution: {integrity: sha512-MgP/I06GdvsilDspMk/qmRzpk8LOUStP6jFAbSRi40W09DhoyUn+Mj7eyKICPqeYKybOjVFLVIAQzvu1bfIa7Q==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4 || ^5.0.0-0
 
   '@inlang/paraglide-js@2.29.1':
     resolution: {integrity: sha512-rE1AH0Uc86WEb+0HUKAdrfOfu1aqpGkvHebEK3PEIFYC2VJj0asF2BI8QYKSalNHTqrctsrImm647NBBg2QzSw==}
@@ -961,6 +977,10 @@ packages:
 
   headers-polyfill@5.0.1:
     resolution: {integrity: sha512-1TJ6Fih/b8h5TIcv+1+Hw0PDQWJTKDKzFZzcKOiW1wJza3XoAQlkCuXLbymPYB8+ZQyw8mHvdw560e8zVFIWyA==}
+
+  hono@4.13.13:
+    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
+    engines: {node: '>=16.9.0'}
 
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
@@ -1644,6 +1664,10 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@hono/node-server@2.1.5(hono@4.13.13)':
+    dependencies:
+      hono: 4.13.13
+
   '@inlang/paraglide-js@2.29.1(typescript@6.0.3)(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))':
     dependencies:
       '@inlang/recommend-sherlock': 0.2.1
@@ -2061,6 +2085,8 @@ snapshots:
     dependencies:
       '@types/set-cookie-parser': 2.4.10
       set-cookie-parser: 3.2.1
+
+  hono@4.13.13: {}
 
   import-fresh@3.3.1:
     dependencies:

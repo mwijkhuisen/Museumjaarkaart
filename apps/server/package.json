@@ -9,8 +9,10 @@
     "db:types": "kysely-codegen --dialect postgres --date-parser string --exclude-pattern schema_migrations --out-file src/db/types.ts"
   },
   "dependencies": {
+    "@hono/node-server": "2.1.5",
     "@mjk/contracts": "workspace:*",
     "croner": "10.0.1",
+    "hono": "4.13.13",
     "kysely": "0.29.7",
     "pg": "8.23.1",
     "pino": "10.4.0",
