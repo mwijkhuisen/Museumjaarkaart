@@ -430,3 +430,26 @@ describe('canonicalJson and payloadHash', () => {
     expect(canonicalJson(b)).toBe(canonicalJson(a));
   });
 });
+
+describe('sync: a rejection stands', () => {
+  const base = w('Q1');
+  const renamed = { ...base, name: 'Nieuwe naam' };
+  const rejected = (value: unknown): PendingChange => ({
+    id: 'r1',
+    museum_id: ID(1),
+    field: 'name',
+    source: 'wikidata',
+    new: value,
+  });
+
+  it('news the owner rejected is not queued again', () => {
+    const p = plan(seeded([base], { rejected: [rejected('Nieuwe naam')] }), { wikidata: [renamed], rce: [] }, 'sync');
+    expect(p.changes).toEqual([]);
+    expect(p.counts.declined).toBe(1);
+  });
+
+  it('other news for that field still queues', () => {
+    const p = plan(seeded([base], { rejected: [rejected('Eerdere naam')] }), { wikidata: [renamed], rce: [] }, 'sync');
+    expect(p.changes).toEqual([expect.objectContaining({ field: 'name', state: 'pending', new: 'Nieuwe naam' })]);
+  });
+});

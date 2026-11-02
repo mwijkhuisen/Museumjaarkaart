@@ -67,6 +67,8 @@ export type SyncState = {
   museums: readonly MuseumState[];
   sourceRows: readonly SourceRowState[];
   pending: readonly PendingChange[];
+  /** Sync changes the owner rejected: the same news is not proposed again. */
+  rejected?: readonly PendingChange[];
   municipalities: readonly MunicipalityState[];
   provinces: readonly string[];
 };
@@ -113,6 +115,8 @@ export type Counts = {
   applied: Record<string, number>;
   pending: Record<string, number>;
   superseded: number;
+  /** Unsafe news the owner already rejected, not queued again. */
+  declined: number;
   pinned: number;
   gone: Record<Source, number>;
   returned: number;
@@ -320,6 +324,7 @@ export function plan(state: SyncState, sources: Sources, mode: 'seed' | 'sync', 
     applied: {},
     pending: {},
     superseded: 0,
+    declined: 0,
     pinned: 0,
     gone: { wikidata: 0, rce: 0 },
     returned: 0,
@@ -525,6 +530,11 @@ export function plan(state: SyncState, sources: Sources, mode: 'seed' | 'sync', 
     const k = `${c.museum_id}:${c.field}`;
     pendingBy.set(k, [...(pendingBy.get(k) ?? []), c]);
   }
+  const rejectedBy = new Map<string, PendingChange[]>();
+  for (const c of state.rejected ?? []) {
+    const k = `${c.museum_id}:${c.field}`;
+    rejectedBy.set(k, [...(rejectedBy.get(k) ?? []), c]);
+  }
   const superseded = new Set<string>();
   /** Supersedes the pending changes of a field, except the ones `spare` keeps. */
   const supersede = (museumId: string, field: ChangeField, spare: (c: PendingChange) => boolean = () => false) => {
@@ -552,6 +562,11 @@ export function plan(state: SyncState, sources: Sources, mode: 'seed' | 'sync', 
     const already = (pendingBy.get(`${m.id}:${field}`) ?? []).some(isSame);
     supersede(m.id, field, isSame);
     if (already) return;
+    // The owner rejected this very news before: a rejection stands until the source says something else.
+    if ((rejectedBy.get(`${m.id}:${field}`) ?? []).some(isSame)) {
+      counts.declined++;
+      return;
+    }
     out.changes.push({ museumId: m.id, field, old, new: next, source, external_id: externalId, state: 'pending' });
     bump(counts.pending, field);
   };

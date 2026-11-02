@@ -30,7 +30,7 @@ const chunks = <T>(items: readonly T[]): T[][] => {
 
 /** Everything plan() reads, in the transaction that will apply the plan. */
 export async function loadState(tx: Tx): Promise<SyncState> {
-  const [museums, aliases, sourceRows, pending, municipalities, provinces] = await Promise.all([
+  const [museums, aliases, sourceRows, pending, rejected, municipalities, provinces] = await Promise.all([
     tx
       .selectFrom('museum')
       .select([
@@ -83,9 +83,31 @@ export async function loadState(tx: Tx): Promise<SyncState> {
       .where('origin', '=', 'sync')
       .orderBy('id')
       .execute(),
+    tx
+      .selectFrom('museum_change')
+      .select(['id', 'museum_id', 'field', 'source', 'new'])
+      .where('state', '=', 'rejected')
+      .where('origin', '=', 'sync')
+      .orderBy('id')
+      .execute(),
     tx.selectFrom('municipality').select(['cbs_code', 'name', 'province_code']).execute(),
     tx.selectFrom('province').select('code').execute(),
   ]);
+  type ChangeRow = { id: string; museum_id: string | null; field: string; source: string | null; new: unknown };
+  const changes = (rows: readonly ChangeRow[]): PendingChange[] =>
+    rows.flatMap((c) =>
+      c.museum_id === null
+        ? []
+        : [
+            {
+              id: c.id,
+              museum_id: c.museum_id,
+              field: c.field as ChangeField,
+              source: c.source as Source | null,
+              new: c.new,
+            },
+          ],
+    );
   const aliasesOf = new Map<string, string[]>();
   for (const a of aliases) aliasesOf.set(a.museum_id, [...(aliasesOf.get(a.museum_id) ?? []), a.alias]);
   return {
@@ -105,19 +127,8 @@ export async function loadState(tx: Tx): Promise<SyncState> {
         gone: r.gone_since_run_id !== null,
       }),
     ),
-    pending: pending.flatMap((c): PendingChange[] =>
-      c.museum_id === null
-        ? []
-        : [
-            {
-              id: c.id,
-              museum_id: c.museum_id,
-              field: c.field as ChangeField,
-              source: c.source as Source | null,
-              new: c.new,
-            },
-          ],
-    ),
+    pending: changes(pending),
+    rejected: changes(rejected),
     municipalities,
     provinces: provinces.map((p) => p.code),
   };

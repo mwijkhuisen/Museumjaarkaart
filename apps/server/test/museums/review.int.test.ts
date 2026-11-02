@@ -363,6 +363,10 @@ describe('change queue', () => {
     const again = await h.admin('change', 'apply', id);
     expect([again.code, again.err[0]]).toEqual([65, 'admin: not_pending']);
     expect((await h.admin('change', 'reject', id)).code).toBe(65);
+    // The rejection stands: the next sync, with the same news, queues nothing for it.
+    const r2 = await sync();
+    expect(r2.summary.counts?.declined).toBeGreaterThanOrEqual(1);
+    expect((await changeRows(img.id, 'commons_file')).filter((c) => c.state === 'pending')).toEqual([]);
   });
 
   it('a closure change applies as closed_on', async () => {
