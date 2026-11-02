@@ -17,6 +17,11 @@
 #   even for three items: the branches were evaluated over all of Wikidata.
 # - No zero-length property path (P131? or P131*) outside the item set: with both ends unbound it
 #   matches every node. The municipality takes one hop and two hops as two branches.
+# - hint:Query hint:optimizer "None" keeps the join order as written. With 1,430 items the planner
+#   could start a branch from a pattern it thought smaller (all municipalities with a CBS code)
+#   instead of the items: the full run took 42 s once and timed out (HTTP 504) the next time, while
+#   60 items took 1.4 s. So every group below is written in the order it must run.
+PREFIX hint: <http://www.bigdata.com/queryHints#>
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -41,11 +46,14 @@ SELECT ?item
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?end), ""); SEPARATOR="\u001F") AS ?dissolved)
 WITH {
   # The items, once each (an item with two museum classes would otherwise be multiplied):
-  # 1,437 items, 1,430 after the Caribbean filter, in 7 s (the owner's probe, 2026-11-02).
+  # 1,437 items, 1,430 after the Caribbean filter (the owner's probes, 2026-11-02).
   SELECT DISTINCT ?item WHERE {
-    # @@MJK_VALUES@@
-    ?item wdt:P31/wdt:P279* wd:Q33506 ;
+    # The museum classes first (1.6 s in this order, the owner's probe), then their Dutch items.
+    ?class wdt:P279* wd:Q33506 .
+    ?item wdt:P31 ?class ;
           wdt:P17 wd:Q55 .
+    # A restricted recording's VALUES goes here, after the selection, so the order above holds.
+    # @@MJK_VALUES@@
     # Not the Caribbean Netherlands (owner decision Q3): Q27561 and, in case the chain is incomplete,
     # its three public bodies Bonaire, Sint Eustatius and Saba [U QIDs]. The parser also drops
     # coordinates outside the NL box.
@@ -56,6 +64,7 @@ WITH {
   }
 } AS %items
 WHERE {
+  hint:Query hint:optimizer "None" .
   # One UNION branch per kind of value, so an item's rows add up (one row per value) instead of
   # multiplying. A join of these as OPTIONALs makes every combination of aliases, links, images and
   # classes, and ran past the WDQS 60 s limit (HTTP 504, 2026-11-02).

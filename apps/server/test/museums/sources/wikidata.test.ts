@@ -249,8 +249,7 @@ describe('the query', () => {
   const text = wikidataQueryText();
 
   it('selects the museums of the European Netherlands, dissolved ones included', () => {
-    expect(text).toContain('wdt:P31/wdt:P279* wd:Q33506');
-    expect(text).toContain('wdt:P17 wd:Q55');
+    expect(text).toMatch(/\?class wdt:P279\* wd:Q33506 \.\s+\?item wdt:P31 \?class ;\s+wdt:P17 wd:Q55 \./);
     expect(text).toContain('wd:Q27561');
     expect(text).toMatch(/FILTER NOT EXISTS \{\s+VALUES \?caribbean/);
     expect(text).not.toMatch(/FILTER NOT EXISTS \{\s*\?item wdt:P576/);
@@ -277,8 +276,10 @@ describe('the query', () => {
     // Blazegraph evaluated the branches over all of Wikidata.
     expect(withBlock).toContain('SELECT DISTINCT ?item WHERE {');
     expect(withBlock).toMatch(/\} AS %items\s*$/);
-    expect(withBlock).toContain('wdt:P31/wdt:P279* wd:Q33506');
-    const body = where.slice(where.indexOf('{') + 1, where.lastIndexOf('}'));
+    expect(withBlock).toContain('?class wdt:P279* wd:Q33506 .');
+    const body = where
+      .slice(where.indexOf('{') + 1, where.lastIndexOf('}'))
+      .replace('hint:Query hint:optimizer "None" .', '');
     const branches = body.split('} UNION {');
     expect(branches).toHaveLength(16);
     for (const branch of branches) {
@@ -289,6 +290,20 @@ describe('the query', () => {
         .replace(/^\s*\{?\s*/, '');
       expect(code.startsWith('INCLUDE %items .'), code.slice(0, 60)).toBe(true);
     }
+  });
+
+  it('keeps the written join order, which runs every group from its bound variables', () => {
+    // With 1,430 items the planner could start from another pattern: the full run took 42 s once
+    // and timed out the next time, while 60 items took 1.4 s (the owner's runs, 2026-11-02).
+    expect(text).toContain('PREFIX hint: <http://www.bigdata.com/queryHints#>');
+    expect(where).toMatch(/^WHERE \{\n\s+hint:Query hint:optimizer "None" \.\n/);
+    // The selection runs class first (the order the owner's probe timed at 1.6 s), and a restricted
+    // recording's VALUES comes after it, before the Caribbean filter.
+    const sel = withBlock.indexOf('?class wdt:P279* wd:Q33506');
+    const marker = withBlock.indexOf('# @@MJK_VALUES@@');
+    expect(sel).toBeGreaterThan(0);
+    expect(marker).toBeGreaterThan(sel);
+    expect(withBlock.indexOf('FILTER NOT EXISTS')).toBeGreaterThan(marker);
   });
 
   it('has no zero-length property path outside the item set (unbound at both ends it matches every node)', () => {

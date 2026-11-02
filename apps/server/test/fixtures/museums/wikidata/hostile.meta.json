@@ -4,6 +4,6 @@
   "origin": "synthetic",
   "recordedOn": "2026-11-01",
   "licence": "CC0-1.0",
-  "querySha256": "4af9fe768988762abcfa3b1e72bbb3ccc90b81cce45daf104245c21ab16bc23c",
+  "querySha256": "33109858bb2f88bf4d77235ec10ac9c026ab63bba43674b39923b33d3cd78df7",
   "notes": "Hostile text: script and img markup, bidi overrides, zero-width characters, CR/LF/NEL, NUL, a label of 5,001 characters (label_too_long) and one of exactly 250 (valid), markup in a description, an alias equal to the name, a javascript: website and P973, bad file names, credentials in a URL."
 }

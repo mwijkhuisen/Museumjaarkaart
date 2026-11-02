@@ -10,8 +10,11 @@ import type { ParseResult, RceRow } from './types.ts';
 
 /** [U] The service path (the research names Veiligheid_van_Erfgoed). */
 export const RCE_WFS_URL = 'https://services.rce.geovoorziening.nl/Veiligheid_van_Erfgoed/wfs';
-/** [U] The feature type, with its namespace prefix. */
-export const RCE_TYPE_NAME = 'rce:overzichtmusea';
+/**
+ * The feature type, with its namespace prefix: the name data.overheid.nl lists for "Musea in
+ * Nederland" (dataset 44332). `rce:overzichtmusea` failed with http_status (O1, 2026-11-02).
+ */
+export const RCE_TYPE_NAME = 'Veiligheid_van_Erfgoed:overzichtmusea';
 /** [U] GeoServer answers `application/json` (GeoJSON) for WFS 2.0. */
 export const RCE_OUTPUT_FORMAT = 'application/json';
 /** [U] Longitude/latitude in EPSG:4326; the axis order of the answer is detected by the parser. */
