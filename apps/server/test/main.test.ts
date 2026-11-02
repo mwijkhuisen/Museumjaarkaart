@@ -26,18 +26,44 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([
-    [['api']],
-    [['ssr']],
-    [['worker']],
-    [['backup']],
-    [['sync-museums', '--dry-run']],
-    [['admin', 'invite', 'create']],
-  ])('%j is not built yet', async (argv) => {
+  it.each([[['api']], [['ssr']], [['backup']]])('%j is not built yet', async (argv) => {
     const lines: string[] = [];
     expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_NOT_BUILT);
     expect(lines).toEqual([`role ${argv[0]} is not built yet`]);
   });
+
+  it('admin groups of later phases are not built yet', async () => {
+    const lines: string[] = [];
+    const io = { out: (l: string) => lines.push(l) };
+    expect(await run(['admin', 'invite', 'create'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_NOT_BUILT);
+    expect(await run(['admin', 'user', 'role'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_NOT_BUILT);
+  });
+
+  it.each([
+    [['sync-museums', '--bogus']],
+    [['sync-museums', '--accept-drop', 'osm']],
+    [['sync-museums', '--accept-drop']],
+    [['sync-museums', '--seed', '--seed']],
+  ])('%j is a usage error', async (argv) => {
+    const lines: string[] = [];
+    expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+    expect(lines).toEqual(['usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce]']);
+  });
+
+  it('worker takes no arguments', async () => {
+    const lines: string[] = [];
+    expect(await run(['worker', 'x'], {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+  });
+
+  it.each([[['sync-museums', '--dry-run']], [['worker']]])(
+    '%j without a database setting is a config error that never prints the URL',
+    async (argv) => {
+      const lines: string[] = [];
+      const env = { DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
+      expect(await run(argv, env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
+      expect(lines.join('\n')).not.toMatch(/Secret-Value|mysql/);
+    },
+  );
 
   it('migrate without a database setting is a config error', async () => {
     const lines: string[] = [];
@@ -50,7 +76,7 @@ describe('run', () => {
 });
 
 describe('real CLI', () => {
-  it.each([['nope'], ['worker']])('%s exits 2', (role) => {
+  it.each([['nope'], ['api']])('%s exits 2', (role) => {
     const r = spawnSync(process.execPath, [MAIN, role], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });

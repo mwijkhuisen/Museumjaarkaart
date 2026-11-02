@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import pg from 'pg';
-import { createDb } from '../db/kysely.ts';
+import { createDb, type Db } from '../db/kysely.ts';
 import { dbUrl, EXIT_CONFIG } from '../db/migrate.ts';
 import { createPool, WORKER_POOL_MAX } from '../db/pool.ts';
 import { HEARTBEAT_PATH } from '../heartbeat.ts';
@@ -17,7 +17,8 @@ type Env = Readonly<Record<string, string | undefined>>;
 export async function runWorkerRole(
   env: Env,
   opts: {
-    handlers: Readonly<Record<string, JobHandler>>;
+    /** The handlers, or a function that builds them on the role's database. */
+    handlers: Readonly<Record<string, JobHandler>> | ((db: Db) => Readonly<Record<string, JobHandler>>);
     logger: Logger;
     signal: AbortSignal;
     heartbeatPath?: string;
@@ -38,7 +39,7 @@ export async function runWorkerRole(
     await runWorker({
       db,
       listen: () => new pg.Client({ connectionString: url.href, application_name: 'mjk_worker' }),
-      handlers: opts.handlers,
+      handlers: typeof opts.handlers === 'function' ? opts.handlers(db) : opts.handlers,
       logger,
       signal: opts.signal,
       workerId: `worker-${process.pid}-${randomBytes(3).toString('hex')}`,
