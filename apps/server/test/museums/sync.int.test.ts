@@ -24,6 +24,7 @@ const read = (source: 'wikidata' | 'rce', name: string): unknown =>
   JSON.parse(readFileSync(`${FIXTURES}${source}/${name}.json`, 'utf8'));
 
 type SparqlAnswer = Parameters<typeof week2>[0];
+const ENTITY = 'http://www.wikidata.org/entity/';
 const normalWikidata = read('wikidata', 'normal') as SparqlAnswer;
 const normalRce = read('rce', 'normal') as { features: unknown[] };
 
@@ -286,10 +287,28 @@ describe('the empty guard (criterion 4)', () => {
     expect((await runSync(db, normal(), silentLogger, { mode: 'seed' }, CFG)).outcome).toBe('applied');
   });
 
+  // Each case trips only the rule it names. The drop cases keep valid items only, so a recorded item
+  // the parser rejects (the real `normal` has one without an nl or en label) cannot push the invalid
+  // share over 2 % on its own; the invalid case adds label-less items and keeps every valid one.
+  const valid = new Set(parsedW.rows.map((x) => x.qid));
+  const validBindings = normalWikidata.results.bindings.filter((b) =>
+    valid.has((b.item?.value ?? '').slice(ENTITY.length)),
+  );
   const shrink = (share: number): SparqlAnswer => ({
     ...normalWikidata,
+    results: { bindings: validBindings.slice(0, Math.floor(validBindings.length * share)) },
+  });
+  const labelless = Math.ceil(0.05 * W_ROWS) + 1;
+  const withInvalid = (): SparqlAnswer => ({
+    ...normalWikidata,
     results: {
-      bindings: normalWikidata.results.bindings.slice(0, Math.floor(normalWikidata.results.bindings.length * share)),
+      bindings: [
+        ...normalWikidata.results.bindings,
+        ...Array.from({ length: labelless }, (_, i) => ({
+          item: { type: 'uri', value: `${ENTITY}Q9900${String(i).padStart(3, '0')}` },
+          classes: { type: 'literal', value: `${ENTITY}Q33506` },
+        })),
+      ],
     },
   });
 
@@ -298,7 +317,7 @@ describe('the empty guard (criterion 4)', () => {
     ['an empty answer', () => serve(read('wikidata', 'empty'), normalRce)],
     ['a schema failure', () => serve({ nope: true }, normalRce)],
     ['RCE under 90 %', () => serve(normalWikidata, { ...normalRce, features: normalRce.features.slice(0, 20) })],
-    ['more than 2 % invalid rows', () => serve(read('wikidata', 'edge'), normalRce)],
+    ['more than 2 % invalid rows', () => serve(withInvalid(), normalRce)],
   ])('%s applies nothing and keeps its baseline', async (_, fetchers) => {
     const before = await snapshot();
     const runs = await count('museum_sync_run');

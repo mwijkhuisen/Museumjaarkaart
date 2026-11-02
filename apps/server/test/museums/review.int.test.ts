@@ -5,10 +5,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { silentLogger } from '../../src/lib/log.ts';
+import { categoriesOf } from '../../src/museums/categories.ts';
 import { DEFAULT_PLAN_CONFIG } from '../../src/museums/diff.ts';
 import { type Fetchers, type FetchResult, runSync, type SyncConfig } from '../../src/museums/sync.ts';
 import { type Harness, openHarness } from '../admin/harness.ts';
-import { week2 } from '../fixtures/museums/week2.ts';
+import { has, parts, week2 } from '../fixtures/museums/week2.ts';
 
 // The match and change queues (plan §2.4, §2.6): a real queue from the seed plus one week of news,
 // worked through the admin CLI as mjk_api, and the sync run again to prove it keeps the decisions.
@@ -42,9 +43,12 @@ const qidOf = (b: Binding) => (b.item?.value ?? '').slice(ENTITY.length);
 // we hold (for a unique slug, and with aliases), and a changed class (a categories change waits).
 const { answer: base, picks } = week2(normalWikidata);
 const usedQids = new Set(Object.values(picks));
-const sameName = base.results.bindings.find((b) => b.labelNl !== undefined && !b.dissolved) as Binding;
+const live = (b: Binding) => !has(b, 'dissolved');
+const sameName = base.results.bindings.find((b) => (b.labelNl?.value ?? '') !== '' && live(b)) as Binding;
+// One whose categories really change when its classes become "art museum" (Q207694 maps to art).
+const categoriesNow = (b: Binding) => categoriesOf(parts(b, 'classes').map((uri) => uri.slice(ENTITY.length)));
 const reclassified = base.results.bindings.find(
-  (b) => b !== sameName && !usedQids.has(qidOf(b)) && !b.dissolved && b.classes?.value === `${ENTITY}Q33506`,
+  (b) => b !== sameName && !usedQids.has(qidOf(b)) && live(b) && categoriesNow(b).join() !== 'art',
 ) as Binding;
 const DUP_QID = 'Q99000997';
 const answer: SparqlAnswer = {

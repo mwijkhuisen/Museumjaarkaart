@@ -13,11 +13,21 @@ const METRE = 1 / 111_195;
 
 const qidOf = (b: Binding) => (b.item?.value ?? '').slice(ENTITY.length);
 const literal = (value: string): Value => ({ type: 'literal', value });
+/**
+ * A cell's values. The query COALESCEs every aggregate to "", so a cell is there for every item and
+ * may hold an empty record: only the non-empty parts count.
+ */
+export const parts = (b: Binding, name: string): string[] =>
+  (b[name]?.value ?? '').split('\u001F').filter((v) => v !== '');
+export const has = (b: Binding, name: string): boolean => parts(b, name).length > 0;
 
 /** The first point of a binding's coordinates, or undefined. */
 function point(b: Binding): { lon: number; lat: number } | undefined {
-  const m = /^Point\(([-0-9.]+) ([-0-9.]+)\)/.exec(b.coords?.value ?? '');
-  return m ? { lon: Number(m[1]), lat: Number(m[2]) } : undefined;
+  for (const raw of parts(b, 'coords')) {
+    const m = /^Point\(([-0-9.]+) ([-0-9.]+)\)$/.exec(raw);
+    if (m) return { lon: Number(m[1]), lat: Number(m[2]) };
+  }
+  return undefined;
 }
 
 const movedNorth = (b: Binding, metres: number): Binding => {
@@ -46,7 +56,7 @@ export function week2(normal: SparqlAnswer): { answer: SparqlAnswer; picks: Week
   const used = new Set<string>();
   const pick = (ok: (b: Binding) => boolean): Binding => {
     // From the back: the first items of `normal` are neighbour pairs for the ambiguous RCE rows.
-    const b = [...bindings].reverse().find((x) => !used.has(qidOf(x)) && !x.dissolved && ok(x));
+    const b = [...bindings].reverse().find((x) => !used.has(qidOf(x)) && !has(x, 'dissolved') && ok(x));
     if (!b) throw new Error('week2: the normal fixture has too few items for every role');
     used.add(qidOf(b));
     return b;
@@ -55,9 +65,10 @@ export function week2(normal: SparqlAnswer): { answer: SparqlAnswer; picks: Week
   const moved100 = pick(withCoords);
   const moved300 = pick(withCoords);
   const mergedFrom = pick(withCoords);
-  const renamed = pick((b) => b.labelNl !== undefined);
-  // One that has a website, so the week after (the old one back) is a safe change too.
-  const newWebsite = pick((b) => (b.websites?.value ?? '') !== '');
+  const renamed = pick((b) => (b.labelNl?.value ?? '') !== '');
+  // One with a website the parser keeps (https only, plan §2.1), so the week after (the old one back)
+  // is a safe change too. An http-only item has no website, and the way back would be a removal.
+  const newWebsite = pick((b) => parts(b, 'websites').some((w) => w.startsWith('https://')));
   const newImage = pick(() => true);
   const gone = pick(() => true);
   const dissolved = pick(() => true);
