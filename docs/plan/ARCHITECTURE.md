@@ -202,29 +202,33 @@ Checked 2026-11-01 (research input in `docs/plan/research/museum-data.md`).
 | `slug` | – | – | – | Made once at creation from the unaccented, lower-case name; on a collision `-<place>`, then `-2`. The sync never changes it (renames and old-slug redirects are P1b's) |
 | opening hours, exhibitions | – | – | – | Not stored; linked out (A§1) |
 
-Measured on the owner's full recording (O1, 2026-11-02), 1,430 items: 1,420 valid (10 without an nl or en label, 0.7 %, under the 2 % guard), 1,106 with coordinates, 1,178 with a municipality, 580 with a postcode, 920 with a website (451 of them upgraded from `http://`), 880 with a Commons file, 503 registered (P166), 76 dissolved (P576). The P31 classes are mostly plain "museum" (52 of the 60 recorded items), so most museums start in `other` until curated. RCE: 629 rows. In the 60-item sample, the seed matched 38 of the 40 registered museums with coordinates to their RCE row (31 by postcode and name, 7 by distance and name; the lowest name similarity 0.86, the largest distance 58 m).
+Measured on the owner's full recording (O1, 2026-11-02), 1,430 items: 1,420 valid (10 without an nl or en label, 0.7 %, under the 2 % guard), 1,106 with coordinates, 1,178 with a municipality, 580 with a postcode, 920 with a website (451 of them upgraded from `http://`), 880 with a Commons file, 503 registered (P166), 76 dissolved (P576). The P31 classes are mostly plain "museum" (1,114 of 1,344 live items). With every class that five or more items use mapped or neutral (`museums/categories.ts`), the seed gives 1,102 `other`, 113 history, 81 art, 33 science and technology and 19 natural history; the rest are curated. RCE: 629 rows. In the 60-item sample, the seed matched 38 of the 40 registered museums with coordinates to their RCE row (31 by postcode and name, 7 by distance and name; the lowest name similarity 0.86, the largest distance 58 m).
 
 ### 7.3 Matching
 
 One matcher (`apps/server/src/museums/match.ts`, pure, property-tested) serves the sync, RCE rows, visit imports (A§10) and "report a change":
 
 1. **QID** (directly, or through an RCE id already stored on a museum; a stored museum.nl URL counts only for imports and reports, because P973 on Wikidata is stale).
-2. **Postcode + name:** the same 6-character postcode and a name similarity ≥ 0.4 [U].
-3. **Distance + name:** under 150 m (haversine, strictly) and a name similarity ≥ 0.5 [U].
+2. **Postcode + name:** the same 6-character postcode and a name similarity ≥ 0.4.
+3. **Distance + name:** under 150 m (haversine, strictly) and a name similarity ≥ 0.5.
 4. **Anything else** goes to the admin review queue. Nothing is merged automatically below rule 3.
 
 Settled in P1a:
 
 - **Names:**
   - The similarity is the best of the candidate's name and its aliases, after `normaliseName()`. That function lower-cases, folds accents (NFKD plus ß, ĳ, æ, œ, ø …) and turns punctuation into spaces.
-  - It drops these whole words: `museum`, `musea`, `het`, `de`, `t` (from `'t`), `van`, `der`, `den`, `en`, `stichting` [U list, calibrated on the recordings]. Place names stay.
+  - It drops these whole words: `museum`, `musea`, `mus`, `het`, `de`, `t` (from `'t`), `van`, `der`, `den`, `en`, `in`, `stichting`, `stg`, `gem`. Place names stay. `mus`, `in`, `stg` and `gem` came from the RCE names' legal-form and abbreviation noise ("Markiezenhof, Gem. Bergen Op Zoom", "Mus Willet Holthuijzen"): on the full set they added one match and no ambiguous row.
 - **`pg_trgm` in TypeScript:** `museums/trigram.ts` ports `similarity()` (shared ÷ union, as a float4; empty gives 0), so the matcher stays pure. It equals PostgreSQL 18 (builtin C.UTF-8) on 345 pairs (`trigram.int.test.ts`). The thresholds are compared as float4 too.
 - **First rule decides:** the first rule with a passing candidate decides. One candidate is the match; two or more queue as `ambiguous`, and later rules are not tried.
 - **Identity never changes by itself:**
   - A Wikidata row with an unknown QID that hits a museum by rule 2 or 3 queues, as `qid_conflict` when the museum has another QID (a merge or redirect) or `qid_link` when it has none.
   - An RCE row never takes a museum that already holds another RCE row.
   - Two new RCE rows on one museum both queue as `duplicate`.
-- **Thresholds:** 0.4, 0.5 and 150 m are [U]. They are calibrated on the owner's recordings (O1) and the [box] run, and written back here.
+- **Thresholds, calibrated on the owner's full recording** (O1, 2026-11-02: the pure seed plan on 1,344 live Wikidata items and 629 RCE rows; the [box] run re-checks them):
+  - 492 RCE rows match (365 by rule 2, 127 by rule 3) and 137 queue: 115 with no candidate, 10 ambiguous, 12 duplicate (one museum, two RCE rows, such as a museum's second location).
+  - Of the 15 weakest matches (similarity 0.41 to 0.55), all but one or two are true pairs; raising rule 2 to 0.45 would lose about four of them to avoid one. So 0.4, 0.5 and 150 m stay.
+  - Seven matches lie more than 500 m apart (the largest 64 km), and six of those are true pairs with a wrong or rough coordinate on one side, so rule 2 has no distance cap. Wikidata's coordinates win (A§7.2): the owner fixes such an item on Wikidata or pins the field.
+  - The misses wait in the match queue: the same museum more than 150 m away (299 m and 187 m seen), and twin candidates at one postcode (two museums in one building).
 
 ### 7.4 Sync and diff
 
