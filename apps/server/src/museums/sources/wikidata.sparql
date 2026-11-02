@@ -1,0 +1,70 @@
+# mjk museum sync (P1a plan 2.2): every museum in the European Netherlands, one row per item.
+# Changing this file changes its sha256, which test/museums/sources/wikidata.test.ts pins to
+# test/fixtures/museums/wikidata/*.meta.json: re-record the fixtures (scripts/record-fixture.ts) with it.
+#
+# Truthy (wdt:) values only. Multi-values come back through GROUP_CONCAT, split in TypeScript
+# before any cleaning: records are separated by U+001F; the fields of the municipality record by U+001E.
+# Dissolved items (P576) are included on purpose: closures need them.
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schema: <http://schema.org/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?item
+  (SAMPLE(?lNl) AS ?labelNl)
+  (SAMPLE(?lEn) AS ?labelEn)
+  (SAMPLE(?dNl) AS ?descNl)
+  (SAMPLE(?dEn) AS ?descEn)
+  (GROUP_CONCAT(DISTINCT ?alias; SEPARATOR="\u001F") AS ?aliases)
+  (GROUP_CONCAT(DISTINCT ?coord; SEPARATOR="\u001F") AS ?coords)
+  (GROUP_CONCAT(DISTINCT ?site; SEPARATOR="\u001F") AS ?websites)
+  (GROUP_CONCAT(DISTINCT STR(?addr); SEPARATOR="\u001F") AS ?addresses)
+  (GROUP_CONCAT(DISTINCT ?pc; SEPARATOR="\u001F") AS ?postcodes)
+  (GROUP_CONCAT(DISTINCT ?muniRec; SEPARATOR="\u001F") AS ?municipalities)
+  (SAMPLE(?isRegistered) AS ?registered)
+  (GROUP_CONCAT(DISTINCT STR(?mnl); SEPARATOR="\u001F") AS ?museumnl)
+  (GROUP_CONCAT(DISTINCT STR(?image); SEPARATOR="\u001F") AS ?images)
+  (GROUP_CONCAT(DISTINCT STR(?class); SEPARATOR="\u001F") AS ?classes)
+  (MIN(?end) AS ?dissolved)
+WHERE {
+  # The items first, once each (an item with two museum classes would otherwise be multiplied).
+  {
+    SELECT DISTINCT ?item WHERE {
+      # @@MJK_VALUES@@
+      ?item wdt:P31/wdt:P279* wd:Q33506 ;
+            wdt:P17 wd:Q55 .
+      # Not the Caribbean Netherlands (owner decision Q3): Q27561 and, in case the chain is incomplete,
+      # its three public bodies Bonaire, Sint Eustatius and Saba [U QIDs]. The parser also drops
+      # coordinates outside the NL box.
+      FILTER NOT EXISTS {
+        VALUES ?caribbean { wd:Q27561 wd:Q25396 wd:Q26180 wd:Q25528 }
+        ?item wdt:P131* ?caribbean .
+      }
+    }
+  }
+  BIND(EXISTS { ?item wdt:P166 wd:Q110989587 } AS ?isRegistered)
+  OPTIONAL { ?item rdfs:label ?lNl FILTER(LANG(?lNl) = "nl") }
+  OPTIONAL { ?item rdfs:label ?lEn FILTER(LANG(?lEn) = "en") }
+  OPTIONAL { ?item schema:description ?dNl FILTER(LANG(?dNl) = "nl") }
+  OPTIONAL { ?item schema:description ?dEn FILTER(LANG(?dEn) = "en") }
+  OPTIONAL { ?item skos:altLabel ?alias FILTER(LANG(?alias) IN ("nl", "en")) }
+  OPTIONAL { ?item wdt:P625 ?coord }
+  OPTIONAL { ?item wdt:P856 ?site }
+  OPTIONAL { ?item wdt:P6375 ?addr }
+  OPTIONAL { ?item wdt:P281 ?pc }
+  # The municipality: one or two P131 hops to a live item with a CBS code, its Dutch label and its province's ISO code.
+  OPTIONAL {
+    ?item wdt:P131/wdt:P131? ?muni .
+    ?muni wdt:P382 ?cbs .
+    FILTER NOT EXISTS { ?muni wdt:P576 ?muniEnd }
+    OPTIONAL { ?muni rdfs:label ?muniLabel FILTER(LANG(?muniLabel) = "nl") }
+    OPTIONAL { ?muni wdt:P131 ?prov . ?prov wdt:P300 ?provIso }
+    BIND(CONCAT(STR(?cbs), "\u001E", COALESCE(STR(?muniLabel), ""), "\u001E", COALESCE(STR(?provIso), "")) AS ?muniRec)
+  }
+  OPTIONAL { ?item wdt:P973 ?mnl }
+  OPTIONAL { ?item wdt:P18 ?image }
+  OPTIONAL { ?item wdt:P31 ?class }
+  OPTIONAL { ?item wdt:P576 ?end }
+}
+GROUP BY ?item

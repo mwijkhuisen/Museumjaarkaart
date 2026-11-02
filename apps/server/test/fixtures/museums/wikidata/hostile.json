@@ -1,0 +1,764 @@
+{
+  "head": {
+    "vars": [
+      "item",
+      "labelNl",
+      "labelEn",
+      "descNl",
+      "descEn",
+      "aliases",
+      "coords",
+      "websites",
+      "addresses",
+      "postcodes",
+      "municipalities",
+      "registered",
+      "museumnl",
+      "images",
+      "classes",
+      "dissolved"
+    ]
+  },
+  "results": {
+    "bindings": [
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200001"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.9 52.3)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "</script><script>alert(1)</script>"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200002"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.91 52.31)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "<img src=x onerror=alert(document.cookie)>"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200003"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.92 52.32)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "\u202egnitset\u202c Museum \u202dLRO\u202c \u2066iso\u2069"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200004"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.93 52.33)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Mu\u200dse\u200bum\ufeff Zero\u2060Width"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200005"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.94 52.34)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Museum\r\nMet\tRegel\u2028eindes\u0085"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200006"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.95 52.35)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Muse\u0000um\u0007 Met Nul"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200007"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.96 52.36)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200008"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "Museum Met Markup\u001f\u202ealias\u202c\u001f<i>cursief</i>\u001fMuseum\nMet\nMarkup"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.97 52.37)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Museum Met Markup"
+        },
+        "descNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "<b>vet</b> & <a href=\"javascript:alert(1)\">klik</a>"
+        },
+        "descEn": {
+          "xml:lang": "en",
+          "type": "literal",
+          "value": "<script>alert(\"en\")</script>"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200009"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.98 52.38)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "javascript:alert(1)"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "javascript:alert(2)"
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Museum Met Javascript"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200010"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.99 52.39)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "http://commons.wikimedia.org/wiki/Special:FilePath/..%2F..%2Fetc%2Fpasswd\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/%3Cscript%3E.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Museum Met Bestandsnaam"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200011"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5 52.4)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200012"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5.01 52.41)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "Dorp\u202estraat 1\u200b2,\u00a01071\u00a0dj\u00a0Am\u202cster\u0000dam"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "0363\u001e<i>Amsterdam</i>\u202e\u001eNL-NH"
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Museum Met Gemeente"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200013"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5.02 52.42)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "\u200b\u200d \u202e"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q99200014"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5.03 52.43)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "https://user:secret@www.inlog.example/"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": ""
+        },
+        "registered": {
+          "datatype": "http://www.w3.org/2001/XMLSchema#boolean",
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506"
+        },
+        "labelNl": {
+          "xml:lang": "nl",
+          "type": "literal",
+          "value": "Museum Met Wachtwoord"
+        }
+      }
+    ]
+  }
+}

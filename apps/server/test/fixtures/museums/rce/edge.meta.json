@@ -1,0 +1,8 @@
+{
+  "source": "rce",
+  "case": "edge",
+  "origin": "synthetic",
+  "recordedOn": "2026-11-01",
+  "licence": "PDM-1.0",
+  "notes": "Hand-made edge cases: swapped axes, RD New coordinates, a null geometry, no name, a duplicate id, no properties, a bad postcode, an id from a property and a numeric house number, a polygon, no id, an over-long name, a point on and just outside the box, coordinates as text."
+}

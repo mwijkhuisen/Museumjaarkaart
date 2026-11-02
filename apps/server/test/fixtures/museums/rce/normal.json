@@ -1,0 +1,695 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3.59402, 51.50513]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Glasmuseum Elshoek",
+        "straat": "Kerkstraat",
+        "huisnummer": "31",
+        "postcode": "4340 BC",
+        "plaats": "Elshoek",
+        "gemeente": "Middelburg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.2",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.58292, 52.99253]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Visserijmuseum Hazelhoek",
+        "straat": "Molenweg",
+        "huisnummer": "34",
+        "postcode": "9413DE",
+        "plaats": "Hazelhoek",
+        "gemeente": "Assen"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.3",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.63262, 52.37273]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Streekmuseum Iephoek",
+        "straat": "Dorpsstraat",
+        "huisnummer": "37",
+        "postcode": "2026 FG",
+        "plaats": "Iephoek",
+        "gemeente": "Haarlem"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.4",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.47142, 52.51853]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Scheepvaartmuseum Kershoek",
+        "straat": "Havenkade",
+        "huisnummer": "40",
+        "postcode": "8229HJ",
+        "plaats": "Kershoek",
+        "gemeente": "Lelystad"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.5",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.89392, 52.38053]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Textielmuseum Meidoornhoek",
+        "straat": "Stationsplein",
+        "huisnummer": "43",
+        "postcode": "1011 KL",
+        "plaats": "Meidoornhoek",
+        "gemeente": "Amsterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.14862, 52.09313]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Natuurmuseum Appelveld",
+        "straat": "Schoolstraat",
+        "huisnummer": "46",
+        "postcode": "3514AB",
+        "plaats": "Appelveld",
+        "gemeente": "Utrecht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.47092, 51.91633]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Techniekmuseum Bergveld",
+        "straat": "Beukenlaan",
+        "huisnummer": "49",
+        "postcode": "3017 CD",
+        "plaats": "Bergveld",
+        "gemeente": "Rotterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.8",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.33132, 52.09603]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Kunstmuseum Kruidveld",
+        "straat": "Lindelaan",
+        "huisnummer": "52",
+        "postcode": "2520EF",
+        "plaats": "Kruidveld",
+        "gemeente": "'s-Gravenhage"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.9",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.83392, 53.20573]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Molenmuseum Mosterdveld",
+        "straat": "Kasteellaan",
+        "huisnummer": "58",
+        "postcode": "8926 JK",
+        "plaats": "Mosterdveld",
+        "gemeente": "Leeuwarden"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.08302, 52.51083]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Boerderijmuseum Noordveld",
+        "straat": "Kerkstraat",
+        "huisnummer": "61",
+        "postcode": "8029LM",
+        "plaats": "Noordveld",
+        "gemeente": "Zwolle"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.69432, 50.86853]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Glasmuseum Westerveld",
+        "straat": "Dorpsstraat",
+        "huisnummer": "67",
+        "postcode": "6214 RS",
+        "plaats": "Westerveld",
+        "gemeente": "Maastricht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.46972, 51.44163]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Visserijmuseum Zuidveld",
+        "straat": "Havenkade",
+        "huisnummer": "70",
+        "postcode": "5617TV",
+        "plaats": "Zuidveld",
+        "gemeente": "Eindhoven"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.13",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3.61782, 51.49493]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Streekmuseum Beukveld",
+        "straat": "Stationsplein",
+        "huisnummer": "73",
+        "postcode": "4340 WX",
+        "plaats": "Beukveld",
+        "gemeente": "Middelburg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.14",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.53532, 52.98233]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Scheepvaartmuseum Elsveld",
+        "straat": "Schoolstraat",
+        "huisnummer": "76",
+        "postcode": "9413BC",
+        "plaats": "Elsveld",
+        "gemeente": "Assen"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.15",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.65642, 52.40663]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Textielmuseum Hazelveld",
+        "straat": "Beukenlaan",
+        "huisnummer": "79",
+        "postcode": "2026 DE",
+        "plaats": "Hazelveld",
+        "gemeente": "Haarlem"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.16",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.10102, 52.08293]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Kunstmuseum Meidoornveld",
+        "straat": "Kasteellaan",
+        "huisnummer": "88",
+        "postcode": "3514KL",
+        "plaats": "Meidoornveld",
+        "gemeente": "Utrecht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.17",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.79992, 53.20123]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Spoorwegmuseum Lindevoorde",
+        "straat": "Havenkade",
+        "huisnummer": "3",
+        "postcode": "8926 GH",
+        "plaats": "Lindevoorde",
+        "gemeente": "Leeuwarden"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.18",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.5633, 53.2351]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Speelgoedmuseum Lindeveld",
+        "straat": "Marktplein",
+        "huisnummer": "55",
+        "postcode": "9712 NP",
+        "plaats": "Lindeveld",
+        "gemeente": "Groningen"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.19",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.8649, 51.9693]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Spoorwegmuseum Oostveld",
+        "straat": "Molenweg",
+        "huisnummer": "64",
+        "postcode": "6812 WX",
+        "plaats": "Oostveld",
+        "gemeente": "Arnhem"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.20",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.7183, 50.859]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Streekmuseum Oostvoorde",
+        "straat": "Beukenlaan",
+        "huisnummer": "12",
+        "postcode": "6212 WX",
+        "plaats": "Oostvoorde",
+        "gemeente": "Maastricht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.21",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.4478, 52.5279]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Natuurmuseum Iepveld",
+        "straat": "Lindelaan",
+        "huisnummer": "82",
+        "postcode": "8229 EF",
+        "plaats": "Iepveld",
+        "gemeente": "Lelystad"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.22",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.9179, 52.371]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Techniekmuseum Kersveld",
+        "straat": "Marktplein",
+        "huisnummer": "85",
+        "postcode": "1011 GH",
+        "plaats": "Kersveld",
+        "gemeente": "Amsterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.23",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.4949, 51.9509]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Speelgoedmuseum Appelvoorde",
+        "straat": "Kerkstraat",
+        "huisnummer": "91a",
+        "postcode": "3017 LM",
+        "plaats": "Appelvoorde",
+        "gemeente": "Rotterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.24",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.2839, 52.0865]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Molenmuseum Bergvoorde",
+        "straat": "Molenweg",
+        "huisnummer": "94",
+        "postcode": "2520 NP",
+        "plaats": "Bergvoorde",
+        "gemeente": "'s-Gravenhage"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.25",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.5871, 53.2249]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Boerderijmuseum Kruidvoorde",
+        "straat": "Dorpsstraat",
+        "huisnummer": "97",
+        "postcode": "9723 RS",
+        "plaats": "Kruidvoorde",
+        "gemeente": "Groningen"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.26",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.107, 52.5454]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Glasmuseum Mosterdvoorde",
+        "straat": "Stationsplein",
+        "huisnummer": "6",
+        "postcode": "8029 WX",
+        "plaats": "Mosterdvoorde",
+        "gemeente": "Zwolle"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.27",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.8887, 52.0032]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Visserijmuseum Noordvoorde",
+        "straat": "Schoolstraat",
+        "huisnummer": "9a",
+        "postcode": "6811 BC",
+        "plaats": "Noordvoorde",
+        "gemeente": "Arnhem"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.28",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.4631, 51.4387]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Het Scheepvaartmuseum Westervoorde",
+        "straat": "Lindelaan",
+        "huisnummer": "15",
+        "postcode": "5617 FG",
+        "plaats": "Westervoorde",
+        "gemeente": "Eindhoven"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.29",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3.6418, 51.5295]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stichting Textielmuseum Zuidvoorde",
+        "straat": "Marktplein",
+        "huisnummer": "18",
+        "postcode": "4340 HJ",
+        "plaats": "Zuidvoorde",
+        "gemeente": "Middelburg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.30",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.87025, 52.34685]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stadsmuseum Appelhoek",
+        "straat": "Kerkstraat",
+        "huisnummer": "1a",
+        "postcode": "1051 RS",
+        "plaats": "Appelhoek",
+        "gemeente": "Amsterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.31",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.09095, 52.09305]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stadsmuseum Kruidhoek",
+        "straat": "Dorpsstraat",
+        "huisnummer": "7",
+        "postcode": "3551 TV",
+        "plaats": "Kruidhoek",
+        "gemeente": "Utrecht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.32",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.45065, 51.90575]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stadsmuseum Mosterdhoek",
+        "straat": "Stationsplein",
+        "huisnummer": "13",
+        "postcode": "3051 WX",
+        "plaats": "Mosterdhoek",
+        "gemeente": "Rotterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.33",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.27705, 52.07495]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stadsmuseum Oosthoek",
+        "straat": "Beukenlaan",
+        "huisnummer": "19",
+        "postcode": "2551 BC",
+        "plaats": "Oosthoek",
+        "gemeente": "'s-Gravenhage"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.34",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.54625, 53.20285]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Stadsmuseum Zuidhoek",
+        "straat": "Marktplein",
+        "huisnummer": "25",
+        "postcode": "9751 DE",
+        "plaats": "Zuidhoek",
+        "gemeente": "Groningen"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.35",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.7, 52.95]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Gildemuseum Nergenshoek",
+        "straat": "Waterstraat",
+        "huisnummer": "4",
+        "postcode": "9999 ZZ",
+        "plaats": "Nergenshoek",
+        "gemeente": "Assen"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.36",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.75, 52.55]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Museum De Verdwenen Pomp",
+        "straat": "Pompweg",
+        "huisnummer": "1",
+        "postcode": "1234 ZZ",
+        "plaats": "Pompveld",
+        "gemeente": "Haarlem"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.37",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.65, 52.45]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Bakkerijmuseum Rogge",
+        "straat": "Broodstraat",
+        "huisnummer": "12",
+        "postcode": "8888 YY",
+        "plaats": "Roggedam",
+        "gemeente": "Lelystad"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.38",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.95, 52.2]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Kaasmuseum De Korst",
+        "straat": "Zuivelpad",
+        "huisnummer": "7b",
+        "postcode": "2222 BB",
+        "plaats": "Korstveld",
+        "gemeente": "Utrecht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.39",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3.7, 51.55]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Vuurtorenmuseum Rondom",
+        "straat": "Duinweg",
+        "huisnummer": "3",
+        "postcode": "4444 CC",
+        "plaats": "Rondomhoek",
+        "gemeente": "Middelburg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.40",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.8, 50.95]
+      },
+      "geometry_name": "geom",
+      "properties": {
+        "naam": "Museum Het Lege Kasteel",
+        "straat": "Slotlaan",
+        "huisnummer": "9",
+        "postcode": "6666 DD",
+        "plaats": "Slotdam",
+        "gemeente": "Maastricht"
+      }
+    }
+  ],
+  "totalFeatures": 40,
+  "numberMatched": 40,
+  "numberReturned": 40,
+  "timeStamp": "2026-11-01T08:00:00.000Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}

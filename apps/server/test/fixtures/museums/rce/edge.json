@@ -1,0 +1,239 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.901",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [52.3676, 4.9041]
+      },
+      "properties": {
+        "naam": "Museum Omgewisselde Assen",
+        "straat": "Draaistraat",
+        "huisnummer": "1",
+        "postcode": "1011 AB",
+        "plaats": "Amsterdam",
+        "gemeente": "Amsterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.902",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [121000, 487000]
+      },
+      "properties": {
+        "naam": "Museum In Rijksdriehoek",
+        "straat": "Meterstraat",
+        "huisnummer": "2",
+        "postcode": "3511 AB",
+        "plaats": "Utrecht",
+        "gemeente": "Utrecht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.903",
+      "geometry": null,
+      "properties": {
+        "naam": "Museum Zonder Plek",
+        "straat": "Nergensstraat",
+        "huisnummer": "3",
+        "postcode": "3011 AB",
+        "plaats": "Rotterdam",
+        "gemeente": "Rotterdam"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.904",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.9, 52.3]
+      },
+      "properties": {
+        "straat": "Naamloos",
+        "plaats": "Ergens"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.905",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.3007, 52.0705]
+      },
+      "properties": {
+        "naam": "Museum Dubbel Een",
+        "straat": "Eerste",
+        "huisnummer": "1",
+        "postcode": "2511 AB",
+        "plaats": "'s-Gravenhage",
+        "gemeente": "'s-Gravenhage"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.905",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.31, 52.08]
+      },
+      "properties": {
+        "naam": "Museum Dubbel Twee",
+        "straat": "Tweede",
+        "huisnummer": "2",
+        "postcode": "2511 AC",
+        "plaats": "'s-Gravenhage",
+        "gemeente": "'s-Gravenhage"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.906",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.9, 52.3]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.907",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.5665, 53.2194]
+      },
+      "properties": {
+        "naam": "Museum Slechte Postcode",
+        "straat": "Postweg",
+        "huisnummer": "7",
+        "postcode": "12345 AB",
+        "plaats": "Groningen",
+        "gemeente": "Groningen"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.7999, 53.2012]
+      },
+      "properties": {
+        "museum_id": "M-0042",
+        "naam": "Museum Eigen Sleutel",
+        "straat": "Sleutelstraat",
+        "huisnummer": 12,
+        "postcode": "8911ab",
+        "plaats": "Leeuwarden",
+        "gemeente": "Leeuwarden"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.909",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[6, 52.5], [6.1, 52.5], [6.1, 52.6], [6, 52.5]]]
+      },
+      "properties": {
+        "naam": "Museum Met Vlak",
+        "straat": "Vlakstraat",
+        "huisnummer": "9",
+        "postcode": "8011 AB",
+        "plaats": "Zwolle",
+        "gemeente": "Zwolle"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.8987, 51.9851]
+      },
+      "properties": {
+        "naam": "Museum Zonder Sleutel",
+        "straat": "Anoniem",
+        "huisnummer": "1",
+        "postcode": "6811 AB",
+        "plaats": "Arnhem",
+        "gemeente": "Arnhem"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.911",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.6909, 50.8514]
+      },
+      "properties": {
+        "naam": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "straat": "Langweg",
+        "huisnummer": "1",
+        "postcode": "6211 AB",
+        "plaats": "Maastricht",
+        "gemeente": "Maastricht"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.912",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3.2, 51.4]
+      },
+      "properties": {
+        "naam": "Museum Rand Van De Doos",
+        "straat": "Randweg",
+        "huisnummer": "1",
+        "postcode": "4331 AB",
+        "plaats": "Middelburg",
+        "gemeente": "Middelburg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.913",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [3.1999, 51.4]
+      },
+      "properties": {
+        "naam": "Museum Net Buiten De Doos",
+        "straat": "Randweg",
+        "huisnummer": "2",
+        "postcode": "4331 AC",
+        "plaats": "Middelburg",
+        "gemeente": "Middelburg"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "overzichtmusea.914",
+      "geometry": {
+        "type": "Point",
+        "coordinates": ["5.4697", "51.4416"]
+      },
+      "properties": {
+        "naam": "Museum Met Tekst Als Coordinaat",
+        "straat": "Tekstweg",
+        "huisnummer": "3",
+        "postcode": "5611 AB",
+        "plaats": "Eindhoven",
+        "gemeente": "Eindhoven"
+      }
+    }
+  ],
+  "totalFeatures": 15,
+  "numberMatched": 15,
+  "numberReturned": 15,
+  "timeStamp": "2026-11-01T08:00:00.000Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}

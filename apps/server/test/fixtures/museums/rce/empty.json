@@ -1,0 +1,14 @@
+{
+  "type": "FeatureCollection",
+  "features": [],
+  "totalFeatures": 0,
+  "numberMatched": 0,
+  "numberReturned": 0,
+  "timeStamp": "2026-11-01T08:00:00.000Z",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4326"
+    }
+  }
+}
