@@ -23,7 +23,15 @@
 
 - No extra container, backup or dependency.
 - We own the retry and backoff code; integration tests on real PostgreSQL 18 cover locking and retries (A§18).
-- Typo tolerance across words is limited [U]; it is tuned in P1b and is enough for ~1,400 rows.
+- Typo tolerance (tuned in P1b on the seeded 1,400-museum catalogue):
+  - Typos within a word are found by trigram word similarity (`<%`), with threshold 0.55. At 0.6, "tylers" misses Teylers (similarity 0.57); at 0.5, "rijksmusem" gives 15 museums instead of 8, and the exact word "rijksmuseum" adds 95 compound hits.
+  - Across words, full-text search (`websearch_to_tsquery`, AND semantics) needs every word, so a typo in one word of several falls back to the trigram tiers.
+  - That is enough for ~1,400 rows.
+- Planner at this size (P1b, PostgreSQL 18.6):
+  - At 1,400 museums a sequential scan beats the full-text GIN index (0.7 against 0.4 ms). The planner switches to the index on its own between 10,000 and 20,000 rows.
+  - The trigram GIN indexes are about 4× faster than a scan. With `unaccent`'s wrapper at the default COST 100, the planner still picked the scan. `COST 250` (measured: a per-row predicate of ~4.5 µs) makes it pick the indexes.
+  - A fresh bulk load leaves the GIN pending list unflushed, which inflates the index estimates until (auto)vacuum.
+  - Owner decision 2026-11-02: criterion 6 is proven that way (A§18).
 - One database carries the queue's writes, which are small at this scale [U].
 
 ## Alternatives rejected
