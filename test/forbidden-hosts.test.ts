@@ -15,7 +15,7 @@ const FIXTURES = 'apps/server/test/fixtures/museums/';
 // A host label run before the dotted name, so `rijksmuseum.nl` is not `museum.nl`. An optional backslash
 // before each dot also catches a regex written `museum\.nl`.
 const D = String.raw`\\?\.`;
-const START = String.raw`(?<![a-z0-9-])`;
+const START = '(?<![a-z0-9-])';
 const PATTERNS: Record<string, RegExp> = {
   'museum.nl': new RegExp(`${START}(?:[a-z0-9-]+${D})*museum${D}nl(?![a-z0-9-])`, 'gi'),
   'museumkaart.nl': new RegExp(`${START}(?:[a-z0-9-]+${D})*museumkaart${D}nl`, 'gi'),
