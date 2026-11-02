@@ -13,6 +13,7 @@ import {
   flagMuseum,
   ImportRefused,
   importCsv,
+  pinFields,
   priceMuseum,
   publishList,
   type Summary,
@@ -132,6 +133,16 @@ const museum: Group = {
       if (!clear && !/^(0|[1-9][0-9]{0,8})$/.test(cents as string)) throw new AdminError(EXIT_DATA, 'bad_price');
       const s = await priceMuseum(ctx.db, ref, clear ? null : Number(cents), flag(ctx, 'verified'));
       printSummary(ctx.io, s);
+      return 0;
+    },
+  },
+  pin: {
+    spec: { min: 2, max: 40, bools: ['unpin'] },
+    async run(ctx) {
+      const [ref, ...fields] = ctx.pos as [string, ...string[]];
+      const r = await pinFields(ctx.db, ref, fields, ctx.flags.has('unpin'));
+      const pinned = r.pinned.length === 0 ? 'none' : r.pinned.join(', ');
+      ctx.io.out(`${r.slug} (${clean(r.name)}): ${r.changed ? 'changed' : 'no change'}, pinned: ${pinned}`);
       return 0;
     },
   },
@@ -266,7 +277,7 @@ export const GROUPS: Record<string, Group> = { museum, list, match, change };
 export const NOT_BUILT: readonly string[] = ['invite', 'user'];
 
 const USAGE =
-  'usage: admin <museum flag|price|export|import | list publish|show | match list|resolve | change list|apply|reject> …';
+  'usage: admin <museum flag|price|pin|export|import | list publish|show | match list|resolve | change list|apply|reject> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 

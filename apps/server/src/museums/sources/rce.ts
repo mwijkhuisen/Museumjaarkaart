@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { LIMITS, NL_BOX } from '../fields.ts';
 import { type FetchJsonResult, fetchJson, type HttpDeps } from './http.ts';
+import { RCE_ID, rcePayload } from './payload.ts';
 import { cleanText, postcode } from './text.ts';
 import type { ParseResult, RceRow } from './types.ts';
 
@@ -146,6 +147,8 @@ function build(feature: unknown, notes: Set<string>): Built {
   if (rawId === undefined) return { invalid: 'no_id' };
   const id = cleanText(rawId, LIMITS.rceId);
   if (!id.ok) return { invalid: id.code === 'empty' ? 'no_id' : 'id_too_long' };
+  // The key is stored as `museum.rce_id` and `museum_source_row.external_id`, and named in `admin match resolve rce:<id>`.
+  if (!RCE_ID.test(id.value)) return { invalid: 'bad_id' };
 
   const rawName = props[RCE_PROPS.name];
   if (typeof rawName !== 'string') return { invalid: 'no_name' };
@@ -175,7 +178,7 @@ function build(feature: unknown, notes: Set<string>): Built {
   };
 }
 
-/** Parses a WFS GeoJSON FeatureCollection into rows sorted by `rceId`. Never throws. */
+/** Parses a WFS GeoJSON FeatureCollection into rows sorted by `rceId`, each one fitting the columns. Never throws. */
 export function parseRce(json: unknown): ParseResult<RceRow> {
   try {
     const collection = Collection.safeParse(json);
@@ -190,6 +193,11 @@ export function parseRce(json: unknown): ParseResult<RceRow> {
       const built = build(feature, featureNotes);
       if ('invalid' in built) {
         bump(invalid, built.invalid);
+        continue;
+      }
+      // The column shapes, checked once more: a row the database would refuse is dropped here, not in the run.
+      if (!rcePayload.safeParse(built.row).success) {
+        bump(invalid, 'bad_payload');
         continue;
       }
       if (seen.has(built.row.rceId)) {

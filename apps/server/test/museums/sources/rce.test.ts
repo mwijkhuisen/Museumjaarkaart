@@ -2,6 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { LIMITS, NL_BOX, POSTCODE } from '../../../src/museums/fields.ts';
 import { parseFixtureMeta } from '../../../src/museums/sources/fixture-meta.ts';
+import { RCE_ID, rcePayload } from '../../../src/museums/sources/payload.ts';
 import { parseRce, RCE_PROPS, RCE_TYPE_NAME, RCE_WFS_URL, rceUrl } from '../../../src/museums/sources/rce.ts';
 import type { ParseResult, RceRow } from '../../../src/museums/sources/types.ts';
 import { allStrings, CASES, CH, FORBIDDEN_CHARS, fixturePath, goldenText, readFixture, readMeta } from './golden.ts';
@@ -27,7 +28,8 @@ function assertResult(result: ParseResult<RceRow>): void {
   }
   let previous: string | undefined;
   for (const row of result.rows) {
-    must(row.rceId !== '' && chars(row.rceId) <= LIMITS.rceId, 'rce id');
+    must(row.rceId !== '' && chars(row.rceId) <= LIMITS.rceId && RCE_ID.test(row.rceId), 'rce id');
+    must(rcePayload.safeParse(row).success, 'the stored payload shape');
     must(previous === undefined || previous < row.rceId, 'sorted and unique');
     previous = row.rceId;
     must(row.name !== '' && chars(row.name) <= LIMITS.label, 'name');
@@ -64,6 +66,11 @@ describe('fixtures', () => {
     assertResult(result);
     expect(result.ok).toBe(true);
     await expect(goldenText(result)).toMatchFileSnapshot(fixturePath('rce', name, 'golden.json'));
+  });
+
+  it.each(CASES)('%s: every parsed row passes the payload schema the database columns stand behind', (name) => {
+    const rows = parseCase(name).rows;
+    for (const row of rows) expect(rcePayload.safeParse(row).success, row.rceId).toBe(true);
   });
 
   it.each(CASES)('%s: has a valid meta file', (name) => {
@@ -217,6 +224,23 @@ describe('the parser: envelope', () => {
     );
     expect(r.invalid).toEqual({ bad_feature: 4, id_too_long: 1, name_too_long: 1, no_id: 2, no_name: 2 });
     expect(r.rows.map((x) => x.rceId)).toEqual(['ok']);
+  });
+
+  it('drops a feature whose id does not fit the rce_id column, as bad_id', () => {
+    const r = ok(
+      parseRce(
+        collection([
+          feature(named(), null, 'overzichtmusea 12'),
+          feature(named(), null, 'overzichtmusea/12'),
+          feature(named(), null, 'overzichtmüsea.12'),
+          feature(named(), null, 'a"b'),
+          feature(named(), null, 'overzichtmusea.12'),
+          feature(named(), null, 'A-z_0.9:x'),
+        ]),
+      ),
+    );
+    expect(r.invalid).toEqual({ bad_id: 4 });
+    expect(r.rows.map((x) => x.rceId)).toEqual(['A-z_0.9:x', 'overzichtmusea.12']);
   });
 
   it('keeps the first of two features with one key', () => {

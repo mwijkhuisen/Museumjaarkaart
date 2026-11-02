@@ -13,7 +13,7 @@ export type MuseumkaartStatus = (typeof MUSEUMKAART_STATUSES)[number];
 export const PHOTO_POLICIES = ['allowed', 'no_flash', 'forbidden', 'unknown'] as const;
 export type PhotoPolicy = (typeof PHOTO_POLICIES)[number];
 
-/** Columns a source feeds. The seed inserts them (plus `slug`); the owner can pin any of them. */
+/** Columns a source feeds. The seed inserts them (plus `slug`); the owner can pin them (PINNABLE_FIELDS). */
 export const SOURCE_FIELDS = [
   'wikidata_qid',
   'rce_id',
@@ -58,6 +58,13 @@ export const SAFE_FIELDS = [
   'registered',
   'museumnl_url',
 ] as const satisfies readonly SourceField[];
+
+/**
+ * Fields the owner can pin (`admin museum pin`): every source-fed column the sync writes after the seed,
+ * so not `wikidata_qid` (only `admin match resolve` changes it). `lat` and `lon` pin the coordinates
+ * together, as plan() reads them.
+ */
+export const PINNABLE_FIELDS = SOURCE_FIELDS.filter((f) => f !== 'wikidata_qid');
 
 /** Columns the seed (as `mjk_worker`) may INSERT: no curated column, no closure (the seed skips dissolved items). */
 export const WORKER_INSERT_FIELDS: readonly string[] = ['slug', ...SOURCE_FIELDS.filter((f) => f !== 'closed_on')];

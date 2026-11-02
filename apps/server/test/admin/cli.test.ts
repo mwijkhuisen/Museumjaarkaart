@@ -34,6 +34,8 @@ describe('runAdmin', () => {
     [['list', 'publish', '--date']],
     [['list', 'publish', '--bogus', 'x']],
     [['museum', 'flag', 'Q1']],
+    [['museum', 'pin', 'a-museum']],
+    [['museum', 'pin', 'a-museum', 'website', '--bogus']],
     [['museum', 'export']],
     [['museum', 'import']],
     [['museum', 'flag', 'Q1', 'participating', '--since', '2020-01-01', '--since', '2020-01-02']],

@@ -17,7 +17,7 @@ export type Role = (typeof ROLES)[number];
 export const EXIT_NOT_BUILT = 2;
 /** Bad arguments to a role. */
 export const EXIT_USAGE = 64;
-/** sync-museums: the empty guard (or the wrong mode for the table) refused the run. */
+/** sync-museums: the empty guard, the mass-change brake or the wrong mode for the table refused the run. */
 export const EXIT_REFUSED = 65;
 /** sync-museums: the transaction failed. */
 export const EXIT_SOFTWARE = 70;
@@ -30,7 +30,7 @@ export { EXIT_CONFIG };
 type Env = Readonly<Record<string, string | undefined>>;
 
 const USAGE = `usage: main.ts <${ROLES.join('|')}> [args]`;
-const SYNC_USAGE = 'usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce]';
+const SYNC_USAGE = 'usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce] [--accept-changes]';
 
 /** Test seams: where lines go, the heartbeat file, the sources, and the signal that stops the worker. */
 export type RunDeps = {
@@ -39,14 +39,15 @@ export type RunDeps = {
   signal?: AbortSignal;
 };
 
-type SyncArgs = { dryRun: boolean; seed: boolean; acceptDrop: Source | null };
+type SyncArgs = { dryRun: boolean; seed: boolean; acceptDrop: Source | null; acceptChanges: boolean };
 
 export function parseSyncArgs(args: readonly string[]): SyncArgs | undefined {
-  const parsed: SyncArgs = { dryRun: false, seed: false, acceptDrop: null };
+  const parsed: SyncArgs = { dryRun: false, seed: false, acceptDrop: null, acceptChanges: false };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--dry-run' && !parsed.dryRun) parsed.dryRun = true;
     else if (a === '--seed' && !parsed.seed) parsed.seed = true;
+    else if (a === '--accept-changes' && !parsed.acceptChanges) parsed.acceptChanges = true;
     else if (a === '--accept-drop' && parsed.acceptDrop === null) {
       const source = args[++i];
       if (source !== 'wikidata' && source !== 'rce') return undefined;
@@ -82,6 +83,7 @@ async function runSyncRole(args: readonly string[], env: Env, log: (line: string
       mode: parsed.seed ? 'seed' : 'sync',
       dryRun: parsed.dryRun,
       acceptDrop: parsed.acceptDrop,
+      acceptChanges: parsed.acceptChanges,
     });
     (deps.out ?? console.log)(JSON.stringify(r.summary, null, 2));
     return syncExit(r);

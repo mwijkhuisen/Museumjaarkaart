@@ -1,16 +1,18 @@
 // The Wikidata source (plan §2.2): the query, its one POST and the parser.
 // Wikidata text is untrusted (invariant 5): every string passes cleanText, every
 // URL is checked, and a P18 URL is reduced to a file name and never kept.
-// parseWikidata never throws; a problem becomes a fixed code in `invalid` or `notes`.
+// parseWikidata never throws; a problem becomes a fixed code in `invalid` or `notes`. Every row it
+// returns fits the database's columns (sources/payload.ts), or it is invalid `bad_payload`.
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { CBS_CODE, LIMITS, NL_BOX, PROVINCE_CODE, QID } from '../fields.ts';
 import { museumnlUrl } from '../museumnl.ts';
 import { type FetchJsonResult, fetchJson, type HttpDeps } from './http.ts';
+import { wikidataPayload } from './payload.ts';
 import { cleanText, codePointLength, hasInvisible, postcode } from './text.ts';
 import type { ParseResult, WikidataRow } from './types.ts';
+import { WIKIDATA_QUERY } from './wikidata-query.ts';
 
 export const WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql';
 /** Separates the values of a GROUP_CONCAT (a C0 control: cleanText would remove it, so it cannot occur in a value we keep). */
@@ -22,12 +24,13 @@ const VALUES_MARKER = /^[ \t]*# @@MJK_VALUES@@[ \t]*$/m;
 /** A restricted recording stays a small list; the full run has no list at all. */
 const MAX_QIDS = 500;
 
-let queryText: string | undefined;
-
-/** The query exactly as committed (its sha256 is pinned by the fixtures' meta files). */
+/**
+ * The query exactly as committed (its sha256 is pinned by the fixtures' meta files). It is a module
+ * constant, not a file read at run time, so it is part of the emitted `dist`; `wikidata.sparql` is the
+ * same text for reading and for the runbook's curl (a unit test keeps them identical).
+ */
 export function wikidataQueryText(): string {
-  queryText ??= readFileSync(new URL('./wikidata.sparql', import.meta.url), 'utf8');
-  return queryText;
+  return WIKIDATA_QUERY;
 }
 
 export function wikidataQuerySha256(): string {
@@ -528,6 +531,11 @@ function parse(json: unknown): ParseResult<WikidataRow> {
     const built = build(qid, items.get(qid) ?? new Map(), itemNotes);
     if ('invalid' in built) {
       bump(invalid, built.invalid);
+      continue;
+    }
+    // The column shapes, checked once more: a row the database would refuse is dropped here, not in the run.
+    if (!wikidataPayload.safeParse(built.row).success) {
+      bump(invalid, 'bad_payload');
       continue;
     }
     rows.push(built.row);

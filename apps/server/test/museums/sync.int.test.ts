@@ -4,6 +4,7 @@ import { HttpResponse, http } from 'msw';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { server } from '../../../../test/msw.setup.ts';
+import { type AdminIo, runAdmin } from '../../src/admin/cli.ts';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger, silentLogger } from '../../src/lib/log.ts';
@@ -14,6 +15,7 @@ import { normaliseName } from '../../src/museums/normalise.ts';
 import { fetchRce, parseRce } from '../../src/museums/sources/rce.ts';
 import { fetchWikidata, parseWikidata, wikidataQuery } from '../../src/museums/sources/wikidata.ts';
 import { type Fetchers, type FetchResult, runSync, type SyncConfig } from '../../src/museums/sync.ts';
+import { jobErrorOf } from '../../src/museums/sync-job.ts';
 import { similarity } from '../../src/museums/trigram.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 import { week2 } from '../fixtures/museums/week2.ts';
@@ -47,11 +49,16 @@ const serve = (wikidata: unknown, rce: unknown): Fetchers => ({
 });
 const normal = () => serve(normalWikidata, normalRce);
 
-/** The fixtures are small: the first-run floors of a real run would refuse them. */
+/**
+ * The fixtures are small: the first-run floors of a real run would refuse them, and the mass-change
+ * brake's floor of 50 museums would never trip. Here it trips on its share alone (10 % of ~50 museums).
+ */
 const CFG: SyncConfig = {
   floors: { wikidata: 10, rce: 10 },
   minShare: 0.9,
   maxInvalidShare: 0.02,
+  maxChangedShare: 0.1,
+  minChanged: 1,
   plan: DEFAULT_PLAN_CONFIG,
 };
 
@@ -219,6 +226,8 @@ describe('one week of news (week2)', () => {
     const renamedBefore = await museumOf(picks.renamed);
     const r = await runSync(db, serve(answer, normalRce), silentLogger, { mode: 'sync' }, CFG);
     expect(r.outcome).toBe('applied');
+    // The mass-change brake is on (CFG) and lets an ordinary week through: two museums change by themselves.
+    expect(r.summary.changed).toEqual({ museums: 2, held: MUSEUMS });
 
     // A 100 m move and a new website apply, each with an applied change row.
     const m100 = await museumOf(picks.moved100);
@@ -307,6 +316,54 @@ describe('one week of news (week2)', () => {
   });
 });
 
+describe('pinned fields (admin museum pin)', () => {
+  const { answer, picks } = week2(normalWikidata);
+
+  beforeAll(async () => {
+    await freshDb();
+    expect((await runSync(db, normal(), silentLogger, { mode: 'seed' }, CFG)).outcome).toBe('applied');
+  });
+
+  const admin = async (...argv: string[]) => {
+    const out: string[] = [];
+    const io: AdminIo = {
+      out: (l) => out.push(l),
+      err: (l) => out.push(l),
+      readFile: async () => '',
+      writeFile: async () => {},
+    };
+    return { code: await runAdmin(argv, { DATABASE_URL: test.urls.mjk_api }, io), out };
+  };
+  const slugOf = async (qid: string) =>
+    (await q<{ slug: string }>('SELECT slug FROM museum WHERE wikidata_qid = $1', [qid]))[0]?.slug as string;
+
+  it('a pinned field keeps its value when the source changes it, and is counted as pinned', async () => {
+    const web = await museumOf(picks.newWebsite);
+    const moved = await museumOf(picks.moved100);
+    expect((await admin('museum', 'pin', await slugOf(picks.newWebsite), 'website')).code).toBe(0);
+    expect((await admin('museum', 'pin', await slugOf(picks.moved100), 'lat')).code).toBe(0);
+
+    const r = await runSync(db, serve(answer, normalRce), silentLogger, { mode: 'sync' }, CFG);
+    expect(r.outcome).toBe('applied');
+    // Two museums, one pinned website and one pinned pair of coordinates: each counted once.
+    expect(r.summary.counts?.pinned).toBe(2);
+    expect(r.summary.counts?.applied).toEqual({});
+    expect(await museumOf(picks.newWebsite)).toEqual(web);
+    expect(await museumOf(picks.moved100)).toEqual(moved);
+    // Only the owner's pin is in their change log: the sync proposed nothing for a pinned field.
+    expect((await changesOf(web?.id as string)).map((c) => c.field)).toEqual(['pinned_fields']);
+    expect((await changesOf(moved?.id as string)).map((c) => c.field)).toEqual(['pinned_fields']);
+  });
+
+  it('after --unpin the next sync applies the news', async () => {
+    expect((await admin('museum', 'pin', await slugOf(picks.newWebsite), 'website', '--unpin')).code).toBe(0);
+    const r = await runSync(db, serve(answer, normalRce), silentLogger, { mode: 'sync' }, CFG);
+    expect(r.summary.counts?.pinned).toBe(1);
+    expect(r.summary.counts?.applied).toEqual({ website: 1 });
+    expect((await museumOf(picks.newWebsite))?.website).toBe('https://www.nieuwe-site.example/');
+  });
+});
+
 describe('the empty guard (criterion 4)', () => {
   beforeAll(async () => {
     await freshDb();
@@ -375,6 +432,83 @@ describe('the empty guard (criterion 4)', () => {
         "SELECT wikidata_rows, accept_drop FROM museum_sync_run WHERE outcome = 'applied' ORDER BY id DESC LIMIT 1",
       ),
     ).toEqual([{ wikidata_rows: kept.rows.length, accept_drop: 'wikidata' }]);
+  });
+});
+
+describe('the mass-change brake (review finding 3)', () => {
+  // RCE's feature ids are contiguous (overzichtmusea.1 to .629) and may be positional: a reload that
+  // shifts them by one keeps every decided row by its id and hands it the neighbour's payload, so the
+  // museums matched to RCE would take a neighbour's address as safe changes.
+  const shifted = {
+    ...normalRce,
+    features: normalRce.features.map((f) => {
+      const feature = f as { id: string };
+      const m = /^(.*\.)([0-9]+)$/.exec(feature.id);
+      if (!m) throw new Error('the RCE fixture ids end in a number');
+      return { ...feature, id: `${m[1]}${Number(m[2]) + 1}` };
+    }),
+  };
+  const runRows = () =>
+    q<{ outcome: string; code: string | null; accept_changes: boolean }>(
+      'SELECT outcome, code, accept_changes FROM museum_sync_run ORDER BY id DESC LIMIT 1',
+    );
+
+  beforeAll(async () => {
+    await freshDb();
+    expect((await runSync(db, normal(), silentLogger, { mode: 'seed' }, CFG)).outcome).toBe('applied');
+  });
+
+  it('a week where every RCE id moved by one is refused (mass_change) and writes only the refused run row', async () => {
+    const before = await snapshot();
+    const runs = await count('museum_sync_run');
+    const r = await runSync(db, serve(normalWikidata, shifted), silentLogger, { mode: 'sync' }, CFG);
+    expect(r).toMatchObject({ outcome: 'refused', code: 'mass_change' });
+    expect(r.runId).not.toBeNull();
+    // The summary still shows what it would have applied, so the owner can judge it.
+    expect(r.summary.changed?.held).toBe(MUSEUMS);
+    expect(r.summary.changed?.museums).toBeGreaterThan(0.1 * MUSEUMS);
+    expect(r.summary.counts?.applied.street).toBeGreaterThan(0);
+    expect(await snapshot()).toEqual(before);
+    expect(await count('museum_sync_run')).toBe(runs + 1);
+    expect(await runRows()).toEqual([{ outcome: 'refused', code: 'mass_change', accept_changes: false }]);
+  });
+
+  it('a dry run reports the same refusal and writes nothing', async () => {
+    const before = await snapshot();
+    const runs = await count('museum_sync_run');
+    const r = await runSync(db, serve(normalWikidata, shifted), silentLogger, { mode: 'sync', dryRun: true }, CFG);
+    expect(r).toMatchObject({ outcome: 'refused', code: 'mass_change', runId: null });
+    expect(await snapshot()).toEqual(before);
+    expect(await count('museum_sync_run')).toBe(runs);
+  });
+
+  it('the job fails without a retry, as with the empty guard', async () => {
+    const r = await runSync(db, serve(normalWikidata, shifted), silentLogger, { mode: 'sync' }, CFG);
+    expect(jobErrorOf(r)).toMatchObject({ code: 'mass_change', retry: false });
+  });
+
+  it('--accept-changes lets that one run through, and the run row records it', async () => {
+    const r = await runSync(
+      db,
+      serve(normalWikidata, shifted),
+      silentLogger,
+      { mode: 'sync', acceptChanges: true },
+      CFG,
+    );
+    expect(r).toMatchObject({ outcome: 'applied', code: null });
+    expect(r.summary.counts?.applied.street).toBeGreaterThan(0);
+    expect(await runRows()).toEqual([{ outcome: 'applied', code: null, accept_changes: true }]);
+    // The next run on the same input has nothing left to change, so the brake has nothing to stop.
+    const again = await runSync(db, serve(normalWikidata, shifted), silentLogger, { mode: 'sync' }, CFG);
+    expect(again.outcome).toBe('applied');
+    expect(again.summary.changed).toEqual({ museums: 0, held: MUSEUMS });
+  });
+
+  it('the seed is exempt', async () => {
+    await freshDb();
+    const r = await runSync(db, normal(), silentLogger, { mode: 'seed' }, { ...CFG, maxChangedShare: 0 });
+    expect(r.outcome).toBe('applied');
+    expect(r.summary.changed).toBeNull();
   });
 });
 

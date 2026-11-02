@@ -142,6 +142,7 @@ export interface MuseumSourceRow {
 }
 
 export interface MuseumSyncRun {
+  accept_changes: Generated<boolean>;
   accept_drop: string | null;
   code: string | null;
   counts: Generated<Json>;

@@ -7,7 +7,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { dbUrl, EXIT_CONFIG, migratorUrl } from '../src/db/migrate.ts';
 import { HEARTBEAT_MAX_AGE_MS, healthy, touch } from '../src/heartbeat.ts';
-import { EXIT_NOT_BUILT, EXIT_USAGE, run } from '../src/main.ts';
+import { EXIT_NOT_BUILT, EXIT_USAGE, parseSyncArgs, run } from '../src/main.ts';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'mjk-test-'));
 const USAGE = 'usage: main.ts <api|ssr|worker|migrate|healthcheck|sync-museums|admin|backup> [args]';
@@ -44,10 +44,24 @@ describe('run', () => {
     [['sync-museums', '--accept-drop', 'osm']],
     [['sync-museums', '--accept-drop']],
     [['sync-museums', '--seed', '--seed']],
+    [['sync-museums', '--accept-changes', '--accept-changes']],
+    [['sync-museums', '--accept-changes=yes']],
   ])('%j is a usage error', async (argv) => {
     const lines: string[] = [];
     expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
-    expect(lines).toEqual(['usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce]']);
+    expect(lines).toEqual([
+      'usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce] [--accept-changes]',
+    ]);
+  });
+
+  it('sync-museums reads each flag once, --accept-changes included', () => {
+    expect(parseSyncArgs([])).toEqual({ dryRun: false, seed: false, acceptDrop: null, acceptChanges: false });
+    expect(parseSyncArgs(['--accept-changes', '--dry-run', '--accept-drop', 'rce'])).toEqual({
+      dryRun: true,
+      seed: false,
+      acceptDrop: 'rce',
+      acceptChanges: true,
+    });
   });
 
   it('worker takes no arguments', async () => {

@@ -3,7 +3,7 @@
 
 export const MUSEUMNL_HOST = 'www.museum.nl';
 
-/** An https URL on exactly the link-out host, at most 2,048 characters, or undefined. */
+/** An https URL on exactly the link-out host, at most 2,048 characters as stored (its href), or undefined. */
 export function museumnlUrl(value: string): string | undefined {
   if (value.length > 2048) return undefined;
   let url: URL;
@@ -15,5 +15,7 @@ export function museumnlUrl(value: string): string | undefined {
   if (url.protocol !== 'https:' || url.hostname !== MUSEUMNL_HOST || url.username || url.password || url.port) {
     return undefined;
   }
+  // The stored value is the percent-encoded href, which can be longer than the input (the column CHECK).
+  if (url.href.length > 2048) return undefined;
   return url.href;
 }

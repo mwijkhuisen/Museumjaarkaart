@@ -95,7 +95,9 @@ CREATE TABLE museum_sync_run (
   counts jsonb NOT NULL DEFAULT '{}',
   outcome text CHECK (outcome IN ('applied', 'refused', 'failed')),
   code text CHECK (code ~ '^[a-z_]{1,40}$'),
-  accept_drop text CHECK (accept_drop IN ('wikidata', 'rce'))
+  accept_drop text CHECK (accept_drop IN ('wikidata', 'rce')),
+  -- The owner let this one run past the mass-change brake (`sync-museums --accept-changes`).
+  accept_changes boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE museum_source_row (

@@ -2,9 +2,10 @@
 // `sync-museums` role call the same runSync(). It runs as mjk_worker, so the
 // grants (not just this code) keep it off the curated columns and the lists.
 //
-// lock → fetch and parse both sources → empty guard → load state, plan, apply
-// in one transaction → one log line of counts. A dry run computes the same
-// plan inside a READ ONLY transaction and writes nothing, not even a run row.
+// lock → fetch and parse both sources → empty guard → load state, plan, the
+// mass-change brake, apply in one transaction → one log line of counts. A dry
+// run computes the same plan inside a READ ONLY transaction and writes nothing,
+// not even a run row.
 
 import { sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
@@ -27,6 +28,14 @@ export type SyncConfig = {
   minShare: number;
   /** More invalid rows than this share applies nothing [U]. */
   maxInvalidShare: number;
+  /**
+   * The mass-change brake [U]: a sync that would apply safe changes to more than this share of the
+   * museums held applies nothing (a source that reloaded or renumbered its rows, such as RCE's
+   * positional feature ids, would otherwise put a neighbour's address on many museums at once).
+   */
+  maxChangedShare: number;
+  /** The brake trips only from this many changed museums on, so a small catalogue is not stuck. */
+  minChanged: number;
   plan: PlanConfig;
 };
 
@@ -34,10 +43,18 @@ export const DEFAULT_SYNC_CONFIG: SyncConfig = {
   floors: { wikidata: 1000, rce: 500 },
   minShare: 0.9,
   maxInvalidShare: 0.02,
+  maxChangedShare: 0.1,
+  minChanged: 50,
   plan: DEFAULT_PLAN_CONFIG,
 };
 
-export type SyncOptions = { mode: 'seed' | 'sync'; dryRun?: boolean; acceptDrop?: Source | null };
+export type SyncOptions = {
+  mode: 'seed' | 'sync';
+  dryRun?: boolean;
+  acceptDrop?: Source | null;
+  /** Lets this one run past the mass-change brake (the owner has looked at the dry run). */
+  acceptChanges?: boolean;
+};
 
 export type GuardReason = 'schema' | 'invalid_rows' | 'below_baseline' | 'below_floor';
 
@@ -48,6 +65,7 @@ export type Outcome = 'applied' | 'dry_run' | 'refused' | 'failed';
  * - `sync_busy`: another run holds the lock
  * - `<source>_unavailable`: a source could not be fetched (retried)
  * - `empty_guard`: a source failed its schema, row count or invalid share (not retried)
+ * - `mass_change`: the plan would apply safe changes to too many museums at once (not retried)
  * - `not_seeded` / `already_seeded`: the wrong mode for the table
  * - `apply_failed`: the transaction failed
  */
@@ -56,6 +74,7 @@ export type SyncCode =
   | 'wikidata_unavailable'
   | 'rce_unavailable'
   | 'empty_guard'
+  | 'mass_change'
   | 'not_seeded'
   | 'already_seeded'
   | 'apply_failed';
@@ -74,9 +93,14 @@ export type Summary = {
   /** Coverage of the parsed rows: how many carry coordinates, a municipality, a postcode. */
   coverage: { wikidata: Record<string, number>; rce: Record<string, number> };
   counts: Counts | null;
+  /** The mass-change brake: museums with an applied change in the plan, and museums held (sync only). */
+  changed: { museums: number; held: number } | null;
 };
 
 export type SyncResult = { outcome: Outcome; code: SyncCode | null; runId: string | null; summary: Summary };
+
+/** Thrown inside the apply transaction when the brake trips, so that it rolls back. */
+class MassChange extends Error {}
 
 /** One key for every museum sync (pg_try_advisory_lock). */
 const LOCK_KEY = 61_000_001;
@@ -97,6 +121,16 @@ function guard(
   if (acceptDrop === source) return null;
   if (baseline === null) return n < cfg.floors[source] ? 'below_floor' : null;
   return n < cfg.minShare * baseline ? 'below_baseline' : null;
+}
+
+/** The museums the plan would change by itself: those with an applied (safe) change. */
+export function changedMuseums(p: Plan): number {
+  return new Set(p.changes.filter((c) => c.state === 'applied').map((c) => c.museumId)).size;
+}
+
+/** True when the brake stops the plan: at least `minChanged` museums, and more than the share of those held. */
+export function tripsBrake(changed: number, held: number, cfg: SyncConfig): boolean {
+  return changed >= cfg.minChanged && changed > cfg.maxChangedShare * held;
 }
 
 function coverage(w: readonly WikidataRow[], r: readonly RceRow[]) {
@@ -143,6 +177,7 @@ export function logFields(s: Summary): Record<string, number | string | boolean 
     flat(`${source}_notes`, s.notes[source]);
   }
   if (s.counts) flat('count', s.counts);
+  if (s.changed) flat('changed', s.changed);
   return out;
 }
 
@@ -155,6 +190,7 @@ export async function runSync(
 ): Promise<SyncResult> {
   const dryRun = opts.dryRun ?? false;
   const acceptDrop = opts.acceptDrop ?? null;
+  const acceptChanges = opts.acceptChanges ?? false;
   const summary: Summary = {
     mode: opts.mode,
     dryRun,
@@ -166,6 +202,7 @@ export async function runSync(
     baseline: { wikidata: null, rce: null },
     coverage: { wikidata: {}, rce: {} },
     counts: null,
+    changed: null,
   };
   const finish = (outcome: Outcome, code: SyncCode | null, runId: string | null): SyncResult => {
     summary.outcome = outcome;
@@ -199,6 +236,7 @@ export async function runSync(
         outcome,
         code,
         accept_drop: acceptDrop,
+        accept_changes: acceptChanges,
       })
       .returning('id')
       .executeTakeFirstOrThrow();
@@ -260,19 +298,33 @@ export async function runSync(
     summary.coverage = coverage(w.rows, r.rows);
     const sources = { wikidata: w.rows, rce: r.rows };
 
+    /**
+     * The mass-change brake (the seed is exempt: it creates every museum). It records the counts either
+     * way, so a refused run shows what it would have applied.
+     */
+    const braked = (p: Plan, held: number): boolean => {
+      summary.counts = p.counts;
+      if (opts.mode === 'seed') return false;
+      summary.changed = { museums: changedMuseums(p), held };
+      return !acceptChanges && tripsBrake(summary.changed.museums, held, cfg);
+    };
+
     if (dryRun) {
-      const p = await db
+      const stopped = await db
         .transaction()
         .setIsolationLevel('repeatable read')
         .setAccessMode('read only')
-        .execute(async (tx) => plan(await loadState(tx), sources, opts.mode, cfg.plan));
-      summary.counts = p.counts;
+        .execute(async (tx) => {
+          const state = await loadState(tx);
+          return braked(plan(state, sources, opts.mode, cfg.plan), state.museums.length);
+        });
+      if (stopped) return finish('refused', 'mass_change', null);
       return finish('dry_run', null, null);
     }
 
     const run = await db
       .insertInto('museum_sync_run')
-      .values({ mode: opts.mode, accept_drop: acceptDrop })
+      .values({ mode: opts.mode, accept_drop: acceptDrop, accept_changes: acceptChanges })
       .returning('id')
       .executeTakeFirstOrThrow();
     let p: Plan;
@@ -281,7 +333,10 @@ export async function runSync(
         .transaction()
         .setIsolationLevel('repeatable read')
         .execute(async (tx) => {
-          const planned = plan(await loadState(tx), sources, opts.mode, cfg.plan);
+          const state = await loadState(tx);
+          const planned = plan(state, sources, opts.mode, cfg.plan);
+          // Nothing is written: the transaction rolls back and the run row is marked refused below.
+          if (braked(planned, state.museums.length)) throw new MassChange();
           await applyPlan(tx, planned, run.id);
           summary.counts = planned.counts;
           await tx
@@ -297,9 +352,25 @@ export async function runSync(
             .execute();
           return planned;
         });
-    } catch {
+    } catch (err) {
+      if (err instanceof MassChange) {
+        await db
+          .updateTable('museum_sync_run')
+          .set({
+            finished_at: sql<Date>`now()`,
+            wikidata_rows: w.rows.length,
+            rce_rows: r.rows.length,
+            counts: JSON.stringify(logFields({ ...summary, outcome: 'refused', code: 'mass_change' })),
+            outcome: 'refused',
+            code: 'mass_change',
+          })
+          .where('id', '=', run.id)
+          .execute();
+        return finish('refused', 'mass_change', run.id);
+      }
       // No message: it can quote a value (A§17.2, invariant 8).
       summary.counts = null;
+      summary.changed = null;
       await db
         .updateTable('museum_sync_run')
         .set({ finished_at: sql<Date>`now()`, outcome: 'failed', code: 'apply_failed' })

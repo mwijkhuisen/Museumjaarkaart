@@ -1,8 +1,11 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { CBS_CODE, LIMITS, NL_BOX, POSTCODE, PROVINCE_CODE, QID } from '../../../src/museums/fields.ts';
-import { MUSEUMNL_HOST } from '../../../src/museums/museumnl.ts';
+import { MUSEUMNL_HOST, museumnlUrl } from '../../../src/museums/museumnl.ts';
 import { parseFixtureMeta } from '../../../src/museums/sources/fixture-meta.ts';
+import { wikidataPayload } from '../../../src/museums/sources/payload.ts';
 import type { ParseResult, WikidataRow } from '../../../src/museums/sources/types.ts';
 import {
   FIELD_SEP,
@@ -12,6 +15,7 @@ import {
   wikidataQuerySha256,
   wikidataQueryText,
 } from '../../../src/museums/sources/wikidata.ts';
+import { WIKIDATA_QUERY } from '../../../src/museums/sources/wikidata-query.ts';
 import {
   allStrings,
   CH,
@@ -108,6 +112,7 @@ function assertRows(rows: readonly WikidataRow[]): void {
     );
     must(row.classes.every((c) => QID.test(c)) && isSortedUnique(row.classes), 'classes');
     must(row.dissolvedOn === null || /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(row.dissolvedOn), 'dissolved');
+    must(wikidataPayload.safeParse(row).success, `the stored payload shape of ${row.qid}`);
   }
 }
 
@@ -130,10 +135,26 @@ describe('fixtures', () => {
     await expect(goldenText(result)).toMatchFileSnapshot(fixturePath('wikidata', name, 'golden.json'));
   });
 
+  it.each(WIKIDATA_CASES)(
+    '%s: every parsed row passes the payload schema the database columns stand behind',
+    (name) => {
+      for (const row of parseCase(name).rows) expect(wikidataPayload.safeParse(row).success, row.qid).toBe(true);
+    },
+  );
+
   it.each(WIKIDATA_CASES)('%s: has a valid meta file written for this query', (name) => {
     const meta = parseFixtureMeta(readMeta('wikidata', name));
     expect(meta).toMatchObject({ source: 'wikidata', case: name, licence: 'CC0-1.0' });
     expect(meta?.querySha256).toBe(wikidataQuerySha256());
+  });
+
+  it('the query module is byte-identical to wikidata.sparql, the readable copy the runbook sends', () => {
+    // The roles run from dist, which holds no .sparql file: the query is a module, and this keeps the two the same.
+    const file = readFileSync(new URL('../../../src/museums/sources/wikidata.sparql', import.meta.url), 'utf8');
+    expect(WIKIDATA_QUERY).toBe(file);
+    expect(wikidataQueryText()).toBe(file);
+    expect(createHash('sha256').update(file).digest('hex')).toBe(wikidataQuerySha256());
+    expect(wikidataQuerySha256()).toBe('764bfb9bbaab2cfd15aedc7097a36adb9b74d4d66dbff600d83e8036089de211');
   });
 
   it('pins the query: changing wikidata.sparql changes its sha256 and forces a re-recording', () => {
@@ -437,6 +458,14 @@ describe('the parser: envelope', () => {
     expect(r.rows).toEqual([]);
   });
 
+  it('counts a row the database would refuse as bad_payload, and keeps the others (a QID over 64 characters)', () => {
+    // museum_source_row.external_id holds at most 64 characters: such a row would fail the run's one transaction.
+    const long = `Q${'1'.repeat(64)}`;
+    const r = ok(parseWikidata(doc([item({}, long), item({}, `Q${'1'.repeat(63)}`), item({}, 'Q2')])));
+    expect(r.invalid).toEqual({ bad_payload: 1 });
+    expect(r.rows.map((x) => x.qid)).toEqual(['Q2', `Q${'1'.repeat(63)}`]);
+  });
+
   it('merges the rows of one item and sorts the items by QID number', () => {
     const r = ok(
       parseWikidata(
@@ -563,6 +592,21 @@ describe('the parser: fields', () => {
       const r = ok(parseWikidata(doc([item({ websites })])));
       expect(r.rows[0]?.website).toBeNull();
       expect(r.notes).toEqual({ [note]: 1 });
+    });
+
+    it('drop a P973 whose stored (percent-encoded) form is over 2,048 characters, though its input is not', () => {
+      // 700 x é is 722 characters in, 4,222 as the href: the museumnl_url CHECK would fail the whole run.
+      const long = `https://${LINK_OUT_HOST}/${'é'.repeat(700)}`;
+      expect(long.length).toBeLessThanOrEqual(LIMITS.url);
+      expect(new URL(long).href.length).toBeGreaterThan(LIMITS.url);
+      expect(museumnlUrl(long)).toBeUndefined();
+      const r = ok(parseWikidata(doc([item({ museumnl: long })])));
+      expect(r.rows[0]?.museumnlUrl).toBeNull();
+      expect(r.notes).toEqual({ museumnl_bad_host: 1 });
+      // At the cap exactly, the href is kept.
+      const edge = `https://${LINK_OUT_HOST}/${'a'.repeat(LIMITS.url - `https://${LINK_OUT_HOST}/`.length)}`;
+      expect(edge.length).toBe(LIMITS.url);
+      expect(museumnlUrl(edge)).toBe(edge);
     });
 
     it('keep P973 on the link-out host only', () => {
