@@ -222,11 +222,15 @@ describe('queries', () => {
       { limit: '0' },
       { cursor: 'a b' },
       { cursor: '' },
-      { cursor: 'a'.repeat(401) },
+      { cursor: 'a'.repeat(4097) },
       { extra: '1' },
     ]) {
       expect(MuseumListQuery.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
     }
+  });
+  it('accepts a cursor of up to 4096 characters (the worst 250-character key encodes to about 2,100)', () => {
+    expect(MuseumListQuery.safeParse({ cursor: 'a'.repeat(4096) }).success).toBe(true);
+    expect(MuseumListQuery.safeParse({ cursor: 'a'.repeat(4097) }).success).toBe(false);
   });
   it('SuggestQuery, NearQuery, EmptyQuery', () => {
     expect(SuggestQuery.safeParse({}).success).toBe(false);

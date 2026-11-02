@@ -57,4 +57,4 @@ export const Slug = z.string().max(SLUG_MAX).regex(SLUG_RE);
 export const CbsCode = z.string().regex(CBS_CODE_RE);
 export const Lat = z.number().min(NL_BOX.latMin).max(NL_BOX.latMax);
 export const Lon = z.number().min(NL_BOX.lonMin).max(NL_BOX.lonMax);
-export const Cursor = z.string().regex(/^[A-Za-z0-9_-]{1,400}$/);
+export const Cursor = z.string().regex(/^[A-Za-z0-9_-]{1,4096}$/);

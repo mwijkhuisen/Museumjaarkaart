@@ -10,6 +10,7 @@ import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
 import { mountMkList } from './routes/mk-list.ts';
 import { mountMuseumDetail } from './routes/museum-detail.ts';
+import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
@@ -94,6 +95,7 @@ export function createApp(deps: ApiDeps): ApiApp {
   return buildApp(deps, (v1, d) => {
     mountProvinces(v1, d);
     mountMkList(v1, d);
+    mountMuseumsList(v1, d);
     mountMuseumsNear(v1, d);
     mountMuseumDetail(v1, d);
   });

@@ -8,8 +8,20 @@
 -- function is created, so a caller's search_path cannot redirect it. A change to
 -- the unaccent rules file needs a REINDEX of the indexes below. EXECUTE stays with
 -- PUBLIC (the default): the callers of the public views need it.
+--
+-- COST 250 (the default is 100). The planner under-prices the trigram predicates: their operators
+-- (`<%`, `%`) carry the default cost of 1 although each call extracts and compares trigram sets.
+-- Measured on PostgreSQL 18.6 with the seeded 1,400 museums (559 aliases), all in cache: one call of
+-- this function takes ~1.0 us; the whole predicate `unaccent(q) <% unaccent(name)` ~4.5 us per row
+-- (6.3 ms for 1,400 names, 0.1 to 0.25 ms through the GIN index); the planner's unit is ~5 us (a seq
+-- scan of 2,000,000 rows costs 41,704 units and ran 215 ms). So the predicate costs ~0.9 units per
+-- row, which is COST ~360 on this function (units = COST x cpu_operator_cost 0.0025). The smallest
+-- round value with which the default planner picks museum_name_trgm_idx and museum_alias_trgm_idx
+-- on the freshly seeded 1,400 museums (search-explain.int.test.ts) is 250; with 100 it scans both
+-- tables. A fresh bulk load leaves the GIN pending list (fastupdate) unflushed, which inflates the
+-- index cost estimates (name 486, alias 206, against 100 and 53 after a VACUUM); autovacuum flushes it.
 CREATE FUNCTION public.mjk_unaccent(text) RETURNS text
-LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE COST 250
 BEGIN ATOMIC
   SELECT public.unaccent('public.unaccent'::regdictionary, $1);
 END;
