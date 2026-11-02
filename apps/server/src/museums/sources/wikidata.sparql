@@ -4,7 +4,12 @@
 #
 # Truthy (wdt:) values only. Multi-values come back through GROUP_CONCAT, split in TypeScript
 # before any cleaning: records are separated by U+001F; the fields of the municipality record by U+001E.
-# Dissolved items (P576) are included on purpose: closures need them.
+# Dissolved items (P576) are included on purpose: closures need them; the parser takes the earliest date.
+#
+# The rows of an item come from a UNION, so each row leaves most variables unbound. Under SPARQL 1.1
+# one error makes a whole aggregate an error, so no aggregated expression may fail: each one is
+# COALESCE'd to "", which the parser reads as absent (an empty record is dropped, an empty label is
+# no label). MAX picks the one value over "" (one label and one description per language).
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -12,21 +17,21 @@ PREFIX schema: <http://schema.org/>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
 SELECT ?item
-  (SAMPLE(?lNl) AS ?labelNl)
-  (SAMPLE(?lEn) AS ?labelEn)
-  (SAMPLE(?dNl) AS ?descNl)
-  (SAMPLE(?dEn) AS ?descEn)
-  (GROUP_CONCAT(DISTINCT ?alias; SEPARATOR="\u001F") AS ?aliases)
-  (GROUP_CONCAT(DISTINCT ?coord; SEPARATOR="\u001F") AS ?coords)
-  (GROUP_CONCAT(DISTINCT ?site; SEPARATOR="\u001F") AS ?websites)
-  (GROUP_CONCAT(DISTINCT STR(?addr); SEPARATOR="\u001F") AS ?addresses)
-  (GROUP_CONCAT(DISTINCT ?pc; SEPARATOR="\u001F") AS ?postcodes)
-  (GROUP_CONCAT(DISTINCT ?muniRec; SEPARATOR="\u001F") AS ?municipalities)
+  (MAX(COALESCE(STR(?lNl), "")) AS ?labelNl)
+  (MAX(COALESCE(STR(?lEn), "")) AS ?labelEn)
+  (MAX(COALESCE(STR(?dNl), "")) AS ?descNl)
+  (MAX(COALESCE(STR(?dEn), "")) AS ?descEn)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?alias), ""); SEPARATOR="\u001F") AS ?aliases)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?coord), ""); SEPARATOR="\u001F") AS ?coords)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?site), ""); SEPARATOR="\u001F") AS ?websites)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?addr), ""); SEPARATOR="\u001F") AS ?addresses)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?pc), ""); SEPARATOR="\u001F") AS ?postcodes)
+  (GROUP_CONCAT(DISTINCT COALESCE(?muniRec, ""); SEPARATOR="\u001F") AS ?municipalities)
   (SAMPLE(?isRegistered) AS ?registered)
-  (GROUP_CONCAT(DISTINCT STR(?mnl); SEPARATOR="\u001F") AS ?museumnl)
-  (GROUP_CONCAT(DISTINCT STR(?image); SEPARATOR="\u001F") AS ?images)
-  (GROUP_CONCAT(DISTINCT STR(?class); SEPARATOR="\u001F") AS ?classes)
-  (MIN(?end) AS ?dissolved)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?mnl), ""); SEPARATOR="\u001F") AS ?museumnl)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?image), ""); SEPARATOR="\u001F") AS ?images)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?class), ""); SEPARATOR="\u001F") AS ?classes)
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?end), ""); SEPARATOR="\u001F") AS ?dissolved)
 WHERE {
   # The items first, once each (an item with two museum classes would otherwise be multiplied).
   {
@@ -44,27 +49,44 @@ WHERE {
     }
   }
   BIND(EXISTS { ?item wdt:P166 wd:Q110989587 } AS ?isRegistered)
-  OPTIONAL { ?item rdfs:label ?lNl FILTER(LANG(?lNl) = "nl") }
-  OPTIONAL { ?item rdfs:label ?lEn FILTER(LANG(?lEn) = "en") }
-  OPTIONAL { ?item schema:description ?dNl FILTER(LANG(?dNl) = "nl") }
-  OPTIONAL { ?item schema:description ?dEn FILTER(LANG(?dEn) = "en") }
-  OPTIONAL { ?item skos:altLabel ?alias FILTER(LANG(?alias) IN ("nl", "en")) }
-  OPTIONAL { ?item wdt:P625 ?coord }
-  OPTIONAL { ?item wdt:P856 ?site }
-  OPTIONAL { ?item wdt:P6375 ?addr }
-  OPTIONAL { ?item wdt:P281 ?pc }
-  # The municipality: one or two P131 hops to a live item with a CBS code, its Dutch label and its province's ISO code.
-  OPTIONAL {
+  # One UNION branch per kind of value, so an item's rows add up (one row per value) instead of
+  # multiplying. A join of these as OPTIONALs makes every combination of aliases, links, images and
+  # classes, and ran past the WDQS 60 s limit (HTTP 504, 2026-11-02).
+  {
+    # Every selected item has one (the selection goes through it), so no item loses its row.
+    ?item wdt:P31 ?class .
+  } UNION {
+    ?item rdfs:label ?lNl FILTER(LANG(?lNl) = "nl")
+  } UNION {
+    ?item rdfs:label ?lEn FILTER(LANG(?lEn) = "en")
+  } UNION {
+    ?item schema:description ?dNl FILTER(LANG(?dNl) = "nl")
+  } UNION {
+    ?item schema:description ?dEn FILTER(LANG(?dEn) = "en")
+  } UNION {
+    ?item skos:altLabel ?alias FILTER(LANG(?alias) IN ("nl", "en"))
+  } UNION {
+    ?item wdt:P625 ?coord .
+  } UNION {
+    ?item wdt:P856 ?site .
+  } UNION {
+    ?item wdt:P6375 ?addr .
+  } UNION {
+    ?item wdt:P281 ?pc .
+  } UNION {
+    # The municipality: one or two P131 hops to a live item with a CBS code, its Dutch label and its province's ISO code.
     ?item wdt:P131/wdt:P131? ?muni .
     ?muni wdt:P382 ?cbs .
     FILTER NOT EXISTS { ?muni wdt:P576 ?muniEnd }
     OPTIONAL { ?muni rdfs:label ?muniLabel FILTER(LANG(?muniLabel) = "nl") }
     OPTIONAL { ?muni wdt:P131 ?prov . ?prov wdt:P300 ?provIso }
     BIND(CONCAT(STR(?cbs), "\u001E", COALESCE(STR(?muniLabel), ""), "\u001E", COALESCE(STR(?provIso), "")) AS ?muniRec)
+  } UNION {
+    ?item wdt:P973 ?mnl .
+  } UNION {
+    ?item wdt:P18 ?image .
+  } UNION {
+    ?item wdt:P576 ?end .
   }
-  OPTIONAL { ?item wdt:P973 ?mnl }
-  OPTIONAL { ?item wdt:P18 ?image }
-  OPTIONAL { ?item wdt:P31 ?class }
-  OPTIONAL { ?item wdt:P576 ?end }
 }
 GROUP BY ?item

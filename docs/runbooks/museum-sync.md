@@ -259,6 +259,14 @@ git diff apps/server/test/fixtures
 
 Check the golden diff for what you expect (row counts, no odd names or hosts) before you commit.
 
+`failed (http_status)` keeps neither the status nor the body, on purpose. To see them, send the same query by hand, a minute after the last one:
+
+```bash
+curl -sS -o /tmp/wdqs-answer.txt -w 'HTTP %{http_code} in %{time_total} s\n' -H 'Accept: application/sparql-results+json' -H "User-Agent: mjk-museum-sync/1.0 (+$MJK_SYNC_CONTACT)" --data-urlencode query@apps/server/src/museums/sources/wikidata.sparql https://query.wikidata.org/sparql
+```
+
+An HTTP 504 after about 60 s ("upstream request timeout") or a 500 with `TimeoutException` means the query ran past WDQS's 60 s limit (A§7.1). A 400 carries a `MalformedQueryException` line that names the spot.
+
 ## 10. Wikimedia etiquette
 
 - Every request carries `User-Agent: mjk-museum-sync/1.0 (+<contact>)`. `<contact>` is `MJK_SYNC_CONTACT`: an email address or an https URL, printable ASCII, at most 200 characters. It is config, not a secret. Without a valid value the repository URL is sent. Set it in the worker's environment before the first real run.

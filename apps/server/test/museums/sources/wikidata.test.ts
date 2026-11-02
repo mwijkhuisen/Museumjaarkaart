@@ -258,6 +258,27 @@ describe('the query', () => {
     expect(text).toContain('GROUP BY ?item');
   });
 
+  it("collects each kind of value in its own UNION branch, so an item's rows add up instead of multiplying", () => {
+    // The same values as OPTIONALs in one join made every combination of aliases, links, images and
+    // classes, and ran past the WDQS 60 s limit (HTTP 504, the owner's recording on 2026-11-02).
+    const where = text.slice(text.indexOf('WHERE {'));
+    expect(where.match(/\} UNION \{/g)).toHaveLength(13);
+    // The only OPTIONALs left sit inside the municipality branch: its label and its province.
+    expect(where.match(/\bOPTIONAL\b/g)).toHaveLength(2);
+    // The registered flag is bound once per item, before the UNION, so every row carries it.
+    expect(text.indexOf('BIND(EXISTS')).toBeLessThan(text.indexOf('} UNION {'));
+  });
+
+  it('aggregates only expressions that cannot fail (one error makes a SPARQL 1.1 aggregate an error)', () => {
+    const head = text.slice(text.indexOf('SELECT ?item'), text.indexOf('WHERE {'));
+    const aggregates = head.match(/\((?:MAX|MIN|SAMPLE|GROUP_CONCAT|COUNT|SUM|AVG)\(.*\) AS \?\w+\)/g) ?? [];
+    expect(aggregates).toHaveLength(15);
+    for (const a of aggregates) {
+      if (a.startsWith('(SAMPLE(')) expect(a).toBe('(SAMPLE(?isRegistered) AS ?registered)');
+      else expect(a).toMatch(/^\((?:MAX|GROUP_CONCAT)\((?:DISTINCT )?COALESCE\(/);
+    }
+  });
+
   it('asks for every property the parser reads, with truthy values', () => {
     for (const p of ['P625', 'P856', 'P6375', 'P281', 'P131', 'P382', 'P300', 'P166', 'P973', 'P18', 'P31', 'P576']) {
       expect(text).toContain(`wdt:${p}`);
@@ -629,6 +650,46 @@ describe('the parser: fields', () => {
     });
   });
 
+  it('reads the shape of the UNION query: "" is no value and an empty record is dropped', () => {
+    const r = ok(
+      parseWikidata(
+        doc([
+          item(
+            {
+              labelNl: '',
+              labelEn: 'Museum EN',
+              descNl: '',
+              descEn: 'A museum',
+              aliases: `${RECORD_SEP}Alias B${RECORD_SEP}Alias A`,
+              coords: '',
+              websites: `https://example.org/${RECORD_SEP}`,
+              municipalities: `${RECORD_SEP}0363${FIELD_SEP}Amsterdam${FIELD_SEP}NL-NH`,
+              images: '',
+              classes: `${RECORD_SEP}${ENTITY}Q33506`,
+              registered: 'false',
+              dissolved: '',
+            },
+            'Q1',
+            null,
+          ),
+        ]),
+      ),
+    );
+    expect(r.invalid).toEqual({});
+    expect(r.notes).toEqual({});
+    const row = r.rows[0] as WikidataRow;
+    expect(row.name).toBe('Museum EN');
+    expect(row.descriptionNl).toBeNull();
+    expect(row.descriptionEn).toBe('A museum');
+    expect(row.aliases).toEqual(['Alias A', 'Alias B']);
+    expect(row.lat).toBeNull();
+    expect(row.website).toBe('https://example.org/');
+    expect(row.municipalityCode).toBe('GM0363');
+    expect(row.commonsFile).toBeNull();
+    expect(row.classes).toEqual(['Q33506']);
+    expect(row.dissolvedOn).toBeNull();
+  });
+
   it('reads the registered flag and the dissolved date', () => {
     expect(only({ registered: 'true' }).registered).toBe(true);
     expect(only({ registered: '1' }).registered).toBe(true);
@@ -636,6 +697,12 @@ describe('the parser: fields', () => {
     expect(only({}).registered).toBe(false);
     expect(only({ dissolved: '2019-12-31T00:00:00Z' }).dissolvedOn).toBe('2019-12-31');
     expect(only({ dissolved: '2019-12-31' }).dissolvedOn).toBe('2019-12-31');
+    // Several P576 dates: the earliest valid one.
+    const ends = (...dates: string[]) => dates.join(RECORD_SEP);
+    const earliest = only({ dissolved: ends('', '2001-05-01T00:00:00Z', '1999-01-01T00:00:00Z') });
+    expect(earliest.dissolvedOn).toBe('1999-01-01');
+    expect(only({ dissolved: ends('-0100-01-01T00:00:00Z', '2019-12-31T00:00:00Z') }).dissolvedOn).toBe('2019-12-31');
+    expect(only({ dissolved: '' }).dissolvedOn).toBeNull();
     for (const bad of ['-0100-01-01T00:00:00Z', '2019-02-30T00:00:00Z', 'x', '0000-01-01T00:00:00Z', '19-01-01']) {
       const r = ok(parseWikidata(doc([item({ dissolved: bad })])));
       expect(r.rows[0]?.dissolvedOn).toBeNull();

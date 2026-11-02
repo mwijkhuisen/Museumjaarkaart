@@ -81,8 +81,11 @@ const Cell = z.object({
 });
 
 /** Variables that hold one value (never split: a label may hold any character). */
-const SINGLE_VARS = ['labelNl', 'labelEn', 'descNl', 'descEn', 'registered', 'dissolved'] as const;
-/** Variables that hold a GROUP_CONCAT of values. */
+const SINGLE_VARS = ['labelNl', 'labelEn', 'descNl', 'descEn', 'registered'] as const;
+/**
+ * Variables that hold a GROUP_CONCAT of values. The query COALESCEs each to "" (an aggregate
+ * over UNION rows must not fail), so an empty record is normal and is dropped.
+ */
 const MULTI_VARS = [
   'aliases',
   'coords',
@@ -93,6 +96,7 @@ const MULTI_VARS = [
   'museumnl',
   'images',
   'classes',
+  'dissolved',
 ] as const;
 type Var = (typeof SINGLE_VARS)[number] | (typeof MULTI_VARS)[number];
 
@@ -403,6 +407,7 @@ function build(qid: string, c: Collected, notes: Set<string>): Built {
     .sort(byCodeUnit)
     .slice(0, MAX_CLASSES);
 
+  // The earliest valid P576 date: ISO dates sort by code unit.
   let dissolvedOn: string | null = null;
   const ends = sorted(c, 'dissolved');
   for (const raw of ends) {
