@@ -11,6 +11,11 @@ describe('normaliseName', () => {
       'Stichting Musea van het Zuiden en de Delta der den',
       'zuiden delta',
     ],
+    // The RCE names' legal-form and abbreviation noise (the owner's full recording, O1).
+    ['stg, gem and mus', 'Nationaal Busmuseum, Stg', 'nationaal busmuseum'],
+    ['gem. before a place', 'Markiezenhof, Gem. Bergen Op Zoom', 'markiezenhof bergen op zoom'],
+    ['mus as a word', 'Mus Willet Holthuijzen', 'willet holthuijzen'],
+    ['in as a word, not inside one', 'In de Gecroonde Duyvekater Inktmuseum', 'gecroonde duyvekater inktmuseum'],
     ["'t becomes t and is dropped", "Museum 't Kromhout", 'kromhout'],
     ['typographic apostrophe', 'Museum ’t Kromhout', 'kromhout'],
     ['place names stay', 'Museum Het Valkhof Nijmegen', 'valkhof nijmegen'],
