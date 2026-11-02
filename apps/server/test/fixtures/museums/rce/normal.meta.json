@@ -1,8 +1,7 @@
 {
   "source": "rce",
   "case": "normal",
-  "origin": "synthetic",
-  "recordedOn": "2026-11-01",
-  "licence": "PDM-1.0",
-  "notes": "Hand-made in the WFS GeoJSON format with fictional museums; the owner replaces it with a recording (O1). Intended matches against wikidata/normal as rce_id=QID. Rule 2 (same postcode, similar name): overzichtmusea.1=Q99000111, overzichtmusea.2=Q99000112, overzichtmusea.3=Q99000113, overzichtmusea.4=Q99000114, overzichtmusea.5=Q99000115, overzichtmusea.6=Q99000116, overzichtmusea.7=Q99000117, overzichtmusea.8=Q99000118, overzichtmusea.9=Q99000120, overzichtmusea.10=Q99000121, overzichtmusea.11=Q99000123, overzichtmusea.12=Q99000124, overzichtmusea.13=Q99000125, overzichtmusea.14=Q99000126, overzichtmusea.15=Q99000127, overzichtmusea.16=Q99000130, overzichtmusea.17=Q99000134. Rule 3 (within 150 m, different postcode, similar name): overzichtmusea.18=Q99000119, overzichtmusea.19=Q99000122, overzichtmusea.20=Q99000137, overzichtmusea.21=Q99000128, overzichtmusea.22=Q99000129, overzichtmusea.23=Q99000131, overzichtmusea.24=Q99000132, overzichtmusea.25=Q99000133, overzichtmusea.26=Q99000135, overzichtmusea.27=Q99000136, overzichtmusea.28=Q99000138, overzichtmusea.29=Q99000139. Ambiguous (near two items of a pair): overzichtmusea.30=Q99000101|Q99000102, overzichtmusea.31=Q99000103|Q99000104, overzichtmusea.32=Q99000105|Q99000106, overzichtmusea.33=Q99000107|Q99000108, overzichtmusea.34=Q99000109|Q99000110. Match nothing: overzichtmusea.35, overzichtmusea.36, overzichtmusea.37, overzichtmusea.38, overzichtmusea.39, overzichtmusea.40."
+  "origin": "recorded",
+  "recordedOn": "2026-11-02",
+  "licence": "PDM-1.0"
 }

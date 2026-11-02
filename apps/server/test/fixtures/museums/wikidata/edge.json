@@ -24,138 +24,6 @@
       {
         "item": {
           "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q474171"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Teylers Fundatiehuis"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Fundatiehuis (Teyler)"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "museum in Nederland"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "biographical museum"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "\u001frijksmonumentnummer 19015\u001fTeylerstichting"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(4.63931 52.38042)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "\u001fDamstraat 21"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "\u001f2011HA"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0392\u001eHaarlem\u001eNL-NH"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Haarlem%20-%20Teylers%20Fundatiehuis%20-%20gevel%20met%20zandstenen%20platen.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Teyler-huis%20Damstraat-21%20Haarlem%20Nederland.JPG"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": ""
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q484899"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Nationaal Fietsmuseum Velorama"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Velorama"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "museum in Nijmegen"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "museum in the Netherlands"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "\u001fThe Velorama National Bicycle Museum\u001fStichting Velorama\u001fVelorama"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(5.869789 51.848769)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "\u001fhttps://velorama.nl"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "\u001fWaalkade 107"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "\u001f6511 XR"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0268\u001eNijmegen\u001eNL-GE"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Liegeraeder%201920er%20Velorama.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Nijmegen%20-%20Nationaal%20Fietsmuseum%20Velorama%2020250125.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q133305501\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": ""
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
           "value": "http://www.wikidata.org/entity/Q924335"
         },
         "labelNl": {
@@ -212,7 +80,7 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q41176\u001fhttp://www.wikidata.org/entity/Q3196771\u001fhttp://www.wikidata.org/entity/Q98929991\u001f"
+          "value": "\u001fhttp://www.wikidata.org/entity/Q41176\u001fhttp://www.wikidata.org/entity/Q3196771\u001fhttp://www.wikidata.org/entity/Q98929991"
         },
         "dissolved": {
           "type": "literal",
@@ -278,7 +146,469 @@
         },
         "classes": {
           "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q207694\u001fhttp://www.wikidata.org/entity/Q1759852\u001fhttp://www.wikidata.org/entity/Q3152824\u001fhttp://www.wikidata.org/entity/Q17431399\u001f"
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q207694\u001fhttp://www.wikidata.org/entity/Q1759852\u001fhttp://www.wikidata.org/entity/Q3152824\u001fhttp://www.wikidata.org/entity/Q17431399"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2534195"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Stedelijk Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Stedelijk Museum Kampen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "Kampen"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Kampen, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fStedelijk Museum Kampen"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(5.9167 52.5588)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttp://www.stedelijkemuseakampen.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fOudestraat 133"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f8261CK"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0166\u001eKampen\u001eNL-OV"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": "\u001fhttps://www.museumkaart.nl/museum/Stedelijk+Museum+Kampen.aspx"
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2736515"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Stedelijk Museum Zutphen"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Stedelijk Museum Zutphen"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "cultuurhistorisch museum in Gelderland over geschiedenis van Zutphen en de Graafschap"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Zutphen, Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fOudheidkamer van Zutphen en de Graafschap\u001fstedelijk museum zutphen"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "\u001fPoint(6.19517 52.1428)"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://museazutphen.nl/stedelijk-museum-zutphen"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001f&#039;s Gravenhof 4"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0301\u001eZutphen\u001eNL-GE"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "true"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": ""
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q474171"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Teylers Fundatiehuis"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Fundatiehuis (Teyler)"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Nederland"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "biographical museum"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001frijksmonumentnummer 19015\u001fTeylerstichting"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.63931 52.38042)\u001f"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fDamstraat 21"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f2011HA"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0392\u001eHaarlem\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Haarlem%20-%20Teylers%20Fundatiehuis%20-%20gevel%20met%20zandstenen%20platen.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Teyler-huis%20Damstraat-21%20Haarlem%20Nederland.JPG"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q484899"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Nationaal Fietsmuseum Velorama"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Velorama"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Nijmegen"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fThe Velorama National Bicycle Museum\u001fStichting Velorama\u001fVelorama"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5.869789 51.848769)\u001f"
+        },
+        "websites": {
+          "type": "literal",
+          "value": "\u001fhttps://velorama.nl"
+        },
+        "addresses": {
+          "type": "literal",
+          "value": "\u001fWaalkade 107"
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": "\u001f6511 XR"
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0268\u001eNijmegen\u001eNL-GE"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Liegeraeder%201920er%20Velorama.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Nijmegen%20-%20Nationaal%20Fietsmuseum%20Velorama%2020250125.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q133305501"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": ""
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q1406810"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Armando Museum"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Armando Museum"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "voormalig museum in Amersfoort"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "former museum in Amersfoort, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5.386805555 52.157194444)\u001f"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0307\u001eAmersfoort\u001eNL-UT"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Amersfoort-c-the%20river.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": "\u001f2007-10-22T00:00:00Z"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q1862034"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Nederlands Instituut voor Nijverheid en Techniek"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Netherlands Institute for Industry and Technology"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "voormalig museum in Amsterdam"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "former museum in Amsterdam, the Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": "\u001fNINT\u001fMuseum van den Arbeid\u001fStichting Nederlands Instituut voor Nijverheid en Techniek"
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(4.8754 52.37233)\u001f"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0363\u001eAmsterdam\u001eNL-NH"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Inrichten%20van%20tentoonstelling%20Opleiding%20Ontwerpen%20in%20Instituut%20voor%20Nijverheid%2C%20Bestanddeelnr%20913-5976.jpg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506"
+        },
+        "dissolved": {
+          "type": "literal",
+          "value": "\u001f1997-01-01T00:00:00Z"
+        }
+      },
+      {
+        "item": {
+          "type": "uri",
+          "value": "http://www.wikidata.org/entity/Q2598787"
+        },
+        "labelNl": {
+          "type": "literal",
+          "value": "Stedelijk Museum Roermond"
+        },
+        "labelEn": {
+          "type": "literal",
+          "value": "Stedelijk Museum Roermond"
+        },
+        "descNl": {
+          "type": "literal",
+          "value": "museum in Limburg (Nederland)"
+        },
+        "descEn": {
+          "type": "literal",
+          "value": "museum in Limburg, Netherlands"
+        },
+        "aliases": {
+          "type": "literal",
+          "value": ""
+        },
+        "coords": {
+          "type": "literal",
+          "value": "Point(5.988314 51.188228)\u001f"
+        },
+        "websites": {
+          "type": "literal",
+          "value": ""
+        },
+        "addresses": {
+          "type": "literal",
+          "value": ""
+        },
+        "postcodes": {
+          "type": "literal",
+          "value": ""
+        },
+        "municipalities": {
+          "type": "literal",
+          "value": "\u001f0957\u001eRoermond\u001eNL-LI"
+        },
+        "registered": {
+          "type": "literal",
+          "value": "false"
+        },
+        "museumnl": {
+          "type": "literal",
+          "value": ""
+        },
+        "images": {
+          "type": "literal",
+          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stedelijk%20Museum%20Roermond.jpeg"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "\u001fhttp://www.wikidata.org/entity/Q33506"
         },
         "dissolved": {
           "type": "literal",
@@ -349,138 +679,6 @@
         "dissolved": {
           "type": "literal",
           "value": ""
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q1406810"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Armando Museum"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Armando Museum"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "voormalig museum in Amersfoort"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "former museum in Amersfoort, the Netherlands"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(5.386805555 52.157194444)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0307\u001eAmersfoort\u001eNL-UT"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Amersfoort-c-the%20river.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": "\u001f2007-10-22T00:00:00Z"
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q1862034"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Nederlands Instituut voor Nijverheid en Techniek"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Netherlands Institute for Industry and Technology"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "voormalig museum in Amsterdam"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "former museum in Amsterdam, the Netherlands"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "\u001fNINT\u001fMuseum van den Arbeid\u001fStichting Nederlands Instituut voor Nijverheid en Techniek"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(4.8754 52.37233)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0363\u001eAmsterdam\u001eNL-NH"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Inrichten%20van%20tentoonstelling%20Opleiding%20Ontwerpen%20in%20Instituut%20voor%20Nijverheid%2C%20Bestanddeelnr%20913-5976.jpg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": "\u001f1997-01-01T00:00:00Z"
         }
       },
       {
@@ -597,204 +795,6 @@
         "registered": {
           "type": "literal",
           "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": ""
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q2534195"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Stedelijk Museum"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Stedelijk Museum Kampen"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "Kampen"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "museum in Kampen, the Netherlands"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "\u001fStedelijk Museum Kampen"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(5.9167 52.5588)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "\u001fhttp://www.stedelijkemuseakampen.nl"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "\u001fOudestraat 133"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": "\u001f8261CK"
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0166\u001eKampen\u001eNL-OV"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "true"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": "\u001fhttps://www.museumkaart.nl/museum/Stedelijk+Museum+Kampen.aspx"
-        },
-        "images": {
-          "type": "literal",
-          "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": ""
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q2598787"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Stedelijk Museum Roermond"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Stedelijk Museum Roermond"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "museum in Limburg (Nederland)"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "museum in Limburg, Netherlands"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": ""
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(5.988314 51.188228)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": ""
-        },
-        "addresses": {
-          "type": "literal",
-          "value": ""
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0957\u001eRoermond\u001eNL-LI"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "false"
-        },
-        "museumnl": {
-          "type": "literal",
-          "value": ""
-        },
-        "images": {
-          "type": "literal",
-          "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stedelijk%20Museum%20Roermond.jpeg"
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
-        "dissolved": {
-          "type": "literal",
-          "value": ""
-        }
-      },
-      {
-        "item": {
-          "type": "uri",
-          "value": "http://www.wikidata.org/entity/Q2736515"
-        },
-        "labelNl": {
-          "type": "literal",
-          "value": "Stedelijk Museum Zutphen"
-        },
-        "labelEn": {
-          "type": "literal",
-          "value": "Stedelijk Museum Zutphen"
-        },
-        "descNl": {
-          "type": "literal",
-          "value": "cultuurhistorisch museum in Gelderland over geschiedenis van Zutphen en de Graafschap"
-        },
-        "descEn": {
-          "type": "literal",
-          "value": "museum in Zutphen, Netherlands"
-        },
-        "aliases": {
-          "type": "literal",
-          "value": "\u001fOudheidkamer van Zutphen en de Graafschap\u001fstedelijk museum zutphen"
-        },
-        "coords": {
-          "type": "literal",
-          "value": "\u001fPoint(6.19517 52.1428)"
-        },
-        "websites": {
-          "type": "literal",
-          "value": "\u001fhttps://museazutphen.nl/stedelijk-museum-zutphen"
-        },
-        "addresses": {
-          "type": "literal",
-          "value": "\u001f&#039;s Gravenhof 4"
-        },
-        "postcodes": {
-          "type": "literal",
-          "value": ""
-        },
-        "municipalities": {
-          "type": "literal",
-          "value": "\u001f0301\u001eZutphen\u001eNL-GE"
-        },
-        "registered": {
-          "type": "literal",
-          "value": "true"
         },
         "museumnl": {
           "type": "literal",
