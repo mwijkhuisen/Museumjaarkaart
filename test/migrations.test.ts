@@ -11,7 +11,7 @@ const PINNED: Record<string, string> = {
   '20261102000002_museums.sql': 'b09bb7fdff7b7f4f9f4eb952be0b70ff925b763e3e3b413d72ac6d1036ad9e24',
   '20261102000003_jobs.sql': '8a0b272158d6dddaf722bc23b6a4bff11768dd541e3366d41fa25ca738b1aef2',
   '20261103000001_search.sql': '55f72b998458728e4e511b0f6e23d5b211a97ad65399df3454d13788cb5a2d26',
-  '20261103000002_public_views.sql': '7b1010d26042d39d371c29e814df1b7db8f9f1d46c03a6594566e73d6ffaa477',
+  '20261103000002_public_views.sql': '53205ca0b792d16b49c45b0aed05de99eb2f5a981a0264eeb85743bedf9130ed',
 };
 
 it('every migration matches its pinned sha256, and no file is added or removed', () => {

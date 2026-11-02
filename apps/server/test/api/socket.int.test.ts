@@ -15,14 +15,17 @@ import { type Case, cases, openSweep, type Sweep, V1 } from './sweep.ts';
 // The api over a real socket (review of PR #37): `app.request()` bypasses @hono/node-server, whose
 // request object is not an undici Request (`overrideGlobalObjects: false`), so the adapter path needs
 // its own proof. Every method on the admin path and on public routes, with no body, a small body,
-// a body over the cap and a chunked body (a body of unknown length): the status, the fixed error
+// a body over the cap, and a chunked body (a body of unknown length) both under and over the cap: the
+// small chunked body is the first review's exact repro, which a streaming body cap turned into a 500.
+// Then the status, the fixed error
 // body, `private, no-store` on every 4xx, no cookie, no CORS, and never a 500. Then the sweep's
 // cases over the socket equal the in-process answers.
 
 const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'] as const;
 type Method = (typeof METHODS)[number];
-type BodyKind = 'none' | 'small' | 'large' | 'chunked';
-const BODIES: readonly BodyKind[] = ['none', 'small', 'large', 'chunked'];
+type BodyKind = 'none' | 'small' | 'large' | 'chunked' | 'chunkedSmall';
+const BODIES: readonly BodyKind[] = ['none', 'small', 'large', 'chunked', 'chunkedSmall'];
+const isChunked = (kind: BodyKind) => kind === 'chunked' || kind === 'chunkedSmall';
 
 type Answer = { status: number; headers: Record<string, string | string[] | undefined>; body: string };
 
@@ -52,7 +55,7 @@ function send(p: number, method: string, path: string, kind: BodyKind = 'none'):
     if (kind === 'small') body = Buffer.from('{"a":1}');
     if (kind === 'large') body = Buffer.alloc(70 * 1024, 0x61);
     if (body !== null) headers['Content-Length'] = String(body.length);
-    if (kind === 'chunked') headers['Transfer-Encoding'] = 'chunked';
+    if (isChunked(kind)) headers['Transfer-Encoding'] = 'chunked';
     const req = request({ host: '127.0.0.1', port: p, method, path, headers, agent: false }, (res) => {
       const chunks: Buffer[] = [];
       res.on('data', (c: Buffer) => chunks.push(c));
@@ -63,10 +66,8 @@ function send(p: number, method: string, path: string, kind: BodyKind = 'none'):
     });
     req.on('error', reject);
     if (body !== null) req.write(body);
-    if (kind === 'chunked') {
-      req.write('abc');
-      req.write(Buffer.alloc(70 * 1024, 0x62));
-    }
+    if (isChunked(kind)) req.write('abc');
+    if (kind === 'chunked') req.write(Buffer.alloc(70 * 1024, 0x62));
     req.end();
   });
 }
@@ -79,7 +80,9 @@ const noLeaks = (a: Answer, label: string) => {
 
 /** What the public route must answer to `method` with `kind`: status and error body (null for a 2xx). */
 function expectedPublic(method: Method, kind: BodyKind): { status: number; error: ErrorBody | null } {
-  if (kind === 'chunked') return { status: 400, error: { error: 'bad_request', fields: [] } };
+  // Until a route reads a body (P2a), a body of unknown length is a 400 whatever its size; when P2a
+  // relaxes the rule, a small chunked body must get the route's own answer, never a 500.
+  if (isChunked(kind)) return { status: 400, error: { error: 'bad_request', fields: [] } };
   if (kind === 'large') return { status: 413, error: { error: 'too_large' } };
   if (method === 'GET' || method === 'HEAD') return { status: 200, error: null };
   return { status: 404, error: { error: 'not_found' } };

@@ -9,9 +9,12 @@
 -- (it cannot raise an error or otherwise reveal the values it reads). Without the barrier, a qual
 -- such as `CASE WHEN alias = '<a hidden museum's alias>' THEN 1/0 ELSE 1 END = 1` runs on the base
 -- table before `NOT hidden` and turns a hidden row into an error (views.int.test.ts proves both).
--- The text, uuid, date and float8 comparisons that the list, the keyset, the filters, the detail
--- and near-me use are leakproof and still reach the indexes; `@@`, `<%` and functions such as
--- mjk_unaccent are not, so search does not go through the views (pub_search below).
+-- The text, uuid, date and float8 comparisons that the list, the keyset, the province and
+-- municipality filters, the detail and near-me use are leakproof and still reach the indexes; `@>`,
+-- `@@`, `<%` and functions such as mjk_unaccent are not, so search does not go through the views
+-- (pub_search below). What the barrier does not stop: plan instrumentation. EXPLAIN (ANALYZE) shows
+-- `Rows Removed by Filter` for hidden rows that a leakproof qual reaches on an index, which confirms a
+-- guessed hidden slug or id (A§8 records this residual; views.int.test.ts pins it).
 --
 -- The views are owned by mjk_migrator (the migration runs as it) and are not security_invoker
 -- (the callers hold no table grants).

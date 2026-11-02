@@ -375,6 +375,37 @@ describe('hidden museums', () => {
       }
       expect(await code(ssr.query(probe('pub_museum_alias', 'alias'), ['Verborgen alias']))).toBe('ok');
     });
+
+    // The known residual (re-review of PR #37, N1). A barrier stops the error and value channel above,
+    // not plan instrumentation: EXPLAIN (ANALYZE) needs only SELECT, and a leakproof qual (a slug, an
+    // id, the keyset, a lat/lon box) runs below the barrier on its index, so `Rows Removed by Filter`
+    // counts the hidden rows that `NOT hidden` dropped there. That confirms a guessed hidden slug (and
+    // range counts can rebuild sort keys). A§8 records it; P3a and P3b decide before pub_review and
+    // pub_media (partial indexes WHERE NOT hidden, or accept it). The caller may turn off seq scans
+    // itself, as an attacker would. This test pins the residual, so a change in it is noticed and the
+    // docs follow.
+    it('records the residual: EXPLAIN (ANALYZE) counts a hidden row that a leakproof qual reaches', async () => {
+      const plan = async (slug: string) => {
+        await ssr.query('BEGIN');
+        try {
+          await ssr.query('SET LOCAL enable_seqscan = off');
+          const { rows } = await ssr.query<{ 'QUERY PLAN': string }>(
+            `EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF) SELECT id FROM pub_museum WHERE slug = '${slug}'`,
+          );
+          return rows.map((r) => r['QUERY PLAN']).join('\n');
+        } finally {
+          await ssr.query('ROLLBACK');
+        }
+      };
+      const hiddenPlan = await plan('verborgen-nieuw'); // the hidden museum's current slug
+      const absentPlan = await plan('bestaat-niet');
+      expect(hiddenPlan).toContain('museum_slug_key');
+      expect(hiddenPlan).toMatch(/Rows Removed by Filter: 1\b/);
+      expect(absentPlan).toContain('museum_slug_key');
+      expect(absentPlan).not.toMatch(/Rows Removed by Filter/);
+      // the answer itself never holds the row
+      expect((await ssr.query("SELECT id FROM pub_museum WHERE slug = 'verborgen-nieuw'")).rows).toEqual([]);
+    });
   });
 });
 

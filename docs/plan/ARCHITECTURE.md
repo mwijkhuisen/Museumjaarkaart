@@ -346,7 +346,19 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
   - `pub_mk_list` (the newest version's date and N, as published)
 - `hidden` is filtered in `pub_museum` only; the others join it.
 - Every public query of the `api` reads only these views and `pub_search`, so P1c's SSR loaders reuse the same functions as `mjk_ssr`.
-- **They are `security_barrier`** (P1b review, owner decision 2026-11-02): they are the isolation boundary for `mjk_ssr`, which must see public rows only even when the `ssr` process is compromised and sends its own SQL. Only leakproof quals pass below a barrier: the text, uuid, date and float8 comparisons of the list, the keyset, the filters, the detail and near-me do, and still reach `museum_sort_idx`, `museum_slug_key`, `museum_pkey` and `museum_lat_lon_idx` (the list's ORDER BY becomes a top-N sort above the barrier, ~4 ms at 1,400 rows). `@@`, `<%` and functions such as `mjk_unaccent` are not leakproof. `views.int.test.ts` proves, as `mjk_ssr`, that a qual that raises only for a hidden value never raises through any view, and that it does leak a hidden alias and a hidden old slug once the barrier is off. Later `pub_*` views (`pub_review`, `pub_media`, …) are barrier views too.
+- **They are `security_barrier`** (P1b review, owner decision 2026-11-02): they are the isolation boundary for `mjk_ssr`, which must see public rows only even when the `ssr` process is compromised and sends its own SQL.
+  - **What passes the barrier.** Only leakproof quals pass below a barrier. The text, uuid, date and float8 comparisons of the list, the keyset, the province and municipality filters, the detail and near-me do, and still reach `museum_sort_idx`, `museum_slug_key`, `museum_pkey` and `museum_lat_lon_idx`.
+    - The list's ORDER BY becomes a top-N sort above the barrier, ~4 ms at 1,400 rows.
+    - The category filter (`@>`) is not leakproof and runs above it.
+    - `@@`, `<%` and functions such as `mjk_unaccent` are not leakproof either.
+  - **What it stops:** the error and value channel. `views.int.test.ts` proves, as `mjk_ssr`, that a qual that raises only for a hidden value never raises through any view, and that it does leak a hidden alias and a hidden old slug once the barrier is off.
+  - **What it does not stop:** plan instrumentation (re-review of P1b, N1).
+    - `EXPLAIN (ANALYZE)` needs only SELECT. A leakproof qual runs below the barrier on its index, so `Rows Removed by Filter` counts the hidden rows that `NOT hidden` dropped there.
+    - That confirms a guessed hidden slug, id or coordinate, and range counts on the sort key can rebuild hidden names.
+    - `views.int.test.ts` pins this residual.
+  - **Later views.** Later `pub_*` views (`pub_review`, `pub_media`, …) are barrier views too. Where hidden content is sensitive (removed, pending or DSA-removed), P3a and P3b decide before those views exist [U P3a]:
+    - (a) keep hidden rows out of the indexes a caller's leakproof qual can reach (partial indexes `WHERE NOT hidden`, which the view's own predicate implies; plain unique constraints only for integrity);
+    - (b) or accept the existence and count channel and record it.
 - **Search goes through `pub_search(q)`** (P1b), not through the views: a `LANGUAGE sql STABLE SECURITY DEFINER` function owned by `mjk_migrator`, with `SET search_path = pg_catalog, pg_temp` and `SET pg_trgm.word_similarity_threshold = '0.55'` pinned on it, a static body (no dynamic SQL) in which `q` is only the bound value `$1` and every name is schema-qualified. Its three branches read `museum` and `museum_alias` with `NOT hidden` in each and return only ids of visible museums with a tier and a score, which the caller joins to `pub_museum`. EXECUTE is revoked from `PUBLIC` and granted to `mjk_api` and `mjk_ssr`. `search-explain.int.test.ts` explains its body (custom and generic plans) on the GIN indexes.
 
 **Roles** (`deploy/postgres/roles.sql`, F1's pattern: file-secret passwords read with `pg_read_file`, idempotent, `NOSUPERUSER … NOBYPASSRLS`, `PUBLIC` revoked, one database per cluster):
