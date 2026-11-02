@@ -10,6 +10,7 @@ import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
 import { mountMkList } from './routes/mk-list.ts';
 import { mountMuseumDetail } from './routes/museum-detail.ts';
+import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2): request id and log →
@@ -93,6 +94,7 @@ export function createApp(deps: ApiDeps): ApiApp {
   return buildApp(deps, (v1, d) => {
     mountProvinces(v1, d);
     mountMkList(v1, d);
+    mountMuseumsNear(v1, d);
     mountMuseumDetail(v1, d);
   });
 }
