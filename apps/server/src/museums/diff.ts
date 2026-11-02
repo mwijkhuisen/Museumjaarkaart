@@ -571,9 +571,23 @@ export function plan(state: SyncState, sources: Sources, mode: 'seed' | 'sync', 
     bump(counts.pending, field);
   };
 
+  // A museum that waits for a presence decision keeps its fields: a matched row of it is absent now,
+  // and either it went this run (step 5 queues it) or its presence change still waits. One decision at
+  // a time: otherwise the remaining source would take over its fields, and swap them back when the row
+  // returns (the real fixtures showed it, O1). After the owner's --keep the next sync updates it.
+  const pendingPresence = new Set(
+    state.pending.filter((c) => c.field === 'presence').map((c) => `${c.museum_id}:${c.source}`),
+  );
+  const awaitingPresence = new Set<string>();
+  for (const e of state.sourceRows) {
+    if (e.match_state !== 'matched' || e.matched_museum_id === null) continue;
+    if (present.has(keyOf(e.source, e.external_id))) continue;
+    if (!e.gone || pendingPresence.has(`${e.matched_museum_id}:${e.source}`)) awaitingPresence.add(e.matched_museum_id);
+  }
+
   for (const k of [...new Set([...wOf.keys(), ...rOf.keys()])].sort()) {
     const m = museums.get(k.slice('id:'.length));
-    if (!m) continue;
+    if (!m || awaitingPresence.has(m.id)) continue;
     const w = wOf.get(k);
     const r = rOf.get(k);
     const { target, from } = targetOf(w, r, knownMunicipality);

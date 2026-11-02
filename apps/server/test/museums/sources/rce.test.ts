@@ -82,21 +82,24 @@ describe('fixtures', () => {
     }
   });
 
-  it('normal: 40 features with coordinates, postcodes and no problems', () => {
+  it('normal: the recorded answer; every feature is a clean row', () => {
+    // The owner's recording (O1, 2026-11-02): 629 features, all with a geometry and a Pc6.
     const r = parseCase('normal');
-    expect(r.rows).toHaveLength(40);
+    const features = (readFixture('rce', 'normal') as { features: unknown[] }).features;
+    expect(r.rows).toHaveLength(features.length);
+    expect(r.rows.length).toBeGreaterThanOrEqual(500); // the first-run floor (A§7.1)
     expect(r.invalid).toEqual({});
     expect(r.notes).toEqual({});
-    expect(r.rows.every((x) => x.lat !== null && x.postcode !== null && x.street !== null)).toBe(true);
+    expect(r.rows.every((x) => /^overzichtmusea\.[0-9]+$/.test(x.rceId))).toBe(true);
+    expect(
+      r.rows.every(
+        (x) =>
+          x.lat !== null && x.postcode !== null && x.street !== null && x.place !== null && x.municipalityName !== null,
+      ),
+    ).toBe(true);
+    // HnrToev is joined to the number (8A, 7-HS).
+    expect(r.rows.some((x) => /^[0-9]+([A-Z]|-.+)$/.test(x.houseNumber ?? ''))).toBe(true);
     expect(r.rows.map((x) => x.rceId)).toEqual(r.rows.map((x) => x.rceId).sort());
-  });
-
-  it('normal: the notes of the meta file name every row', () => {
-    const meta = parseFixtureMeta(readMeta('rce', 'normal'));
-    const ids = new Set(parseCase('normal').rows.map((x) => x.rceId));
-    const named = new Set(meta?.notes?.match(/overzichtmusea\.[0-9]+/g));
-    expect(named).toEqual(ids);
-    expect(meta?.notes?.match(/=Q[0-9]+\|Q[0-9]+/g)).toHaveLength(5);
   });
 
   it('empty: a valid FeatureCollection with no features', () => {
@@ -105,14 +108,15 @@ describe('fixtures', () => {
 
   it('edge: counts what it drops and what it keeps', () => {
     const r = parseCase('edge');
-    expect(r.invalid).toEqual({ bad_feature: 1, duplicate_id: 1, name_too_long: 1, no_id: 1, no_name: 1 });
+    expect(r.invalid).toEqual({ bad_feature: 1, duplicate_id: 1, name_too_long: 1, no_id: 2, no_name: 1 });
     const byId = (id: string) => r.rows.find((x) => x.rceId === id);
     expect(byId('overzichtmusea.901')).toMatchObject({ lat: 52.3676, lon: 4.9041 });
     expect(byId('overzichtmusea.902')).toMatchObject({ lat: null, lon: null });
     expect(byId('overzichtmusea.903')).toMatchObject({ lat: null, lon: null });
     expect(byId('overzichtmusea.905')?.name).toBe('Museum Dubbel Een');
     expect(byId('overzichtmusea.907')?.postcode).toBeNull();
-    expect(byId('M-0042')).toMatchObject({ houseNumber: '12', postcode: '8911 AB', name: 'Museum Eigen Sleutel' });
+    // A key in a property is not a key: only the feature id is (the real answer has no id property).
+    expect(r.rows.some((x) => x.name === 'Museum Eigen Sleutel' || x.rceId === 'M-0042')).toBe(false);
     expect(byId('overzichtmusea.909')).toMatchObject({ lat: null, lon: null });
     expect(byId('overzichtmusea.912')).toMatchObject({ lat: 51.4, lon: 3.2 });
     expect(byId('overzichtmusea.913')).toMatchObject({ lat: null, lon: null });
@@ -180,17 +184,17 @@ describe('the parser: envelope', () => {
     expect(parseRce(json)).toEqual({ ok: false, code: 'schema' });
   });
 
-  it('uses the feature id as the key, unless a property holds one', () => {
+  it('uses the feature id as the key; no property is an id', () => {
     const r = ok(
       parseRce(
         collection([
           feature(named(), null, 'overzichtmusea.7'),
-          feature(named({ [RCE_PROPS.id]: 'X-1' }), null, 'overzichtmusea.8'),
+          feature(named({ museum_id: 'X-1', id: 'X-2' }), null, 'overzichtmusea.8'),
           feature(named(), null, 42),
         ]),
       ),
     );
-    expect(r.rows.map((x) => x.rceId)).toEqual(['42', 'X-1', 'overzichtmusea.7']);
+    expect(r.rows.map((x) => x.rceId)).toEqual(['42', 'overzichtmusea.7', 'overzichtmusea.8']);
   });
 
   it('drops features that cannot be used, and says why', () => {
@@ -328,6 +332,27 @@ describe('the parser: address fields', () => {
       place: 'Amsterdam',
       municipalityName: 'Amsterdam',
     });
+  });
+
+  it('joins the house number addition: a letter directly, anything else after a dash', () => {
+    const hn = (number: unknown, addition: unknown) =>
+      rowOf({ [RCE_PROPS.houseNumber]: number, [RCE_PROPS.houseNumberAddition]: addition }).houseNumber;
+    expect(hn('8', 'A')).toBe('8A');
+    expect(hn('12', '1')).toBe('12-1');
+    expect(hn('7', 'HS')).toBe('7-HS');
+    expect(hn('7', null)).toBe('7');
+    expect(hn('7', '  ')).toBe('7');
+    expect(hn(null, 'A')).toBeNull();
+    // Over the 20-character cap together: the number alone, with a note.
+    const r = ok(
+      parseRce(
+        collection([
+          feature(named({ [RCE_PROPS.houseNumber]: '1234567890', [RCE_PROPS.houseNumberAddition]: 'abcdefghijk' })),
+        ]),
+      ),
+    );
+    expect(r.rows[0]?.houseNumber).toBe('1234567890');
+    expect(r.notes).toEqual({ house_number_too_long: 1 });
   });
 
   it('accepts a numeric house number and nothing else that is not text', () => {
@@ -497,7 +522,7 @@ describe('robustness', () => {
       const once = ok(parseRce(base));
       const both = ok(parseRce(twice));
       expect(both.rows).toEqual(once.rows);
-      expect(both.invalid).toEqual({ duplicate_id: 40 });
+      expect(both.invalid).toEqual({ duplicate_id: once.rows.length });
     });
   });
 });

@@ -352,6 +352,63 @@ describe('sync: presence (criterion 4)', () => {
   });
 });
 
+describe('sync: a museum that waits for a presence decision keeps its fields', () => {
+  // Matched to Wikidata Q1 and to RCE R1; RCE puts it 60 m north at another address.
+  const row = w('Q1');
+  const rce = r('R1', { name: 'Museum Q1', lat: north(52.1, 60), street: 'Rcestraat' });
+  const both = (): SyncState => ({
+    ...seeded([row]),
+    museums: [museum(1, row, { rce_id: 'R1' })],
+    sourceRows: [sourceRow('wikidata', 'Q1', row, ID(1)), sourceRow('rce', 'R1', rce, ID(1))],
+  });
+
+  it('the week its Wikidata row goes: only presence, RCE does not take over its fields', () => {
+    const p = plan(both(), { wikidata: [], rce: [rce] }, 'sync');
+    expect(p.changes).toEqual([expect.objectContaining({ museumId: ID(1), field: 'presence', state: 'pending' })]);
+    expect(p.update).toEqual([]);
+  });
+
+  it('while that presence change waits, nothing else changes', () => {
+    const s = both();
+    const waiting: SyncState = {
+      ...s,
+      sourceRows: s.sourceRows.map((x) => (x.source === 'wikidata' ? { ...x, gone: true } : x)),
+      pending: [{ id: 'p1', museum_id: ID(1), field: 'presence', source: 'wikidata', new: { present: false } }],
+    };
+    const p = plan(waiting, { wikidata: [], rce: [{ ...rce, street: 'Nieuwestraat' }] }, 'sync');
+    // The new RCE payload is stored (its source row), but the museum keeps its fields.
+    expect(p.changes).toEqual([]);
+    expect(p.update).toEqual([]);
+    expect(p.sourceRows).toEqual([expect.objectContaining({ source: 'rce', external_id: 'R1' })]);
+  });
+
+  it('after the owner kept it, the next sync takes its fields from RCE', () => {
+    const s = both();
+    const kept: SyncState = {
+      ...s,
+      sourceRows: s.sourceRows.map((x) => (x.source === 'wikidata' ? { ...x, gone: true } : x)),
+      pending: [],
+    };
+    const p = plan(kept, { wikidata: [], rce: [rce] }, 'sync');
+    expect(p.changes).toContainEqual(
+      expect.objectContaining({ field: 'coordinates', state: 'applied', source: 'rce' }),
+    );
+    expect(p.changes.some((c) => c.field === 'presence')).toBe(false);
+  });
+
+  it('a row that comes back clears the wait in the same run', () => {
+    const s = both();
+    const waiting: SyncState = {
+      ...s,
+      sourceRows: s.sourceRows.map((x) => (x.source === 'wikidata' ? { ...x, gone: true } : x)),
+      pending: [{ id: 'p1', museum_id: ID(1), field: 'presence', source: 'wikidata', new: { present: false } }],
+    };
+    const p = plan(waiting, { wikidata: [{ ...row, website: 'https://example.org/nieuw' }], rce: [rce] }, 'sync');
+    expect(p.supersede).toContain('p1');
+    expect(p.changes).toContainEqual(expect.objectContaining({ field: 'website', state: 'applied' }));
+  });
+});
+
 describe('sync: identity never changes by itself', () => {
   it('a new QID with no candidate waits as a new museum', () => {
     const p = plan(

@@ -9,12 +9,12 @@
         "coordinates": [52.3676, 4.9041]
       },
       "properties": {
-        "naam": "Museum Omgewisselde Assen",
-        "straat": "Draaistraat",
-        "huisnummer": "1",
-        "postcode": "1011 AB",
-        "plaats": "Amsterdam",
-        "gemeente": "Amsterdam"
+        "Museum": "Museum Omgewisselde Assen",
+        "Adres": "Draaistraat",
+        "Huisnummer": "1",
+        "Pc6": "1011 AB",
+        "Woonplaats": "Amsterdam",
+        "Gemeente": "Amsterdam"
       }
     },
     {
@@ -25,12 +25,12 @@
         "coordinates": [121000, 487000]
       },
       "properties": {
-        "naam": "Museum In Rijksdriehoek",
-        "straat": "Meterstraat",
-        "huisnummer": "2",
-        "postcode": "3511 AB",
-        "plaats": "Utrecht",
-        "gemeente": "Utrecht"
+        "Museum": "Museum In Rijksdriehoek",
+        "Adres": "Meterstraat",
+        "Huisnummer": "2",
+        "Pc6": "3511 AB",
+        "Woonplaats": "Utrecht",
+        "Gemeente": "Utrecht"
       }
     },
     {
@@ -38,12 +38,12 @@
       "id": "overzichtmusea.903",
       "geometry": null,
       "properties": {
-        "naam": "Museum Zonder Plek",
-        "straat": "Nergensstraat",
-        "huisnummer": "3",
-        "postcode": "3011 AB",
-        "plaats": "Rotterdam",
-        "gemeente": "Rotterdam"
+        "Museum": "Museum Zonder Plek",
+        "Adres": "Nergensstraat",
+        "Huisnummer": "3",
+        "Pc6": "3011 AB",
+        "Woonplaats": "Rotterdam",
+        "Gemeente": "Rotterdam"
       }
     },
     {
@@ -54,8 +54,8 @@
         "coordinates": [4.9, 52.3]
       },
       "properties": {
-        "straat": "Naamloos",
-        "plaats": "Ergens"
+        "Adres": "Naamloos",
+        "Woonplaats": "Ergens"
       }
     },
     {
@@ -66,12 +66,12 @@
         "coordinates": [4.3007, 52.0705]
       },
       "properties": {
-        "naam": "Museum Dubbel Een",
-        "straat": "Eerste",
-        "huisnummer": "1",
-        "postcode": "2511 AB",
-        "plaats": "'s-Gravenhage",
-        "gemeente": "'s-Gravenhage"
+        "Museum": "Museum Dubbel Een",
+        "Adres": "Eerste",
+        "Huisnummer": "1",
+        "Pc6": "2511 AB",
+        "Woonplaats": "'s-Gravenhage",
+        "Gemeente": "'s-Gravenhage"
       }
     },
     {
@@ -82,12 +82,12 @@
         "coordinates": [4.31, 52.08]
       },
       "properties": {
-        "naam": "Museum Dubbel Twee",
-        "straat": "Tweede",
-        "huisnummer": "2",
-        "postcode": "2511 AC",
-        "plaats": "'s-Gravenhage",
-        "gemeente": "'s-Gravenhage"
+        "Museum": "Museum Dubbel Twee",
+        "Adres": "Tweede",
+        "Huisnummer": "2",
+        "Pc6": "2511 AC",
+        "Woonplaats": "'s-Gravenhage",
+        "Gemeente": "'s-Gravenhage"
       }
     },
     {
@@ -106,12 +106,12 @@
         "coordinates": [6.5665, 53.2194]
       },
       "properties": {
-        "naam": "Museum Slechte Postcode",
-        "straat": "Postweg",
-        "huisnummer": "7",
-        "postcode": "12345 AB",
-        "plaats": "Groningen",
-        "gemeente": "Groningen"
+        "Museum": "Museum Slechte Postcode",
+        "Adres": "Postweg",
+        "Huisnummer": "7",
+        "Pc6": "12345 AB",
+        "Woonplaats": "Groningen",
+        "Gemeente": "Groningen"
       }
     },
     {
@@ -122,12 +122,12 @@
       },
       "properties": {
         "museum_id": "M-0042",
-        "naam": "Museum Eigen Sleutel",
-        "straat": "Sleutelstraat",
-        "huisnummer": 12,
-        "postcode": "8911ab",
-        "plaats": "Leeuwarden",
-        "gemeente": "Leeuwarden"
+        "Museum": "Museum Eigen Sleutel",
+        "Adres": "Sleutelstraat",
+        "Huisnummer": 12,
+        "Pc6": "8911ab",
+        "Woonplaats": "Leeuwarden",
+        "Gemeente": "Leeuwarden"
       }
     },
     {
@@ -138,12 +138,12 @@
         "coordinates": [[[6, 52.5], [6.1, 52.5], [6.1, 52.6], [6, 52.5]]]
       },
       "properties": {
-        "naam": "Museum Met Vlak",
-        "straat": "Vlakstraat",
-        "huisnummer": "9",
-        "postcode": "8011 AB",
-        "plaats": "Zwolle",
-        "gemeente": "Zwolle"
+        "Museum": "Museum Met Vlak",
+        "Adres": "Vlakstraat",
+        "Huisnummer": "9",
+        "Pc6": "8011 AB",
+        "Woonplaats": "Zwolle",
+        "Gemeente": "Zwolle"
       }
     },
     {
@@ -153,12 +153,12 @@
         "coordinates": [5.8987, 51.9851]
       },
       "properties": {
-        "naam": "Museum Zonder Sleutel",
-        "straat": "Anoniem",
-        "huisnummer": "1",
-        "postcode": "6811 AB",
-        "plaats": "Arnhem",
-        "gemeente": "Arnhem"
+        "Museum": "Museum Zonder Sleutel",
+        "Adres": "Anoniem",
+        "Huisnummer": "1",
+        "Pc6": "6811 AB",
+        "Woonplaats": "Arnhem",
+        "Gemeente": "Arnhem"
       }
     },
     {
@@ -169,12 +169,12 @@
         "coordinates": [5.6909, 50.8514]
       },
       "properties": {
-        "naam": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-        "straat": "Langweg",
-        "huisnummer": "1",
-        "postcode": "6211 AB",
-        "plaats": "Maastricht",
-        "gemeente": "Maastricht"
+        "Museum": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "Adres": "Langweg",
+        "Huisnummer": "1",
+        "Pc6": "6211 AB",
+        "Woonplaats": "Maastricht",
+        "Gemeente": "Maastricht"
       }
     },
     {
@@ -185,12 +185,12 @@
         "coordinates": [3.2, 51.4]
       },
       "properties": {
-        "naam": "Museum Rand Van De Doos",
-        "straat": "Randweg",
-        "huisnummer": "1",
-        "postcode": "4331 AB",
-        "plaats": "Middelburg",
-        "gemeente": "Middelburg"
+        "Museum": "Museum Rand Van De Doos",
+        "Adres": "Randweg",
+        "Huisnummer": "1",
+        "Pc6": "4331 AB",
+        "Woonplaats": "Middelburg",
+        "Gemeente": "Middelburg"
       }
     },
     {
@@ -201,12 +201,12 @@
         "coordinates": [3.1999, 51.4]
       },
       "properties": {
-        "naam": "Museum Net Buiten De Doos",
-        "straat": "Randweg",
-        "huisnummer": "2",
-        "postcode": "4331 AC",
-        "plaats": "Middelburg",
-        "gemeente": "Middelburg"
+        "Museum": "Museum Net Buiten De Doos",
+        "Adres": "Randweg",
+        "Huisnummer": "2",
+        "Pc6": "4331 AC",
+        "Woonplaats": "Middelburg",
+        "Gemeente": "Middelburg"
       }
     },
     {
@@ -217,12 +217,12 @@
         "coordinates": ["5.4697", "51.4416"]
       },
       "properties": {
-        "naam": "Museum Met Tekst Als Coordinaat",
-        "straat": "Tekstweg",
-        "huisnummer": "3",
-        "postcode": "5611 AB",
-        "plaats": "Eindhoven",
-        "gemeente": "Eindhoven"
+        "Museum": "Museum Met Tekst Als Coordinaat",
+        "Adres": "Tekstweg",
+        "Huisnummer": "3",
+        "Pc6": "5611 AB",
+        "Woonplaats": "Eindhoven",
+        "Gemeente": "Eindhoven"
       }
     }
   ],

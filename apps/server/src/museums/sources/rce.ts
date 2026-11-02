@@ -37,17 +37,19 @@ export function fetchRce(deps: HttpDeps = {}): Promise<FetchJsonResult> {
 }
 
 /**
- * [U] Property names of a feature. `id` is optional: without it the feature's own `id`
- * (GeoServer: `overzichtmusea.12`) is the key.
+ * Property names of a feature, as the owner's recording shows them (O1, 2026-11-02, 629 features).
+ * There is no id property: the feature's own `id` (GeoServer: `overzichtmusea.12`) is the key [U
+ * stable when RCE reloads the dataset]. `Adres` is the street alone; the number is `Huisnummer` plus
+ * the addition `HnrToev` (a letter, `HS` or a number).
  */
 export const RCE_PROPS = {
-  id: 'museum_id',
-  name: 'naam',
-  street: 'straat',
-  houseNumber: 'huisnummer',
-  postcode: 'postcode',
-  place: 'plaats',
-  municipality: 'gemeente',
+  name: 'Museum',
+  street: 'Adres',
+  houseNumber: 'Huisnummer',
+  houseNumberAddition: 'HnrToev',
+  postcode: 'Pc6',
+  place: 'Woonplaats',
+  municipality: 'Gemeente',
 } as const;
 
 const Collection = z.object({
@@ -84,6 +86,20 @@ function field(props: Record<string, unknown>, key: string, max: number, tooLong
   if (r.ok) return r.value;
   if (r.code === 'too_long') notes.add(tooLong);
   return null;
+}
+
+/** `Huisnummer` with its addition: a single letter joins directly (8A), anything else after a dash (12-1, 7-HS). */
+function houseNumberOf(props: Record<string, unknown>, notes: Set<string>): string | null {
+  const number = field(props, RCE_PROPS.houseNumber, LIMITS.houseNumber, 'house_number_too_long', notes);
+  if (number === null) return null;
+  const addition = field(props, RCE_PROPS.houseNumberAddition, LIMITS.houseNumber, 'house_number_too_long', notes);
+  if (addition === null) return number;
+  const joined = /^[A-Za-z]$/.test(addition) ? `${number}${addition}` : `${number}-${addition}`;
+  if (joined.length > LIMITS.houseNumber) {
+    notes.add('house_number_too_long');
+    return number;
+  }
+  return joined;
 }
 
 const between = (v: number, lo: number, hi: number): boolean => v >= lo && v <= hi;
@@ -126,7 +142,7 @@ function build(feature: unknown, notes: Set<string>): Built {
   if (!isRecord(feature) || !isRecord(feature.properties)) return { invalid: 'bad_feature' };
   const props = feature.properties;
 
-  const rawId = textOf(props[RCE_PROPS.id]) ?? textOf(feature.id);
+  const rawId = textOf(feature.id);
   if (rawId === undefined) return { invalid: 'no_id' };
   const id = cleanText(rawId, LIMITS.rceId);
   if (!id.ok) return { invalid: id.code === 'empty' ? 'no_id' : 'id_too_long' };
@@ -149,7 +165,7 @@ function build(feature: unknown, notes: Set<string>): Built {
       rceId: id.value,
       name: name.value,
       street: field(props, RCE_PROPS.street, LIMITS.street, 'street_too_long', notes),
-      houseNumber: field(props, RCE_PROPS.houseNumber, LIMITS.houseNumber, 'house_number_too_long', notes),
+      houseNumber: houseNumberOf(props, notes),
       postcode: pc,
       place: field(props, RCE_PROPS.place, LIMITS.place, 'place_too_long', notes),
       municipalityName: field(props, RCE_PROPS.municipality, LIMITS.municipalityName, 'municipality_too_long', notes),
