@@ -19,6 +19,7 @@ import {
   type Summary,
   showList,
 } from '../museums/curation.ts';
+import { changeSlug } from '../museums/rename.ts';
 import {
   applyChange,
   listChanges,
@@ -143,6 +144,18 @@ const museum: Group = {
       const r = await pinFields(ctx.db, ref, fields, ctx.flags.has('unpin'));
       const pinned = r.pinned.length === 0 ? 'none' : r.pinned.join(', ');
       ctx.io.out(`${r.slug} (${clean(r.name)}): ${r.changed ? 'changed' : 'no change'}, pinned: ${pinned}`);
+      return 0;
+    },
+  },
+  slug: {
+    spec: { min: 1, max: 2, bools: ['from-name'] },
+    async run(ctx) {
+      const fromName = ctx.flags.has('from-name');
+      // Exactly one of <new-slug> and --from-name.
+      if (ctx.pos.length !== (fromName ? 1 : 2)) throw new AdminError(EXIT_USAGE, 'usage');
+      const [ref, newSlug] = ctx.pos as [string, string | undefined];
+      const r = await changeSlug(ctx.db, ref, fromName ? { fromName: true } : (newSlug as string));
+      ctx.io.out(r.changed ? `${r.old} -> ${r.new}` : 'no change');
       return 0;
     },
   },
@@ -277,7 +290,7 @@ export const GROUPS: Record<string, Group> = { museum, list, match, change };
 export const NOT_BUILT: readonly string[] = ['invite', 'user'];
 
 const USAGE =
-  'usage: admin <museum flag|price|pin|export|import | list publish|show | match list|resolve | change list|apply|reject> …';
+  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 

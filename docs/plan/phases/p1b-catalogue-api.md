@@ -18,14 +18,25 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 | Q3 | Which fields does the public museum contract carry? | The A§7.2 public fields: names, address, coordinates, `website` and `museumnl_url` as link-outs, `registered`, categories, the descriptions, the Museumkaart status with `mk_since`/`mk_until`/`mk_last_verified_at`, the adult price with `price_verified_at`, `photo_policy`, `closed_on`, `temp_closed`/`temp_closed_until`, the province and municipality, and the list version. Never `pinned_fields`, `hidden`, `rce_id`, source rows or `commons_file` (no image before P3b's pipeline; a Commons URL in an answer would invite a third-party request) |
 | Q4 | Near-me: how many museums, how far? | 20 by default, `limit` 1–50, and no radius cap inside the European NL box: the bounding box grows until it holds the k nearest |
 
+### Owner answers (plan mode, 2026-11-02)
+
+- **Q0 (new):** P1a was still draft #36, so P1b is stacked on `claude/p1a-museum-sources`. Its PR's base is that branch until #36 merges.
+- **Q1:** a slug changes only through `admin museum slug <museum> <new-slug>|--from-name`. Applying a name change keeps the slug. Every slug change, by anyone, leaves a 301 through a trigger.
+- **Q2:** as recommended.
+- **Q3:** as recommended, without `wikidata_qid`. The detail's list version is `mk_list {published_on, n, member} | null`.
+- **Q4:** as recommended, and permanently closed museums are left out of near-me (the list and search keep them).
+- **Criterion 6:**
+  - At 1,400 rows the planner scans: for full text because it is faster there, for trigram because the `unaccent` wrapper looked cheap.
+  - The owner chose a measured `COST` on the wrapper (the trigram branches then use their indexes at 1,400), and FTS proven forced at 1,400 and chosen at ~21,400.
+
 ## 2. What the plan settles
 
 - **The `api` role** (A§5, A§14): Hono 4.13.13 on @hono/node-server 2.1.5 at `:8080`, as `mjk_api`. A config check that exits 78 naming the variable (P0's `dbUrl()`), the heartbeat while the database answers, and on SIGTERM a drain, then exit.
 - **Middleware, in order:**
   1. a request id
   2. the request log: one line with method, route pattern, status, duration and request id, never the raw path or query (so near-me's coordinates never reach a log)
-  3. a 64 KB body cap
-  4. `/api/admin/*` → 404 (no admin route exists before P1e, which adds the `Host` and Access checks)
+  3. `/api/admin/*` → 404, whatever the method and body (no admin route exists before P1e, which adds the `Host` and Access checks)
+  4. a 64 KB body cap that reads only the headers (review of PR #37: Hono's `bodyLimit` throws on node-server's request object): `Content-Length` over 64 KB → 413, `Transfer-Encoding` → 400 until P2a
   5. strict query parsing: an unknown parameter → 400
   6. the route
   7. the fixed error handler: `{"error":"<code>"}`, plus `fields` (schema paths only) on 400 and 422; never a value, a header or a database message
@@ -82,7 +93,7 @@ The ladder of PHASES §2. The lead (Opus 5.5 `high`) reviews every diff, mounts 
 | [CI] filters combine; keyset paging returns every museum exactly once, ties included | `apps/server/test/museums/query.int.test.ts` |
 | [CI] every answer parses against its contract; an unknown parameter, a bad slug or a long `q` → 400 | `apps/server/test/api/{contracts,params}.int.test.ts` |
 | [CI] an old slug → 301; an unknown slug → 404 | `apps/server/test/api/museum-detail.int.test.ts` |
-| [CI] the FTS and trigram queries use their GIN indexes | `apps/server/test/museums/search-explain.int.test.ts`; the plans pasted into the PR |
+| [CI] the FTS and trigram queries use their GIN indexes (amended 2026-11-02: trigram at 1,400 with the planner's defaults; FTS forced at 1,400 and chosen at ~21,400) | `apps/server/test/museums/search-explain.int.test.ts`; the plans pasted into the PR |
 | [CI] a hidden museum appears in no list, search or near-me answer | `apps/server/test/api/hidden.int.test.ts` |
 
 ## 5. Prompts

@@ -97,6 +97,18 @@ const ALLOWED: readonly Allowed[] = [
     count: 5,
     why: 'the CHECK on museumnl_url: accepted and rejected values',
   },
+  {
+    path: 'packages/contracts/src/museums.ts',
+    pattern: 'museum.nl',
+    count: 1,
+    why: 'the museumnl_url link-out regex of the detail contract (P1b)',
+  },
+  {
+    path: 'packages/contracts/test/contracts.test.ts',
+    pattern: 'museum.nl',
+    count: 1,
+    why: 'a link-out value in the detail sample (P1b)',
+  },
 ];
 
 /** Removes the P973 link-out values of the recorded answers (`museumnl`) and the goldens (`museumnlUrl`). */

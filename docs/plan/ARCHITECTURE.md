@@ -199,7 +199,7 @@ Checked 2026-11-01 (research input in `docs/plan/research/museum-data.md`).
 | `commons_file` | P18 (841) | – | hide | The Commons file name without `File:` (1–255 characters, no `#<>[]\|{}/` or control character). The seed sets it; a later change queues. The image itself is P3b's (ADR-0018) |
 | `temp_closed`, `temp_closed_until` | – | – | owner | A temporary closure: a flag and an optional end date (null = until further notice), no free text (A§7.5) |
 | `pinned_fields` | – | – | owner | The source-fed columns the owner has overridden (`admin museum pin`, A§7.5); the sync never writes them and counts them as `pinned` |
-| `slug` | – | – | – | Made once at creation from the unaccented, lower-case name; on a collision `-<place>`, then `-2`. The sync never changes it (renames and old-slug redirects are P1b's) |
+| `slug` | – | – | – | Made once at creation from the unaccented, lower-case name; on a collision `-<place>`, then `-2`. The sync never changes it (`mjk_worker` has no UPDATE on it). Only the owner's `admin museum slug <museum> <new-slug>\|--from-name` changes it (P1b, owner decision: applying a name change keeps the slug); every old slug is kept for good in `museum_slug_redirect` and answers 301 (A§14) |
 | opening hours, exhibitions | – | – | – | Not stored; linked out (A§1) |
 
 Measured on the owner's full recording (O1, 2026-11-02), 1,430 items: 1,420 valid (10 without an nl or en label, 0.7 %, under the 2 % guard), 1,106 with coordinates, 1,178 with a municipality, 580 with a postcode, 920 with a website (451 of them upgraded from `http://`), 880 with a Commons file, 503 registered (P166), 76 dissolved (P576). The P31 classes are mostly plain "museum" (1,114 of 1,344 live items). With every class that five or more items use mapped or neutral (`museums/categories.ts`), the seed gives 1,102 `other`, 113 history, 81 art, 33 science and technology and 19 natural history; the rest are curated. RCE: 629 rows. In the 60-item sample, the seed matched 38 of the 40 registered museums with coordinates to their RCE row (31 by postcode and name, 7 by distance and name; the lowest name similarity 0.86, the largest distance 58 m).
@@ -301,8 +301,9 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 |---|---|---|
 | `province` | `code` | name_nl, name_en (12 rows, seeded) |
 | `municipality` | `cbs_code` | name, province_code |
-| `museum` | `id` | slug (unique), A§7.2 fields (`commons_file`, `temp_closed`, `temp_closed_until` and `pinned_fields` included, P1a), `hidden`, `search` (`tsvector`, `dutch` config through an immutable `unaccent` wrapper: `unaccent()` itself is not IMMUTABLE; arrives with P1b's search), created_at, updated_at (set by a trigger, so no login needs a grant on it). CHECKs: the key formats, the NL box, https links, the one link-out host for `museumnl_url`, length caps, the six categories, the statuses, `mk_until ≥ mk_since`, `left` needs `mk_until`, a price of 0–20,000 cents |
+| `museum` | `id` | slug (unique), A§7.2 fields (`commons_file`, `temp_closed`, `temp_closed_until` and `pinned_fields` included, P1a), `hidden`, `search` (`tsvector`, `dutch` config through the immutable wrapper `mjk_unaccent` (P1b): `unaccent()` itself is only STABLE; a SQL-standard body binds `public.unaccent` at creation, and `COST 250` (measured) keeps the planner from preferring a per-row call over the trigram indexes. Weights: name A; `name_en` and the aliases B; place and municipality name C. Kept by triggers, never by a grant: a BEFORE trigger on `museum` as the writing login, and two `SECURITY DEFINER` touch triggers on `museum_alias` and on a municipality rename (pinned `search_path`, no parameters, EXECUTE revoked from `PUBLIC`), which fire only on a real change, so an unchanged sync still touches no row. GIN on `search`; trigram GIN (`gin_trgm_ops`) on `mjk_unaccent(name)` and `mjk_unaccent(alias)`; btree on the sort key `(lower(mjk_unaccent(name)), id)` (the builtin C.UTF-8 collation sorts by code point) and on `(lat, lon)`), created_at, updated_at (set by a trigger, so no login needs a grant on it; since P1b it ignores an update whose only changes are `search` and `updated_at`, so a search recompute after an alias insert or a municipality rename, and P1b's backfill, keep it). CHECKs: the key formats, the NL box, https links, the one link-out host for `museumnl_url`, length caps, the six categories, the statuses, `mk_until ≥ mk_since`, `left` needs `mk_until`, a price of 0–20,000 cents |
 | `museum_alias` | `id` | museum_id, alias, source (`wikidata` · `import` · `admin`), created_at; unique (museum_id, alias); never removed |
+| `museum_slug_redirect` | `old_slug` | museum_id, created_at (P1b). A trigger writes the old slug on every slug change, so a row points at the museum, never at a slug: no chain. That trigger (`museum_slug_keep`) is `SECURITY DEFINER` (owner `mjk_migrator`, pinned `search_path`, no parameters, EXECUTE revoked from `PUBLIC`), so no login holds INSERT and none can forge a redirect. A guard trigger refuses (23505 `museum_slug_taken`) a slug that is another museum's old slug; a museum may take back its own |
 | `museum_sync_run` | `id` (bigint) | mode (`seed` · `sync`), started_at, finished_at, wikidata_rows, rce_rows, counts `jsonb` (numbers and fixed codes), outcome (`applied` · `refused` · `failed`), code (fixed), accept_drop, accept_changes (the mass-change brake, A§7.4). The empty guard's baseline is the last applied run (P1a) |
 | `museum_source_row` | (source, external_id) | payload `jsonb` (the parsed, normalised row), hash (sha256 of its canonical JSON), fetched_at, run_id (the run that first saw or last changed it), matched_museum_id, match_state (`matched` · `new` · `ambiguous` · `ignored`), match_rule (`id` · `postcode_name` · `distance_name` · `admin`), match_reason (`no_candidate` · `ambiguous` · `qid_conflict` · `qid_link` · `duplicate` · `dissolved`), candidate_ids, gone_since_run_id (set once, when the row disappears) |
 | `museum_change` | `id` | museum_id, field (a column, or `new_museum` · `presence` · `qid_link` · `coordinates`), old and new `jsonb`, origin (`sync` · `admin` · `report`), source and external_id (the source row), run_id, state (`applied` · `pending` · `rejected` · `superseded`), reporter_id, decided_by (plain uuids until P2a adds the foreign keys to `app_user`), created_at, decided_at. At most one pending change per museum, field and source |
@@ -337,6 +338,29 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 
 **Public views** (`pub_museum`, `pub_museum_stats`, `pub_review`, `pub_media`, `pub_profile`, `pub_mk_list`): owned by `mjk_migrator` (not `security_invoker`), they expose only public rows and columns: visible reviews, approved media variants, profiles with their public parts, "voormalig lid" for detached reviews. Never an email, a note, a private visit or an IP.
 
+- **P1b's views:**
+  - `pub_museum` (`NOT hidden`; the A§7.2 public columns plus `municipality_name`, `province_code`, `search`, `name_folded`, `sort_name` and `mk_list_member`; never `hidden`, `pinned_fields`, `rce_id`, `wikidata_qid`, `commons_file` or the row's timestamps)
+  - `pub_museum_alias`
+  - `pub_slug_redirect` (an old slug and the current one, visible museums only)
+  - `pub_province` (the 12, with visible-museum counts)
+  - `pub_mk_list` (the newest version's date and N, as published)
+- `hidden` is filtered in `pub_museum` only; the others join it.
+- Every public query of the `api` reads only these views and `pub_search`, so P1c's SSR loaders reuse the same functions as `mjk_ssr`.
+- **They are `security_barrier`** (P1b review, owner decision 2026-11-02): they are the isolation boundary for `mjk_ssr`, which must see public rows only even when the `ssr` process is compromised and sends its own SQL.
+  - **What passes the barrier.** Only leakproof quals pass below a barrier. The text, uuid, date and float8 comparisons of the list, the keyset, the province and municipality filters, the detail and near-me do, and still reach `museum_sort_idx`, `museum_slug_key`, `museum_pkey` and `museum_lat_lon_idx`.
+    - The list's ORDER BY becomes a top-N sort above the barrier, ~4 ms at 1,400 rows.
+    - The category filter (`@>`) is not leakproof and runs above it.
+    - `@@`, `<%` and functions such as `mjk_unaccent` are not leakproof either.
+  - **What it stops:** the error and value channel. `views.int.test.ts` proves, as `mjk_ssr`, that a qual that raises only for a hidden value never raises through any view, and that it does leak a hidden alias and a hidden old slug once the barrier is off.
+  - **What it does not stop:** plan instrumentation (re-review of P1b, N1).
+    - `EXPLAIN (ANALYZE)` needs only SELECT. A leakproof qual runs below the barrier on its index, so `Rows Removed by Filter` counts the hidden rows that `NOT hidden` dropped there.
+    - That confirms a guessed hidden slug, id or coordinate, and range counts on the sort key can rebuild hidden names.
+    - `views.int.test.ts` pins this residual.
+  - **Later views.** Later `pub_*` views (`pub_review`, `pub_media`, …) are barrier views too. Where hidden content is sensitive (removed, pending or DSA-removed), P3a and P3b decide before those views exist [U P3a]:
+    - (a) keep hidden rows out of the indexes a caller's leakproof qual can reach (partial indexes `WHERE NOT hidden`, which the view's own predicate implies; plain unique constraints only for integrity);
+    - (b) or accept the existence and count channel and record it.
+- **Search goes through `pub_search(q)`** (P1b), not through the views: a `LANGUAGE sql STABLE SECURITY DEFINER` function owned by `mjk_migrator`, with `SET search_path = pg_catalog, pg_temp` and `SET pg_trgm.word_similarity_threshold = '0.55'` pinned on it, a static body (no dynamic SQL) in which `q` is only the bound value `$1` and every name is schema-qualified. Its three branches read `museum` and `museum_alias` with `NOT hidden` in each and return only ids of visible museums with a tier and a score, which the caller joins to `pub_museum`. EXECUTE is revoked from `PUBLIC` and granted to `mjk_api` and `mjk_ssr`. `search-explain.int.test.ts` explains its body (custom and generic plans) on the GIN indexes.
+
 **Roles** (`deploy/postgres/roles.sql`, F1's pattern: file-secret passwords read with `pg_read_file`, idempotent, `NOSUPERUSER … NOBYPASSRLS`, `PUBLIC` revoked, one database per cluster):
 
 - `mjk_migrator` owns every object and the database, and creates the trusted extensions.
@@ -344,11 +368,12 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 - `mjk_ssr` has `SELECT` on the `pub_*` views and nothing else. An integration test proves it cannot read any table.
 - `mjk_worker` writes jobs, media, the museum sync tables and `museum_stats`, deletes for account deletion and purges, and inserts into `audit_log`; UPDATE of `notice.ack_sent_at`, `notice.decision_sent_at`, `moderation_action.sor_sent_at` and `data_export` after it mails (column grants on `notice` and `moderation_action`).
   - On `museum` (P1a, column grants, `WORKER_INSERT_FIELDS` and `SAFE_FIELDS` in `museums/fields.ts`): it can insert the source-fed columns but `closed_on`, and `slug` (the seed, which skips dissolved items). It can update only the safe set (A§7.4), so the name, the QID, `categories`, `commons_file` and `closed_on` change only through the owner (`admin change apply`; the QID through `admin match resolve`). It can neither insert nor change the Museumkaart flag, a price, the photo policy, a temporary closure, `hidden` or `pinned_fields`. Its `museum_change` rows cannot name an `origin` (the default is `sync`). It only reads the list tables.
-  - `mjk_api` (the admin CLI in P1a) writes every `museum` column but `id`, `created_at` and `updated_at`, the match fields of `museum_source_row`, `museum_change`'s decision, and inserts list versions and their members.
+  - `mjk_api` (the admin CLI in P1a) writes every `museum` column but `id`, `search`, `created_at` and `updated_at`, the match fields of `museum_source_row`, `museum_change`'s decision, and inserts list versions and their members.
+  - **`museum_slug_redirect`** (P1b): SELECT for `mjk_api` and `mjk_worker` (the guard trigger runs as them), no INSERT for any login (the definer keep trigger writes it), nothing for `mjk_ssr`. **No login holds a grant on `museum.search`** (`grants.int.test.ts`).
   - **No login has DELETE or TRUNCATE on any P1a table** (`grants.int.test.ts`): a museum is never hard-deleted and a published list stays frozen. A later phase that purges `job` rows (P2a, A§13.2) adds its own grant.
 - `mjk_backup` is a member of `pg_read_all_data` (`WITH INHERIT TRUE`, a Waterheight gotcha) and nothing else.
 - **`audit_log` is INSERT-only:** no login has `UPDATE`, `DELETE` or `TRUNCATE` on it. Its 3-year purge [U] runs only through a function owned by `mjk_migrator`: `SECURITY DEFINER`, `SET search_path = pg_catalog, pg_temp`, schema-qualified names, no parameters (the 3-year cutoff is a constant in the body), EXECUTE revoked from `PUBLIC` and granted to `mjk_worker` only.
-- No row-level security: the `api` checks ownership, and every route has an authorization test (A§18). Pools are capped per process in code [U sizes].
+- No row-level security: the `api` checks ownership, and every route has an authorization test (A§18). Pools are capped per process in code: worker 3, admin CLI 2, `api` 10, the `api` with a 5 s `statement_timeout` [U sizes and timeout, tuned after P1e].
 - **Migrations are immutable:** dbmate `YYYYMMDDHHMMSS_name.sql`, up → down → up in CI, `kysely-codegen --verify`. Each phase grants its own tables (no default privileges).
 
 ## 9. Accounts and authentication
@@ -571,11 +596,11 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 
 | Route | Does | Phase |
 |---|---|---|
-| `GET /museums` | filters `q` (≤ 100 characters), `province`, `municipality`, `category`, `mk=participating`, `min_rating` and `kid_friendly` (P3a); `sort` (`rank` default · `name`); keyset paging plus `total` | P1b |
+| `GET /museums` | filters `q` (1–100 code points), `province`, `municipality`, `category`, `mk=participating`, `min_rating` and `kid_friendly` (P3a); `sort` (`rank` default · `name`; until P3a `rank` orders like `name`); keyset paging plus `total`. With `q` the order is relevance: full-text hits (`websearch_to_tsquery` on the unaccented `q`, by `ts_rank`), then name trigram hits, then alias-only trigram hits (`<%`, by `word_similarity`, threshold 0.55 set by the `pub_search` function itself, A§8), then the sort key and the id | P1b |
 | `GET /museums/points` | every visible museum with coordinates, compact (id, slug, name, lat, lon, Museumkaart status, category), for the map (A§15.3) | P1d |
-| `GET /museums/near?lat=&lon=` | nearest visible museums (bounding box + haversine, ADR-0015); more than 3 decimals → 400; `private, no-store`; never logged | P1b |
+| `GET /museums/near?lat=&lon=` | the k nearest visible museums with coordinates that are not permanently closed (`limit` 1–50, default 20; no radius cap): a bounding box that holds the disk of radius r, doubling from 2 km until the k-th distance is at most r or the box covers the NL box, then haversine in SQL in double precision, ties by id (ADR-0015); more than 3 decimals or outside the NL box → 400; `private, no-store`; never logged | P1b |
 | `GET /museums/suggest?q=` | up to 10 names for the search box | P1b |
-| `GET /museums/:slug` | A§7.2 fields, `museum_stats`, the list version; an old slug → 301; hidden or unknown → 404 | P1b |
+| `GET /museums/:slug` | A§7.2 fields, `museum_stats` (P3a), `mk_list` (`published_on`, `n`, `member`, or null); an old slug → 301 to the current one (`s-maxage=3600`, never a chain); hidden or unknown → 404; a slug that fails `^[a-z0-9]+(-[a-z0-9]+)*$` or 120 characters → 400 | P1b |
 | `GET /museums/:slug/reviews` · `GET /museums/:slug/photos` | visible reviews (`sort` [U P3a]) · approved photos | P3a, P3b |
 | `POST /museums/:slug/changes` | poster: "Meld een wijziging" → a `pending` `museum_change` (origin `report`), 202 | P3c |
 | `GET /provinces` · `GET /mk-list` | the 12 provinces with counts · the published list version (date, N) | P1b |
@@ -623,17 +648,17 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 **Rules**
 
 - **Shapes:** the A§8 column names (snake_case, no mapping layer, as F1), times as ISO-8601 UTC strings, visit dates `YYYY-MM-DD`, money in integer cents. Every answer has a strict zod contract in `@mjk/contracts`. An integration test parses each route against it, the `ssr` loaders return the same contracts (A§15.1), and the web parses every answer (jitless Zod).
-- **Requests:** query strings and bodies parse with strict schemas, so an unknown parameter or key → 400. Mutations take only `application/json` (else 415); the upload chunks only `application/octet-stream`. Body caps at Caddy and in the `api`: 64 KB, imports 2 MB, chunks 8 MiB.
+- **Requests:** query strings and bodies parse with strict schemas, so an unknown parameter or key → 400. Mutations take only `application/json` (else 415); the upload chunks only `application/octet-stream`. Body caps at Caddy and in the `api`: 64 KB, imports 2 MB, chunks 8 MiB. The `api`'s cap reads only the headers (P1b): a `Content-Length` over the cap → 413 `too_large`, and until P2a a `Transfer-Encoding` (a body of unknown length) → 400, since no route reads a body before P2a; P2a revisits it with its JSON routes. `/api/admin/*` answers 404 before the cap.
 - **CSRF** (A§9): `SameSite=Lax`, plus our own middleware on every non-GET that requires `Sec-Fetch-Site: same-origin` or an `Origin` equal to the host's origin (else 403); hono's `csrf()` covers form types only [U]. No CORS headers.
 - **Status codes:** 200 · 201 · 202 (a mail or a job follows) · 204 · 301 (an old slug or handle) · 400 `bad_request` · 401 `unauthorized` · 403 `forbidden` / `terms_required` / `reauth_required` / `banned` · 404 `not_found` · 409 `conflict` · 413 `too_large` · 415 `unsupported_type` · 422 `invalid` · 429 `rate_limited` with `Retry-After` · 500 `internal` · 503 `unavailable`.
 - **Errors are fixed:** `{"error":"<code>"}`, and on 400 and 422 a `fields` list with the names of the failing schema paths, never their values. No answer or log echoes input, a header, a token, a code, an email or a database message. Auth answers never tell whether an email has an account, and take the same time (A§9).
-- **Paging:** keyset everywhere, `?cursor=<opaque>&limit=1..50` (default 20) → `{"items":[…],"next_cursor":…}`. The cursor is base64url of the last sort key plus the id; a malformed one → 400. No offsets.
+- **Paging:** keyset everywhere, `?cursor=<opaque>&limit=1..50` (default 20) → `{"items":[…],"next_cursor":…}`. The cursor is base64url of the last sort key plus the id (with `q`: the tier and score too), at most 4,096 characters, decoded through a strict schema before any SQL; a malformed one, or one of the other mode, → 400. No offsets.
 - **Cache-Control** (set by the `api` per answer):
   - public GETs: `public, max-age=0, s-maxage=60` [U P5a tunes it; Cloudflare caches JSON only through the Cache Rules of A§17.7]; `/museums/points` `s-maxage=300`; a 301 `s-maxage=3600`
   - `/me*`, `/auth/*`, `/uploads*`, `/museums/near`, every mutation, every 4xx and 5xx, and all of `/api/admin/*`: `private, no-store`
   - a removed review can stay at the edge for up to the `s-maxage`, a removed photo's variants for up to the 4 h edge TTL (A§12); an urgent removal purges by URL
 - **Rate limits:** the A§9 table; a refusal is a 429 and logs only the bucket's name.
-- **Request logs:** one line each: method, route pattern (`/museums/:slug`, never the raw path or query), status, duration, request id (invariant 8).
+- **Request logs:** one line each: method, route pattern (`/museums/:slug`, never the raw path or query), status, duration, request id (invariant 8). The `api` generates the request id itself and returns it as `X-Request-Id`; a client's header is ignored. The pattern is the first matched route that is not a global middleware (Hono 4.13 lists `app.use('*')` as `/*`), or `unmatched` (P1b).
 
 ## 15. Frontend
 
@@ -654,7 +679,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 
 - No router library: `routeOf(pathname)` in `apps/web/src/lib/routes.ts`, shared by `ssr` and the client, plus `history.pushState`. Links are real `<a href>`s; only a plain left click navigates in place (F1).
 - Paraglide 2.29.1 (ADR-0013): NL at `/`, EN under `/en/`. The locale comes from the URL only: no cookie and no `Accept-Language` redirect. Every page links its other language and carries an nl/en `hreflang` pair plus `x-default` (NL). `check-i18n` keeps `messages/{nl,en}.json` in step. Reviews show in the language they were written in.
-- Museum slugs are the same in both languages (name and place, stable; an old slug answers 301). The English path segments are [U P1c: the owner confirms them].
+- Museum slugs are the same in both languages (name and place, stable; an old slug answers 301 through `pub_slug_redirect`, P1b). The English path segments are [U P1c: the owner confirms them].
 
 | NL | EN [U] | Page | Rendered | Indexed (from P5b) |
 |---|---|---|---|---|
@@ -831,6 +856,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
   - any `Host` other than `<domain>` and `admin.<domain>` → 421 (Waterheight ADR-0021 §4)
   - towards `api`, Caddy sets `X-Mjk-Client` to `{client_ip}` and removes `X-Forwarded-For`, `CF-Connecting-IP` and `True-Client-IP` (A§9)
   - `handle_errors` sets `Cache-Control: no-store` and repeats the host's A§15.6 headers (CSP, HSTS, `nosniff`, `Referrer-Policy`, `X-Robots-Tag`) on Caddy's own error responses (413, 502, `file_server` 404)
+- **Keep-alive behind Caddy** [U P1e]: the `api` keeps an idle connection for `keepAliveTimeout = 65 s` (`headersTimeout = 66 s`, `apps/server/src/api/server.ts`), so Caddy, never Node, closes an idle upstream connection, and Caddy's `reverse_proxy` upstream keep-alive must stay below 65 s (its transport default of 2 minutes would race Node's close and give 502s that no `api` log shows). A drain closes each connection as soon as it is idle. P1e sets Caddy's value and proves the pair.
 - Measured into this section: a day of `docker stats` (P1e), a 24 MP photo's time and peak memory (P3b), the beta (P4), the launch week (P5b), a 60 s clip (P7).
 
 ### 17.3 Networks, IDs and secrets
@@ -925,6 +951,11 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 
 - **Unit** (Vitest 5.0.5 `unit`): the Wikidata, RCE and import parsers, the matcher, progress and € saved, the Bayesian score, the rate limiter (fake timers), SigV4 (the AWS test vectors), handle and slug rules, cursors, the header builders. fast-check for the parsers (arbitrary input → a typed error, never a throw), the matcher, the ranking (the score lies between m and the plain mean), the rate limiter and keyset paging.
 - **Integration** (`*.int.test.ts`) on real PostgreSQL 18 as a CI service container: each file creates its own database with F1's `createTestDb()`, applies `roles.sql`, runs the real `migrate` role, and logs in as the role under test (`mjk_api`, `mjk_ssr`, `mjk_worker`, `mjk_backup`), never as the superuser. `pg-log.int.test.ts` reads the PostgreSQL server log through `docker logs` (CI passes the service container as `PG_LOG_CONTAINER`). Migrations up → down → up, `kysely-codegen --verify`, a sha256 pin per applied migration. Grant tests: no login can UPDATE, DELETE or TRUNCATE `audit_log`; no login can UPDATE any other `notice` column than its A§8 column grants; the purge function deletes only rows older than 3 years whatever the caller does, and its `proconfig` pins `search_path`.
+- **Search plans** (P1b, `search-explain.int.test.ts`):
+  - It runs `EXPLAIN` of the exact search SQL as `mjk_api` on the seeded 1,400 museums.
+  - The trigram branches must use their GIN indexes with the planner's defaults.
+  - The full-text branch must use `museum_search_idx` when forced at 1,400, and with the defaults on ~21,400 rows.
+  - The ~21,400-row step runs `VACUUM (ANALYZE)` as `mjk_migrator` first, which flushes the GIN pending list.
 - **Contracts and authorization:** every `/api/v1` and `/api/admin` answer parses against its contract; every route has an authorization table test (anonymous, member, another member, banned, terms not accepted, moderator, admin; admin routes also without a JWT, with another email and on the public host); the SSR loaders equal the API answers.
 - **Privacy:** `mjk_ssr` gets permission denied on every table; private visits, notes and wishlists appear in no `pub_*` view, SSR page, sitemap or public route; public HTML and JSON are byte-identical with and without a session; a log-capture test runs the auth, upload and report flows and fails on any email, IP, token, code or body; each A§13.2 retention row is purged on time (fake clock); the deletion walk (P3d).
 - **Fixtures:** recorded Wikidata SPARQL and RCE WFS answers (normal, edge, empty) from `scripts/record-fixture.ts`, which refuses under `CI`; hostile strings (`</script>`, markup, bidi controls, 5,001 characters) in museum names, handles and reviews; crafted uploads (polyglots, a 30,000 × 30,000 px PNG, truncated JPEGs, GPS EXIF, a file in `blocked_hash`).

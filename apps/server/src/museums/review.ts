@@ -237,7 +237,11 @@ export function resolveMatch(db: Db, ref: SourceRef, action: ResolveAction): Pro
         if (!parsed.success || parsed.data.rceId !== ref.externalId) return fail(EXIT_DATA, 'bad_payload');
         fields = fieldsFromSources(undefined, parsed.data as RceRow, knownMunicipality);
       }
-      const taken = new Set((await trx.selectFrom('museum').select('slug').execute()).map((r) => r.slug));
+      // A new museum never takes a current slug or an old one (an old slug answers 301 for good).
+      const taken = new Set([
+        ...(await trx.selectFrom('museum').select('slug').execute()).map((r) => r.slug),
+        ...(await trx.selectFrom('museum_slug_redirect').select('old_slug').execute()).map((r) => r.old_slug),
+      ]);
       const slug = uniqueSlug(fields.name, fields.place, taken);
       const created = await trx
         .insertInto('museum')

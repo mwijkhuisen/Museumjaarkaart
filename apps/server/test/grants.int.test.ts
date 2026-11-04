@@ -32,9 +32,13 @@ const TABLES = [
   'mk_list_version',
   'mk_list_member',
   'job',
+  'museum_slug_redirect',
 ] as const;
 const VIEW = 'mk_list';
 const ALL = [...TABLES, VIEW];
+// P1b's public views: the only objects mjk_ssr may read (A§8).
+const PUB_VIEWS = ['pub_museum', 'pub_museum_alias', 'pub_slug_redirect', 'pub_province', 'pub_mk_list'] as const;
+const PUB_SELECT = Object.fromEntries(PUB_VIEWS.map((v) => [v, ['SELECT']]));
 const LOGINS = ['mjk_api', 'mjk_worker', 'mjk_ssr', 'mjk_backup'] as const;
 const PRIVS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] as const;
 const DENIED = '42501';
@@ -52,15 +56,17 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
   },
   mjk_api: {
     ...Object.fromEntries(ALL.map((t) => [t, ['SELECT']])),
+    ...PUB_SELECT,
     museum_alias: ['SELECT', 'INSERT'],
+    // museum_slug_redirect: SELECT only; the definer trigger museum_slug_keep writes it
     museum_change: ['SELECT', 'INSERT'],
     mk_list_version: ['SELECT', 'INSERT'],
     mk_list_member: ['SELECT', 'INSERT'],
     job: ['SELECT', 'INSERT'],
   },
-  mjk_ssr: {},
+  mjk_ssr: { ...PUB_SELECT },
   // pg_read_all_data: SELECT on everything and nothing else
-  mjk_backup: Object.fromEntries(ALL.map((t) => [t, ['SELECT']])),
+  mjk_backup: Object.fromEntries([...ALL, ...PUB_VIEWS].map((t) => [t, ['SELECT']])),
 };
 
 let db: TestDb;
@@ -147,7 +153,7 @@ afterAll(async () => {
 describe('the catalog', () => {
   it('table-level privileges match the matrix, and nobody holds DELETE, TRUNCATE, REFERENCES or TRIGGER', async () => {
     for (const login of LOGINS) {
-      for (const table of ALL) {
+      for (const table of [...ALL, ...PUB_VIEWS]) {
         const expected = TABLE_LEVEL[login][table] ?? [];
         const { rows } = await owner.query<{ priv: string; has: boolean }>(
           'SELECT p AS priv, has_table_privilege($1, $2, p) AS has FROM unnest($3::text[]) AS p',
@@ -184,11 +190,46 @@ describe('the catalog', () => {
     expect(await columnGrants('mjk_worker', 'museum', 'UPDATE')).toEqual(sorted(SAFE_FIELDS));
   });
 
-  it('mjk_api holds every museum column but id, created_at and updated_at', async () => {
-    const cols = (await columnsOf('museum')).filter((c) => !['id', 'created_at', 'updated_at'].includes(c));
+  it('mjk_api holds every museum column but id, search, created_at and updated_at', async () => {
+    const cols = (await columnsOf('museum')).filter((c) => !['id', 'search', 'created_at', 'updated_at'].includes(c));
     expect(cols).toContain('museumkaart_status');
+    expect(await columnsOf('museum')).toContain('search');
     expect(await columnGrants('mjk_api', 'museum', 'INSERT')).toEqual(sorted(cols));
     expect(await columnGrants('mjk_api', 'museum', 'UPDATE')).toEqual(sorted(cols));
+  });
+
+  it('no login holds any write privilege on museum.search (the triggers keep it)', async () => {
+    for (const login of LOGINS) {
+      for (const priv of ['INSERT', 'UPDATE', 'REFERENCES'] as const) {
+        const { rows } = await owner.query<{ has: boolean }>('SELECT has_column_privilege($1, $2, $3, $4) AS has', [
+          login,
+          'public.museum',
+          'search',
+          priv,
+        ]);
+        expect(rows[0]?.has, `${login} ${priv} on museum.search`).toBe(false);
+      }
+    }
+    expect(await columnGrants('mjk_worker', 'museum', 'INSERT')).not.toContain('search');
+    expect(await columnGrants('mjk_worker', 'museum', 'UPDATE')).not.toContain('search');
+  });
+
+  it('EXECUTE on the P1b functions: pub_search for mjk_api and mjk_ssr, the definer triggers for nobody', async () => {
+    const EXECUTE: Record<string, readonly string[]> = {
+      'public.pub_search(text)': ['mjk_api', 'mjk_ssr'],
+      'public.museum_slug_keep()': [],
+      'public.museum_alias_search_touch()': [],
+      'public.municipality_search_touch()': [],
+    };
+    for (const [fn, allowed] of Object.entries(EXECUTE))
+      for (const login of LOGINS) {
+        const { rows } = await owner.query<{ has: boolean }>(
+          "SELECT has_function_privilege($1, $2, 'EXECUTE') AS has",
+          [login, fn],
+        );
+        // mjk_backup holds pg_read_all_data, which grants no EXECUTE
+        expect(rows[0]?.has, `${login} ${fn}`).toBe(allowed.includes(login));
+      }
   });
 
   it('column grants on museum_change and museum_source_row', async () => {
@@ -513,12 +554,13 @@ describe('mjk_api', () => {
 });
 
 describe('mjk_ssr and mjk_backup', () => {
-  it('mjk_ssr cannot SELECT any P1a table or the view', async () => {
+  it('mjk_ssr cannot SELECT any P1a table or the view, and can SELECT the public views', async () => {
     for (const t of ALL) expect(await code(ssr.query(`SELECT 1 FROM ${t} LIMIT 1`)), t).toBe(DENIED);
+    for (const v of PUB_VIEWS) expect(await code(ssr.query(`SELECT 1 FROM ${v} LIMIT 1`)), v).toBe('ok');
   });
 
   it('mjk_backup can SELECT everything and cannot INSERT, UPDATE or DELETE', async () => {
-    for (const t of ALL) expect(await code(backup.query(`SELECT count(*) FROM ${t}`)), t).toBe('ok');
+    for (const t of [...ALL, ...PUB_VIEWS]) expect(await code(backup.query(`SELECT count(*) FROM ${t}`)), t).toBe('ok');
     expect(await insertAs(backup, 'job', { kind: 'museum_sync' })).toBe(DENIED);
     expect(await insertAs(backup, 'museum', museumRow())).toBe(DENIED);
     expect(await attempt(backup, 'UPDATE museum SET name = name WHERE false')).toBe(DENIED);
