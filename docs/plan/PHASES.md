@@ -128,7 +128,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
   - [CI] filters combine (province AND Museumkaart AND category); keyset paging returns every museum exactly once, ties included.
   - [CI] every route's answer parses against its contract; an unknown parameter, a bad slug or a `q` over 100 characters → 400 with the contract's error shape.
   - [CI] an old slug → 301 to the current one; an unknown slug → 404.
-  - [CI] the FTS and trigram queries use their GIN indexes (EXPLAIN test on a seeded catalogue of 1,400 museums).
+  - [CI] the FTS and trigram queries use their GIN indexes. The EXPLAIN test runs on the seeded catalogue of 1,400 museums with the planner's defaults: the trigram branches pick their indexes (with the measured `COST` of the `unaccent` wrapper). The FTS index is used when forced at 1,400 rows and picked by the planner on ~21,400 rows, where the planner switches by itself (owner decision 2026-11-02; at 1,400 rows a sequential scan is the faster plan for FTS).
   - [CI] a hidden museum (`hidden`) appears in no list, search or near-me answer.
 - **Models and effort:** build Opus 5.5 `high` · code review Sonnet 5.5 `xhigh` (required).
 

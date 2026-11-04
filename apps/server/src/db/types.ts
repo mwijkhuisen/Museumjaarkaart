@@ -92,6 +92,7 @@ export interface Museum {
   price_verified_at: Timestamp | null;
   rce_id: string | null;
   registered: Generated<boolean>;
+  search: Generated<string>;
   slug: string;
   street: string | null;
   temp_closed: Generated<boolean>;
@@ -124,6 +125,12 @@ export interface MuseumChange {
   run_id: Int8 | null;
   source: string | null;
   state: string;
+}
+
+export interface MuseumSlugRedirect {
+  created_at: Generated<Timestamp>;
+  museum_id: string;
+  old_slug: string;
 }
 
 export interface MuseumSourceRow {
@@ -161,6 +168,65 @@ export interface Province {
   name_nl: string;
 }
 
+export interface PubMkList {
+  n: number | null;
+  published_on: string | null;
+}
+
+export interface PubMuseum {
+  admission_adult_cents: number | null;
+  categories: string[] | null;
+  closed_on: string | null;
+  description_en: string | null;
+  description_nl: string | null;
+  house_number: string | null;
+  id: string | null;
+  lat: number | null;
+  lon: number | null;
+  mk_last_verified_at: Timestamp | null;
+  mk_list_member: boolean | null;
+  mk_since: string | null;
+  mk_until: string | null;
+  municipality_code: string | null;
+  municipality_name: string | null;
+  museumkaart_status: string | null;
+  museumnl_url: string | null;
+  name: string | null;
+  name_en: string | null;
+  name_folded: string | null;
+  photo_policy: string | null;
+  place: string | null;
+  postcode: string | null;
+  price_verified_at: Timestamp | null;
+  province_code: string | null;
+  registered: boolean | null;
+  search: string | null;
+  slug: string | null;
+  sort_name: string | null;
+  street: string | null;
+  temp_closed: boolean | null;
+  temp_closed_until: string | null;
+  website: string | null;
+}
+
+export interface PubMuseumAlias {
+  alias: string | null;
+  alias_folded: string | null;
+  museum_id: string | null;
+}
+
+export interface PubProvince {
+  code: string | null;
+  museum_count: number | null;
+  name_en: string | null;
+  name_nl: string | null;
+}
+
+export interface PubSlugRedirect {
+  old_slug: string | null;
+  slug: string | null;
+}
+
 export interface DB {
   job: Job;
   mk_list: MkList;
@@ -170,7 +236,13 @@ export interface DB {
   museum: Museum;
   museum_alias: MuseumAlias;
   museum_change: MuseumChange;
+  museum_slug_redirect: MuseumSlugRedirect;
   museum_source_row: MuseumSourceRow;
   museum_sync_run: MuseumSyncRun;
   province: Province;
+  pub_mk_list: PubMkList;
+  pub_museum: PubMuseum;
+  pub_museum_alias: PubMuseumAlias;
+  pub_province: PubProvince;
+  pub_slug_redirect: PubSlugRedirect;
 }

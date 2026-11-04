@@ -1,4 +1,5 @@
 import { nodeIo, runAdmin } from './admin/cli.ts';
+import { runApi } from './api/server.ts';
 import { createDb } from './db/kysely.ts';
 import { EXIT_CONFIG, runMigrate } from './db/migrate.ts';
 import { createPool, WORKER_POOL_MAX } from './db/pool.ts';
@@ -32,12 +33,24 @@ type Env = Readonly<Record<string, string | undefined>>;
 const USAGE = `usage: main.ts <${ROLES.join('|')}> [args]`;
 const SYNC_USAGE = 'usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce] [--accept-changes]';
 
-/** Test seams: where lines go, the heartbeat file, the sources, and the signal that stops the worker. */
+/** Test seams: where lines go, the heartbeat file, the sources, the signal that stops a daemon, the api's port. */
 export type RunDeps = {
   out?: (line: string) => void;
   fetchers?: Fetchers;
   signal?: AbortSignal;
+  port?: number;
+  hostname?: string;
+  onListening?: (port: number) => void;
 };
+
+/** The signal that stops a daemon: the test's, or SIGTERM and SIGINT. */
+function stopSignal(deps: RunDeps): AbortSignal {
+  if (deps.signal !== undefined) return deps.signal;
+  const stop = new AbortController();
+  process.once('SIGTERM', () => stop.abort());
+  process.once('SIGINT', () => stop.abort());
+  return stop.signal;
+}
 
 type SyncArgs = { dryRun: boolean; seed: boolean; acceptDrop: Source | null; acceptChanges: boolean };
 
@@ -95,19 +108,25 @@ async function runSyncRole(args: readonly string[], env: Env, log: (line: string
 /** The worker daemon (A§5): runs until SIGTERM or SIGINT, then finishes its current job. */
 async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promise<number> {
   const logger = createLogger({ role: 'worker' });
-  let signal = deps.signal;
-  if (signal === undefined) {
-    const stop = new AbortController();
-    process.once('SIGTERM', () => stop.abort());
-    process.once('SIGINT', () => stop.abort());
-    signal = stop.signal;
-  }
   const fetchers = deps.fetchers ?? liveFetchers(env);
   return runWorkerRole(env, {
     handlers: (db) => ({ [MUSEUM_SYNC_JOB]: museumSyncJob(db, fetchers, logger) }),
     logger,
-    signal,
+    signal: stopSignal(deps),
     heartbeatPath,
+  });
+}
+
+/** The api daemon (A§5): Hono on :8080 as mjk_api until SIGTERM or SIGINT, then a drain. */
+function runApiRole(env: Env, heartbeatPath: string, log: (line: string) => void, deps: RunDeps): Promise<number> {
+  return runApi(env, {
+    logger: createLogger({ role: 'api' }),
+    signal: stopSignal(deps),
+    heartbeatPath,
+    log,
+    ...(deps.port === undefined ? {} : { port: deps.port }),
+    ...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
+    ...(deps.onListening === undefined ? {} : { onListening: deps.onListening }),
   });
 }
 
@@ -133,11 +152,12 @@ export async function run(
       }
       return role === 'healthcheck' ? (healthy(heartbeatPath) ? 0 : 1) : runMigrate(env, log);
     case 'worker':
+    case 'api':
       if (rest.length > 0) {
         log(USAGE);
         return EXIT_USAGE;
       }
-      return runWorker(env, heartbeatPath, deps);
+      return role === 'worker' ? runWorker(env, heartbeatPath, deps) : runApiRole(env, heartbeatPath, log, deps);
     case 'sync-museums':
       return runSyncRole(rest, env, log, deps);
     case 'admin':

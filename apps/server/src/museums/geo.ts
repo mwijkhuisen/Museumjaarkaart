@@ -2,8 +2,8 @@ import { NL_BOX } from './fields.ts';
 
 export type LatLon = { lat: number; lon: number };
 
-/** Mean Earth radius in metres (IUGG). */
-const EARTH_RADIUS_M = 6_371_008.8;
+/** Mean Earth radius in metres (IUGG); near-me's bounding box uses the same one. */
+export const EARTH_RADIUS_M = 6_371_008.8;
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 

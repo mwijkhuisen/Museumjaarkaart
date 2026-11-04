@@ -38,6 +38,7 @@ describe('runAdmin', () => {
     [['museum', 'pin', 'a-museum', 'website', '--bogus']],
     [['museum', 'export']],
     [['museum', 'import']],
+    [['museum', 'slug']],
     [['museum', 'flag', 'Q1', 'participating', '--since', '2020-01-01', '--since', '2020-01-02']],
   ])('usage error %j: exit 64, before any connection', async (argv) => {
     const h = harness();
@@ -69,7 +70,11 @@ describe('runAdmin', () => {
     [['match', 'list', '--source', 'osm']],
     [['change', 'list', '--field', 'nope']],
     [['change', 'apply', '--close', '2026-02-30', '019a0000-0000-7000-8000-000000000000']],
-  ])('match and change usage error %j: exit 64 before any query', async (argv) => {
+    [['museum', 'slug', 'Q1']],
+    [['museum', 'slug', 'Q1', 'new-slug', '--from-name']],
+    [['museum', 'slug', 'Q1', 'new-slug', 'extra']],
+    [['museum', 'slug', 'Q1', '--from-name', '--from-name']],
+  ])('match, change and slug usage error %j: exit 64 before any query', async (argv) => {
     const h = harness();
     expect(await runAdmin(argv, { DATABASE_URL: SECRET_URL }, h.io)).toBe(64);
     expect(h.err.join('\n')).not.toMatch(/s3cret|postgres/);

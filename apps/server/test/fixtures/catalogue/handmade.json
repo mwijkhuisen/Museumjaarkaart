@@ -1,0 +1,72 @@
+{
+  "rijksmuseum": {
+    "name": "Rijksmuseum",
+    "nameEn": "Rijksmuseum",
+    "descriptionNl": "nationaal museum voor kunst en geschiedenis",
+    "descriptionEn": "national museum of art and history",
+    "street": "Museumstraat",
+    "houseNumber": "1",
+    "postcode": "1071 XX",
+    "place": "Amsterdam",
+    "municipalityCode": "GM0363",
+    "lat": 52.36,
+    "lon": 4.8852,
+    "website": "https://www.rijksmuseum-voorbeeld.example/",
+    "registered": true,
+    "categories": ["art", "history"],
+    "aliases": ["Het Rijks", "Rijks"]
+  },
+  "hiddenLookalikes": [
+    {
+      "name": "Kröller-Müller Beeldentuin",
+      "nameEn": "Kröller-Müller Sculpture Garden",
+      "place": "Otterlo",
+      "municipalityCode": "GM0228",
+      "lat": 52.0958,
+      "lon": 5.8169,
+      "categories": ["art"],
+      "aliases": ["Kröller-Müller tuin", "Beeldentuin Otterlo"]
+    },
+    {
+      "name": "Kröller Müller Beeldenpark",
+      "nameEn": null,
+      "place": "Otterlo",
+      "municipalityCode": "GM0228",
+      "lat": 52.0961,
+      "lon": 5.8175,
+      "categories": ["art"],
+      "aliases": ["Beeldenpark Kröller Müller"]
+    },
+    {
+      "name": "Rijksmuseum Amsterdam Depot",
+      "nameEn": "Rijksmuseum Amsterdam Depot",
+      "place": "Amsterdam",
+      "municipalityCode": "GM0363",
+      "lat": 52.3612,
+      "lon": 4.8861,
+      "categories": ["art", "history"],
+      "aliases": ["Depot Rijksmuseum"]
+    },
+    {
+      "name": "Het Rijksmuseum Twenthe Annex",
+      "nameEn": null,
+      "place": "Enschede",
+      "municipalityCode": "GM9182",
+      "lat": 52.2201,
+      "lon": 6.8902,
+      "categories": ["art"],
+      "aliases": ["Twenthe Annex"]
+    }
+  ],
+  "renames": {
+    "hostile": [
+      "<script>alert(1)</script> Museum",
+      "Museum ‮evil‬",
+      "Robert'); DROP TABLE museum;--",
+      "\"Quotes\" & <Ampersands>"
+    ],
+    "accents": ["Öland Museum", "Oland museum", "OLAND MUSEUM", "Öland museum"],
+    "stedelijk": "Stedelijk Museum",
+    "stedelijkCount": 6
+  }
+}
