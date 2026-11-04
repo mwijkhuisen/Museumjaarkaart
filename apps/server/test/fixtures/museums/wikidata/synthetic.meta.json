@@ -1,0 +1,9 @@
+{
+  "source": "wikidata",
+  "case": "synthetic",
+  "origin": "synthetic",
+  "recordedOn": "2026-11-01",
+  "licence": "CC0-1.0",
+  "querySha256": "764bfb9bbaab2cfd15aedc7097a36adb9b74d4d66dbff600d83e8036089de211",
+  "notes": "Kept from the hand-made edge case when the owner recorded the real edge items (O1, 2026-11-02), so the parser keeps this coverage. Hand-made edge cases: no coordinates, a dissolved item, three \"Stedelijk Museum\", two P18, two P625, no label, malformed QIDs, P973 on another host, an http website, one item in two rows, coordinates outside NL, a bad municipality code, an English-only label, over-long description and alias, a bad date, a bad cell and a non-object row."
+}

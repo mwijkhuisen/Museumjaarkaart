@@ -1,0 +1,8 @@
+{
+  "source": "rce",
+  "case": "hostile",
+  "origin": "synthetic",
+  "recordedOn": "2026-11-01",
+  "licence": "PDM-1.0",
+  "notes": "Hostile text: script and img markup, bidi overrides, zero-width characters, CR/LF, NUL, a name of 5,001 characters (name_too_long), an over-long street, markup and controls in the address fields, a bidi mark inside the id."
+}

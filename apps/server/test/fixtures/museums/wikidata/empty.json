@@ -1,0 +1,25 @@
+{
+  "head": {
+    "vars": [
+      "item",
+      "labelNl",
+      "labelEn",
+      "descNl",
+      "descEn",
+      "aliases",
+      "coords",
+      "websites",
+      "addresses",
+      "postcodes",
+      "municipalities",
+      "registered",
+      "museumnl",
+      "images",
+      "classes",
+      "dissolved"
+    ]
+  },
+  "results": {
+    "bindings": []
+  }
+}

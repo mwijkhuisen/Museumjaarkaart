@@ -120,8 +120,8 @@ One server image (`ghcr.io/mwijkhuisen/mjk-server`) whose first argument picks t
 | `worker` | daemon | Postgres job queue (`FOR UPDATE SKIP LOCKED` + `LISTEN/NOTIFY`, no library): photo processing (sharp → AVIF/WebP), R2 uploads, email (Lettermint), museum sync (weekly), quarterly basemap refresh, stats and ranking, account deletion, export bundles, retention purges | `mjk_worker` |
 | `migrate` | job | dbmate as `mjk_migrator` | `mjk_migrator` |
 | `healthcheck` | probe | Heartbeat file under 120 s old | – |
-| `sync-museums [--dry-run]` | job | One-off museum import or diff (the worker's weekly code) | `mjk_worker` |
-| `admin <cmd>` | job | CLI: `invite create`, `user role`, `user trust` (P3b), `museum flag`, used until the admin UI exists | `mjk_api` |
+| `sync-museums [--dry-run] [--seed] [--accept-drop <source>] [--accept-changes]` | job | One-off museum import (`--seed`, only while `museum` is empty) or diff: the worker's weekly code, `runSync()` (P1a; flags and exit codes in `docs/runbooks/museum-sync.md`) | `mjk_worker` |
+| `admin <cmd>` | job | CLI, used until the admin UI exists. P1a: `museum flag`, `museum price`, `museum pin`, `museum export --csv`, `museum import --csv [--dry-run]`, `list publish`, `list show`, `match list`, `match resolve`, `change list`, `change apply`, `change reject`; later `invite create` (P2a), `user role`, `user trust` (P3b) | `mjk_api` |
 | `backup` | job | `pg_dump -Fc` + restic of the dumps and `/srv/mjk/originals` to the private R2 EU backup bucket (own image stage or the restic binary in the server image [U]) | `mjk_backup` (read-only) |
 
 **Caddy routes** (web image):
@@ -169,12 +169,12 @@ Checked 2026-11-01 (research input in `docs/plan/research/museum-data.md`).
 
 | Source | Licence | Use |
 |---|---|---|
-| **Wikidata** SPARQL (`query.wikidata.org`) | CC0 | Seed and weekly sync; key = QID. 1,361 NL museums not marked dissolved [U the exact query; P1a pins it]. A proper User-Agent with a contact address, one query per run, `Retry-After` honoured (the research hit a 429) |
-| **RCE "Musea in Nederland"**, WFS layer `overzichtmusea` | Public Domain Mark | 629 rows (metadata 2026-08-19): name, street, number, postcode, place, municipality. Cross-check and addresses |
+| **Wikidata** SPARQL (`query.wikidata.org`) | CC0 | Seed and weekly sync; key = QID. The query is pinned in `apps/server/src/museums/sources/wikidata.sparql` (P1a; its sha256 is pinned in the fixtures' meta files, so a change forces a re-recording; the sync sends the byte-identical constant in `sources/wikidata-query.ts`, because `tsc -b` emits no `.sparql` file into the image's `dist`, and a unit test keeps the two equal): every item with `P31/P279*` museum and `P17` Netherlands, selected once in a `DISTINCT` named subquery (Blazegraph's `WITH … AS %items`), then each kind of value in its own `UNION` branch that starts with `INCLUDE %items`, with every aggregate `COALESCE`d to "", and `hint:Query hint:optimizer "None"` so every group runs in its written order (the owner's probes on 2026-11-02: the item set alone is 1,437 items in 2.2 s, 1.6 s in the class-first order, and 1,430 in 6.9 s with the Caribbean filter; with the planner on, the full run took 42 s once and timed out the next time while 60 items took 1.4 s; with the order pinned, 15 s once and a timeout the next, most of it the Caribbean filter's `P131*` walked down from the four Caribbean items for every item, so the filter is now one to three `P131` hops up from the bound item as `OPTIONAL`s that must stay unbound with the hop filter the full run took 12.9 s for 1,430 items (1,437 before the Caribbean filter), and restricted runs 2.5 to 3.7 s; a second identical request a minute after a successful one timed out three times out of three [U why: the weekly run sends one request, and a failed run is retried by the job queue's backoff, 15 min doubling; the [box] run re-measures]; a join of the values as `OPTIONAL`s, and then a plain sub-select joined to the `UNION` even for three items, ran past the 60 s limit with HTTP 504, so the branches were evaluated over all of Wikidata; no zero-length path such as `P131?` outside the item set; under SPARQL 1.1 one error makes a whole aggregate an error, so no aggregated expression may fail; the named subquery is a Blazegraph extension [U: a WDQS engine change breaks the query, and the run then ends `wikidata_unavailable`]), **dissolved ones included** (closures need them), **the Caribbean Netherlands excluded** (owner, Q3: Q27561 and its three public bodies [U QIDs]). 1,361 NL museums not marked dissolved [U count and run time under the 60 s WDQS limit: the owner's recording (O1) and the [box] run]. **Fetched in batches** (owner, 2026-11-02, after O2): the full query timed out from the box (HTTP 504 after 65 s) while the same query for three items took 1.4 s, selection and Caribbean filter included, and four of six full runs that day timed out. So the sync sends the item list (the query's own `WITH` block, derived from it in `wikidata.ts`), then the details in batches of 200 with the restricted query (`VALUES` at its marker; the same text and sha256 the fixtures pin), one request at a time, 2 s apart: about 8 requests a run, merged into one answer for the parser. User-Agent `mjk-museum-sync/1.0 (+<repository URL or MJK_SYNC_CONTACT>)`, `Retry-After` honoured (seconds or a date, capped at 10 min, 3 tries; the research hit a 429) |
+| **RCE "Musea in Nederland"**, WFS layer `overzichtmusea` | Public Domain Mark | 629 rows (metadata 2026-08-19): name, street, number, postcode, place, municipality. Cross-check and addresses. One WFS 2.0 `GetFeature` per run as GeoJSON in EPSG:4326 (the owner's recording, O1 2026-11-02: 629 features in 0.2 s, every one with a Point geometry in lon/lat and a `Pc6`, no invalid row). The typeName is `Veiligheid_van_Erfgoed:overzichtmusea`, the name data.overheid.nl lists for dataset 44332 (`rce:overzichtmusea` failed with `http_status`). Properties: `Museum` (name), `Adres` (the street alone), `Huisnummer` and `HnrToev` (joined: a letter directly, `8A`, anything else after a dash, `7-HS`), `Pc6`, `Woonplaats`, `Gemeente` (a name). There is no id property: the key is the GeoServer feature id `overzichtmusea.<n>` [U stable when RCE reloads the dataset]. All named once in `sources/rce.ts` |
 | **museum.nl** | © Museumvereniging; "personal, non-commercial" use only; linking allowed | Never fetched, scraped or copied. Only a link per museum. The bare list may be protected by the Databankenwet [U]. A5 asks for a feed or permission |
 | **Museumregister** | – | Only through Wikidata P166 = Q110989587 (502 items); no export found [U] |
 | **OpenStreetMap** | ODbL (share-alike) | Not in our database. Only inside the basemap tiles, attributed on the map (A§15.3) |
-| **Wikimedia Commons** (P18) | Per file, often CC BY-SA | Not shown in v1: user photos only [U P1a decides whether to self-host Commons images with attribution] |
+| **Wikimedia Commons** (P18) | Per file, often CC BY-SA | **Self-hosted with attribution** (owner, 2026-11-01; ADR-0018). P1a stores P18's file name as `museum.commons_file` and contacts no Commons host; P3b checks the licence (CC0, public domain, CC BY, CC BY-SA), re-encodes the file in the photo pipeline and serves it from `media.<domain>` with plain-text attribution. Never hotlinked |
 | **Google Places** | Terms allow storing only `place_id` (and lat/lng for 30 days) | Not used |
 
 ### 7.2 Data map (field → source)
@@ -184,55 +184,114 @@ Checked 2026-11-01 (research input in `docs/plan/research/museum-data.md`).
 | `wikidata_qid` | item | – | – | Main external key, unique; null only for a museum the owner adds by hand |
 | `rce_id` | – | row key (629) | – | Reference only |
 | `name`, `name_en` | label nl / en | name (cross-check) | override | `museum_alias` holds Wikidata aliases and names learned from imports |
-| `lat`, `lon` | P625 (1,071) | WFS geometry [U] | fix in admin | A museum without coordinates is listed but not on the map |
-| `website` | P856 (907) | – | override | Linked, never fetched |
-| `street`, `house_number`, `postcode` | P6375 (752), P281 (537) | street, number, postcode | override | Postcode normalised to `1234 AB`; RCE's structured fields first, then P6375 parsed [U P1a] |
-| `place`, `municipality_code` | P131 | place, municipality | override | Province comes from `municipality` (CBS codes [U list source]) |
+| `lat`, `lon` | P625 (1,071) | WFS geometry, read in either axis order (NL's latitude and longitude ranges do not overlap, so a swap is detected) | fix in admin | A museum without coordinates is listed but not on the map. Inside the European-NL box (lat 50.7–53.7, lon 3.2–7.3), a CHECK; a point outside it is dropped at parse |
+| `website` | P856 (907) | – | override | Linked, never fetched. `https://` only; an `http://` value is upgraded to `https://` (owner, 2026-11-02: 31 of the 60 recorded items had http only), counted as the note `website_upgraded`, and a real https value wins |
+| `street`, `house_number`, `postcode` | P6375 (752), P281 (537) | street, number, postcode | override | Postcode normalised to `1234 AB`; RCE's structured fields first, then P6375 parsed into street, number, postcode and place (`sources/wikidata.ts`) [U parse rate: the [box] run] |
+| `place`, `municipality_code` | P131 | place, municipality | override | Province comes from `municipality`, which the sync fills from the Wikidata answer: one or two P131 hops to a live item with a CBS code (P382, stored as `GM0363`), its nl label and its province's P300 (P1a; no second list source) |
 | `registered` | P166 = Q110989587 (502) | – | – | "Geregistreerd museum" badge |
 | `museumnl_url` | P973 (441, stale) | – | override | A link and a hint for import matching and the flag, never proof of participation |
-| `categories` | P31 classes | – | override | Mapped to about six categories (art, history, natural history, science and technology, ethnology, other) [U P1a mapping] |
+| `categories` | P31 classes | – | override | Six categories (`art`, `history`, `natural_history`, `science_technology`, `ethnology`, `other`), a CHECK. `museums/categories.ts` maps the classes we are sure of; an item whose classes map to nothing is `other` [U O1: the table is completed from the recorded class counts]. A change queues |
 | `closed_on` | P576 | – | override | A§7.5 |
 | `description_nl`, `description_en` | description (CC0, short) | – | own text | Never museum.nl or Wikipedia text |
 | `museumkaart_status`, `mk_since`, `mk_until`, `mk_last_verified_at` | – | – | owner + moderated reports | A§7.5 |
 | `admission_adult_cents`, `price_verified_at` | – | – | owner (A6) | € saved (A§10) |
 | `photo_policy` | – | – | owner + reports | `allowed` · `no_flash` · `forbidden` · `unknown`; shown at upload |
-| image | P18 (841) | – | – | Not stored in v1 (A§7.1) |
+| `commons_file` | P18 (841) | – | hide | The Commons file name without `File:` (1–255 characters, no `#<>[]\|{}/` or control character). The seed sets it; a later change queues. The image itself is P3b's (ADR-0018) |
+| `temp_closed`, `temp_closed_until` | – | – | owner | A temporary closure: a flag and an optional end date (null = until further notice), no free text (A§7.5) |
+| `pinned_fields` | – | – | owner | The source-fed columns the owner has overridden (`admin museum pin`, A§7.5); the sync never writes them and counts them as `pinned` |
+| `slug` | – | – | – | Made once at creation from the unaccented, lower-case name; on a collision `-<place>`, then `-2`. The sync never changes it (renames and old-slug redirects are P1b's) |
 | opening hours, exhibitions | – | – | – | Not stored; linked out (A§1) |
+
+Measured on the owner's full recording (O1, 2026-11-02), 1,430 items: 1,420 valid (10 without an nl or en label, 0.7 %, under the 2 % guard), 1,106 with coordinates, 1,178 with a municipality, 580 with a postcode, 920 with a website (451 of them upgraded from `http://`), 880 with a Commons file, 503 registered (P166), 76 dissolved (P576). The P31 classes are mostly plain "museum" (1,114 of 1,344 live items). With every class that five or more items use mapped or neutral (`museums/categories.ts`), the seed gives 1,102 `other`, 113 history, 81 art, 33 science and technology and 19 natural history; the rest are curated. RCE: 629 rows. In the 60-item sample, the seed matched 38 of the 40 registered museums with coordinates to their RCE row (31 by postcode and name, 7 by distance and name; the lowest name similarity 0.86, the largest distance 58 m).
 
 ### 7.3 Matching
 
 One matcher (`apps/server/src/museums/match.ts`, pure, property-tested) serves the sync, RCE rows, visit imports (A§10) and "report a change":
 
-1. **QID** (directly, or through a museum.nl URL / RCE id already stored on a museum).
-2. **Postcode + name:** the same 6-character postcode and a normalised name (lower case, `unaccent`, punctuation and words such as "museum", "het", "de" removed [U list]) with `pg_trgm` similarity above a threshold [U P1a].
-3. **Distance + name:** under 150 m (haversine) and name similarity.
-4. **Anything else** (no match, or two candidates) goes to the admin review queue. Nothing is merged automatically below rule 3.
+1. **QID** (directly, or through an RCE id already stored on a museum; a stored museum.nl URL counts only for imports and reports, because P973 on Wikidata is stale).
+2. **Postcode + name:** the same 6-character postcode and a name similarity ≥ 0.4.
+3. **Distance + name:** under 150 m (haversine, strictly) and a name similarity ≥ 0.5.
+4. **Anything else** goes to the admin review queue. Nothing is merged automatically below rule 3.
+
+Settled in P1a:
+
+- **Names:**
+  - The similarity is the best of the candidate's name and its aliases, after `normaliseName()`. That function lower-cases, folds accents (NFKD plus ß, ĳ, æ, œ, ø …) and turns punctuation into spaces.
+  - It drops these whole words: `museum`, `musea`, `mus`, `het`, `de`, `t` (from `'t`), `van`, `der`, `den`, `en`, `in`, `stichting`, `stg`, `gem`. Place names stay. `mus`, `in`, `stg` and `gem` came from the RCE names' legal-form and abbreviation noise ("Markiezenhof, Gem. Bergen Op Zoom", "Mus Willet Holthuijzen"): on the full set they added one match and no ambiguous row.
+- **`pg_trgm` in TypeScript:** `museums/trigram.ts` ports `similarity()` (shared ÷ union, as a float4; empty gives 0), so the matcher stays pure. It equals PostgreSQL 18 (builtin C.UTF-8) on 345 pairs (`trigram.int.test.ts`). The thresholds are compared as float4 too.
+- **First rule decides:** the first rule with a passing candidate decides. One candidate is the match; two or more queue as `ambiguous`, and later rules are not tried.
+- **Identity never changes by itself:**
+  - A Wikidata row with an unknown QID that hits a museum by rule 2 or 3 queues, as `qid_conflict` when the museum has another QID (a merge or redirect) or `qid_link` when it has none.
+  - An RCE row never takes a museum that already holds another RCE row.
+  - Two new RCE rows on one museum both queue as `duplicate`.
+- **Thresholds, calibrated on the owner's full recording** (O1, 2026-11-02: the pure seed plan on 1,344 live Wikidata items and 629 RCE rows; the [box] run re-checks them):
+  - 492 RCE rows match (365 by rule 2, 127 by rule 3) and 137 queue: 115 with no candidate, 10 ambiguous, 12 duplicate (one museum, two RCE rows, such as a museum's second location).
+  - Of the 15 weakest matches (similarity 0.41 to 0.55), all but one or two are true pairs; raising rule 2 to 0.45 would lose about four of them to avoid one. So 0.4, 0.5 and 150 m stay.
+  - Seven matches lie more than 500 m apart (the largest 64 km), and six of those are true pairs with a wrong or rough coordinate on one side, so rule 2 has no distance cap. Wikidata's coordinates win (A§7.2): the owner fixes such an item on Wikidata or pins the field.
+  - The misses wait in the match queue: the same museum more than 150 m away (299 m and 187 m seen), and twin candidates at one postcode (two museums in one building).
 
 ### 7.4 Sync and diff
 
-- **Weekly** worker job (croner, a fixed weekday at night [U]) and the `sync-museums [--dry-run]` role run the same code.
-- **Staging:** each fetched row lands in `museum_source_row` (source, external id, payload `jsonb`, hash, run id). The diff compares it with the current `museum` and writes `museum_change` rows.
-- **Auto-applied (safe):** website, postcode and address fields, labels, coordinates that move under 250 m [U], new aliases, `registered`.
-- **Review queue (unsafe):** a new museum, a name change, a move of 250 m or more, a P576 closure, a QID merge or redirect, and a row that disappears from its source. A museum is **never hard-deleted**.
-- **Empty guard** (F1 pattern): when a source answers far fewer rows than the last run (under 90 % [U]) or fails the schema, the run applies nothing and logs a fixed code.
-- Each run logs counts per outcome (matched, new, changed, queued, unchanged) as one line; never payloads.
-- Tests use recorded SPARQL and WFS fixtures (`scripts/record-fixture.ts`, which refuses under `CI`).
+- **Weekly** worker job `museum_sync` (croner with `protect`, Tuesday 03:17 Europe/Amsterdam [U]; enqueued unless one is queued or running). The `sync-museums` role runs the same code. Runbook: `docs/runbooks/museum-sync.md`.
+- **Seed** (owner, Q1): `sync-museums --seed`, allowed only while `museum` is empty.
+  - It creates every Wikidata item that is not dissolved, and matches the RCE rows against those museums.
+  - After the seed, a new museum queues. The weekly job refuses with `not_seeded` while `museum` is empty.
+- **One run** (`museums/sync.ts`, as `mjk_worker`):
+  1. A `pg_try_advisory_lock`; another run → `sync_busy`.
+  2. Both sources fetched and parsed. A fetch error → `wikidata_unavailable` or `rce_unavailable`, retried.
+  3. The empty guard.
+  4. The state is loaded, the plan made (`museums/diff.ts`, pure) and applied in one `REPEATABLE READ` transaction.
+  5. One log line of counts per outcome; never a payload, name or URL.
+- **Dry run:** the same plan inside a `READ ONLY` transaction. It writes nothing, not even a run row, and prints a summary of counts and codes only.
+- **Staging:**
+  - Each row lands in `museum_source_row` with its payload (the parsed, normalised row), the sha256 of its canonical JSON, and the run that first saw or last changed it.
+  - A row the owner or an earlier run has decided (matched or ignored) keeps its decision; only undecided rows are matched again.
+  - An unchanged re-run writes nothing: every row keeps its `ctid` and `xmin` (`sync.int.test.ts`).
+- **Auto-applied (safe, default deny; owner, Q4):** each writes an applied `museum_change`, so the history is complete.
+  - website, street, house number, postcode, place, municipality
+  - `name_en`, the descriptions, `museumnl_url`, `registered`
+  - `rce_id` when an RCE row is matched
+  - coordinates that appear or move under 250 m [U]
+  - new aliases (aliases are never removed)
+- **Review queue (unsafe):** everything else.
+  - **The match queue:** source rows that are `new` or `ambiguous`, with a reason (`no_candidate` · `ambiguous` · `qid_conflict` · `qid_link` · `duplicate`) and candidates; `admin match list|resolve`.
+  - **The change queue:** pending `museum_change` rows for a museum we hold:
+    - a name change, a move of 250 m or more (one `coordinates` change), `categories`
+    - a new or changed P18 (`commons_file`), a P576 closure (`closed_on`)
+    - a safe field going to null
+    - a row that disappears from its source (`presence`)
+  - The change queue is worked with `admin change list|apply|reject`.
+  - Nothing ever deletes: no login holds DELETE on a P1a table. Pinned fields are skipped and counted (`pinned`); the owner pins and unpins them with `admin museum pin <museum> <field…> [--unpin]` (any source-fed field but the QID; `lat` and `lon` together), which leaves an applied `pinned_fields` change.
+- **Idempotent queue:**
+  - The same pending news is not added twice.
+  - Different news for the same field supersedes it (`superseded`), and so does a source that reverts.
+  - A row that comes back clears its `presence` change.
+  - While a museum waits for a presence decision (a matched row is gone and its `presence` change is pending, or it went this run), the sync changes none of its fields: otherwise the remaining source takes them over and swaps them back when the row returns (the real fixtures showed it, O1). After `--keep` the next sync updates it from the remaining source.
+  - A change the owner rejected is not proposed again while the source repeats it (counted as `declined`); different news for that field queues as usual. To hold a value against every source change, the owner pins the field (`admin museum pin <museum> <field…> [--unpin]`).
+- **Empty guard** (F1 pattern): the run applies nothing, records a `refused` run and fails the job with `empty_guard` (not retried) when, for either source:
+  - its envelope fails the schema
+  - more than 2 % [U] of its rows are invalid
+  - it answers under 90 % [U] of the last *applied* run's rows (first run: under 1,000 Wikidata or 500 RCE rows [U])
+- **Guard baseline:** it moves only with an applied run. After checking, the owner lets one run below it through for one source with `sync-museums --accept-drop <source>`.
+- **Mass-change brake** (P1a review): a source can pass the guard and still be wrong. RCE's feature ids are contiguous and may be positional [U], and a decided row is kept by its id, so a reload that renumbers them would put a neighbour's address on every museum matched to RCE as safe changes. So a sync (never the seed) that would apply safe changes to more than 10 % [U] of the museums held, and to at least 50 [U] museums, applies nothing: it records a `refused` run with `mass_change` and fails the job without a retry, as the empty guard does. After checking, the owner lets one run through with `sync-museums --accept-changes`, recorded as `museum_sync_run.accept_changes`.
+- Tests use recorded SPARQL and WFS fixtures (`scripts/record-fixture.ts`, which refuses under `CI`), plus hand-made `edge` and `hostile` cases, and `week2`, a week of news derived from `normal`.
 
 ### 7.5 Curation
 
 - **Museumkaart flag:** `museumkaart_status` (`participating` · `left` · `unknown`, default `unknown`) with `mk_since`, `mk_until` and `mk_last_verified_at`.
-  - The owner sets it with the P1a tooling (admin CLI, then the admin UI) by hand (A6), from each museum's own website and members' reports (or the A5 answer), never by working through museum.nl's list or filter (database right, A§13.3). The P973 links are hints only.
+  - The owner sets it with the P1a tooling (`admin museum flag`; `participating` or `unknown` without `--until` clears `mk_until`; the bulk CSV `museum export|import`, then the admin UI) by hand (A6), from each museum's own website and members' reports (or the A5 answer), never by working through museum.nl's list or filter (database right, A§13.3). The P973 links are hints only. Every museum starts as `unknown`; nothing in P1a sets the flag from a source, and `mjk_worker` has no grant on it.
   - [U A9, answered before A6 starts] whether this hand curation is fine under the Databankenwet; A5's answer may replace it with a feed or a permission.
   - Members use "Meld een wijziging" on a museum page; reports go to the moderation queue, and the owner applies them as `museum_change` rows.
   - A museum that leaves keeps its history: `left` with `mk_until`, never deleted.
-- **N:** the number of museums in the last **published list version**. The owner publishes a version from the admin (`mk_list_version`: date, N). Publishing a version copies the museums then `participating` into `mk_list_member`; N is their count, computed, never typed. The site shows N with that date, "37 van 512 · lijst nov 2026", because public counts disagree (426 to 539).
+- **N:** the number of museums in the last **published list version**. The owner publishes a version from the admin (`admin list publish [--date D]`; `mk_list_version` holds only the date). Publishing copies the museums then `participating` and not hidden into `mk_list_member`, in one transaction, and refuses an empty list, a second version on one date, a date after today (Europe/Amsterdam, `list_in_future`) and a date not after the newest version (`list_not_newest`), because a version is never removed. N is their count, computed by the view `mk_list` and never stored or typed. Changing a status afterwards changes neither N nor the version's members (`mk-list.int.test.ts`); no login can DELETE a list row. The site shows N with that date, "37 van 512 · lijst nov 2026", because public counts disagree (426 to 539).
 - **Admission price:** the adult price in cents with `price_verified_at`. A museum without a price is left out of € saved, and the page says how many were left out.
+- **Overrides (pinned fields):** the owner keeps a source-fed value against every later source change with `admin museum pin <museum> <field…>` and releases it with `--unpin` (P1a). Only the fields the sync writes after the seed can be pinned (`PINNABLE_FIELDS` in `museums/fields.ts`: every source-fed column but the QID; `lat` and `lon` together); anything else is refused (`not_pinnable`). Each change leaves an applied `museum_change` of field `pinned_fields` with both lists.
 - **Card price:** a committed per-year table (2026: €75 adult, €39 under 19), updated by PR.
 - **Photo policy:** curated from the museum's house rules and reports, shown before upload (A§13.3).
 - **Closures:**
   - A museum closed on Wikidata (P576) or by the owner gets `closed_on`. Its page shows "Gesloten"; its reviews stay but become read-only.
   - Visits before `closed_on` can still be logged.
-  - A temporary closure is a curated note [U P1a].
+  - A temporary closure (owner, Q6): `temp_closed` and `temp_closed_until` (null = until further notice), set by the owner, with no free text, so it needs no translation or moderation.
 
 ## 8. Data model (PostgreSQL 18)
 
@@ -242,11 +301,12 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 |---|---|---|
 | `province` | `code` | name_nl, name_en (12 rows, seeded) |
 | `municipality` | `cbs_code` | name, province_code |
-| `museum` | `id` | slug (unique), A§7.2 fields, `hidden`, `search` (`tsvector`, `dutch` config through an immutable `unaccent` wrapper: `unaccent()` itself is not IMMUTABLE), created_at, updated_at |
-| `museum_alias` | `id` | museum_id, alias, source (`wikidata` · `import` · `admin`) |
-| `museum_source_row` | (source, external_id) | payload `jsonb`, hash, fetched_at, run_id, matched_museum_id, match_state (`matched` · `new` · `ambiguous` · `ignored`) |
-| `museum_change` | `id` | museum_id, field, old, new, origin (`sync` · `admin` · `report`), state (`applied` · `pending` · `rejected`), reporter_id, decided_by, created_at, decided_at |
-| `mk_list_version` | `id` | published_on, n, published_by |
+| `museum` | `id` | slug (unique), A§7.2 fields (`commons_file`, `temp_closed`, `temp_closed_until` and `pinned_fields` included, P1a), `hidden`, `search` (`tsvector`, `dutch` config through an immutable `unaccent` wrapper: `unaccent()` itself is not IMMUTABLE; arrives with P1b's search), created_at, updated_at (set by a trigger, so no login needs a grant on it). CHECKs: the key formats, the NL box, https links, the one link-out host for `museumnl_url`, length caps, the six categories, the statuses, `mk_until ≥ mk_since`, `left` needs `mk_until`, a price of 0–20,000 cents |
+| `museum_alias` | `id` | museum_id, alias, source (`wikidata` · `import` · `admin`), created_at; unique (museum_id, alias); never removed |
+| `museum_sync_run` | `id` (bigint) | mode (`seed` · `sync`), started_at, finished_at, wikidata_rows, rce_rows, counts `jsonb` (numbers and fixed codes), outcome (`applied` · `refused` · `failed`), code (fixed), accept_drop, accept_changes (the mass-change brake, A§7.4). The empty guard's baseline is the last applied run (P1a) |
+| `museum_source_row` | (source, external_id) | payload `jsonb` (the parsed, normalised row), hash (sha256 of its canonical JSON), fetched_at, run_id (the run that first saw or last changed it), matched_museum_id, match_state (`matched` · `new` · `ambiguous` · `ignored`), match_rule (`id` · `postcode_name` · `distance_name` · `admin`), match_reason (`no_candidate` · `ambiguous` · `qid_conflict` · `qid_link` · `duplicate` · `dissolved`), candidate_ids, gone_since_run_id (set once, when the row disappears) |
+| `museum_change` | `id` | museum_id, field (a column, or `new_museum` · `presence` · `qid_link` · `coordinates`), old and new `jsonb`, origin (`sync` · `admin` · `report`), source and external_id (the source row), run_id, state (`applied` · `pending` · `rejected` · `superseded`), reporter_id, decided_by (plain uuids until P2a adds the foreign keys to `app_user`), created_at, decided_at. At most one pending change per museum, field and source |
+| `mk_list_version` | `id` | published_on (unique), published_by (P2a adds the foreign key), created_at. N is not stored: the view `mk_list` counts the newest version's members (P1a) |
 | `mk_list_member` | (list_version_id, museum_id) | the museums `participating` when the version was published |
 | `museum_stats` | `museum_id` | rating_count, rating_mean, bayes_score, aspect means and counts, review_count, visit_count, updated_at (worker) |
 | `app_user` | `id` | email (`citext`, unique), email_verified_at, handle (`citext`, unique), display_name, password_hash (argon2id PHC string, null), role (`user` · `moderator` · `admin`), status (`active` · `banned` · `deleted`), banned_until, ban_reason, trusted_at, age_confirmed_at, terms_version, terms_accepted_at, settings (A§10), invite_id, created_at |
@@ -283,6 +343,9 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
 - `mjk_api` reads and writes the tables behind its routes and enqueues jobs, except: SELECT and INSERT on `audit_log`; INSERT on `content_ip_log`; SELECT, INSERT and UPDATE (`decision`, `decided_at` only, as column grants) on `notice`; never UPDATE, DELETE or TRUNCATE on `audit_log`.
 - `mjk_ssr` has `SELECT` on the `pub_*` views and nothing else. An integration test proves it cannot read any table.
 - `mjk_worker` writes jobs, media, the museum sync tables and `museum_stats`, deletes for account deletion and purges, and inserts into `audit_log`; UPDATE of `notice.ack_sent_at`, `notice.decision_sent_at`, `moderation_action.sor_sent_at` and `data_export` after it mails (column grants on `notice` and `moderation_action`).
+  - On `museum` (P1a, column grants, `WORKER_INSERT_FIELDS` and `SAFE_FIELDS` in `museums/fields.ts`): it can insert the source-fed columns but `closed_on`, and `slug` (the seed, which skips dissolved items). It can update only the safe set (A§7.4), so the name, the QID, `categories`, `commons_file` and `closed_on` change only through the owner (`admin change apply`; the QID through `admin match resolve`). It can neither insert nor change the Museumkaart flag, a price, the photo policy, a temporary closure, `hidden` or `pinned_fields`. Its `museum_change` rows cannot name an `origin` (the default is `sync`). It only reads the list tables.
+  - `mjk_api` (the admin CLI in P1a) writes every `museum` column but `id`, `created_at` and `updated_at`, the match fields of `museum_source_row`, `museum_change`'s decision, and inserts list versions and their members.
+  - **No login has DELETE or TRUNCATE on any P1a table** (`grants.int.test.ts`): a museum is never hard-deleted and a published list stays frozen. A later phase that purges `job` rows (P2a, A§13.2) adds its own grant.
 - `mjk_backup` is a member of `pg_read_all_data` (`WITH INHERIT TRUE`, a Waterheight gotcha) and nothing else.
 - **`audit_log` is INSERT-only:** no login has `UPDATE`, `DELETE` or `TRUNCATE` on it. Its 3-year purge [U] runs only through a function owned by `mjk_migrator`: `SECURITY DEFINER`, `SET search_path = pg_catalog, pg_temp`, schema-qualified names, no parameters (the 3-year cutoff is a constant in the body), EXECUTE revoked from `PUBLIC` and granted to `mjk_worker` only.
 - No row-level security: the `api` checks ownership, and every route has an authorization test (A§18). Pools are capped per process in code [U sizes].
@@ -373,6 +436,11 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
 - **HEIC:** not decoded on the server (sharp's prebuilt libvips has no HEIC), and no WASM decoder in the browser (it would need `'wasm-unsafe-eval'`). The file input accepts JPEG, PNG and WebP, so iOS Safari hands over a JPEG [U P3b]. Anything else gets a clear message.
 - **Limits:** a photo ≤ 25 MB and ≤ 50 MP; ≤ 10 per review; ≤ 30 per day per user; 1 GB per user. An optional alt text (≤ 250 characters). Before upload: three checkboxes (own photo · no recognisable people without consent · not focused on a protected artwork) and the museum's `photo_policy` (A§13.3).
 - **Basemap tiles** live on the same bucket under `tiles/` (range requests from R2, never through the tunnel; A§15.3).
+- **Wikimedia Commons images** (P3b, ADR-0018) share this pipeline:
+  - A `commons_image` job reads a museum's `commons_file` (P1a stores it) and checks its licence against the allowlist: CC0, public domain, CC BY, CC BY-SA 1.0–4.0. Anything else is skipped with a fixed code.
+  - It downloads the file from `upload.wikimedia.org` (allowlisted hosts, a size cap, no redirect followed) and re-encodes it as above: metadata stripped, AVIF and WebP, a random key, served from `media.<domain>` only.
+  - The page shows plain-text attribution: the author (Commons' `Artist` HTML turned into text), the licence linked to its deed, the file page, and "resized".
+  - The weekly sync re-checks the licence and sha1, and a deleted, replaced or relicensed file removes our copy. The owner can hide any image.
 - **Video (P7, gated on beta demand, A12):** ≤ 60 s and ≤ 150 MB per clip, ≤ 2 per review and 5 per day [U]. The same chunked upload, then the `mjk-media` worker image (ffmpeg from Debian, not distroless; hardened Debian slim [U]): ffprobe checks first, then H.264/AAC 720p, CRF 23, `-movflags +faststart`, `-map_metadata -1`, plus a poster frame. Served from R2 with range requests (`media-src`, A§15.6): Cloudflare's terms allow video from a Cloudflare service such as R2, never from the tunnel. Queued for review like photos [U P7: every video].
 
 ## 13. Moderation, legal and privacy
@@ -415,7 +483,7 @@ Whether a no-revenue private site falls under the DSA is [U] (the ACM guidelines
 | Notices, moderation actions, and the text of removed reviews and comments (in `moderation_action.facts`) | 3 years [U] | Deleted by the worker |
 | Removed photos | Not kept: variants and original deleted at once; only the sha256 stays in `blocked_hash` | CSAM: reported, then deleted, never kept; a copy already in the locked backup cannot be deleted before its lock ends and ages out within 35 days [U A9] |
 | `audit_log` | 3 years [U] | Purge function (A§8) |
-| Job rows | 30 days after they finish; mail jobs deleted on success, a sealed code or recipient address nulled once sent, a code also at `expires_at` (A§9) | Deleted |
+| Job rows | 30 days after they finish; mail jobs deleted on success, a sealed code or recipient address nulled once sent, a code also at `expires_at` (A§9). The purge and its grant arrive with P2a, the first job that carries personal data; P1a's `museum_sync` jobs hold no payload | Deleted |
 | Unfinished uploads, quarantine files | 24 h (pending-review copies: until decided, or until the photo or its account is deleted) | Deleted |
 | `visit_import` rows (the raw file) | 7 days after creation, or on confirm [U] | Deleted |
 | Export bundles and `data_export` rows | 7 days (link valid 24 h [U]) | Deleted |
@@ -813,7 +881,7 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 - Sets: `cf4` from `https://www.cloudflare.com/ips-v4`; `cf_tunnel4` = 198.41.192.0/24 and 198.41.200.0/24 (Cloudflare's "Tunnel with firewall" page); `resolvers4`, filled by `mjk-resolvers` from the host's resolv.conf at start and on every `mjk-tick`. The owner refreshes `cf4` and `cf_tunnel4` by hand (`docs/runbooks/cloudflare.md`).
 - `table inet rws` and `table inet f1` match only their own bridges: without this table the stack's egress would be open.
 - Health pings: from `worker` over `mjk-egress`; from `backup` only if hc-ping.com sits inside `cf4` [U A8], else the `mjk-backup` unit pings from the host after a successful run.
-- P3b narrows the worker's egress to sets (Wikidata, RCE, Lettermint's IPs, the Protomaps build host, R2, hc-ping) [U the set sources].
+- P3b narrows the worker's egress to sets (Wikidata, RCE, Lettermint's IPs, the Protomaps build host, R2, hc-ping, and `commons.wikimedia.org` and `upload.wikimedia.org` for the Commons images, ADR-0018) [U the set sources].
 
 ### 17.5 Updates
 
@@ -926,3 +994,4 @@ Per year, in euros. [U] items are measured in P4 and written back.
 | [0015](../adr/0015-search-and-jobs-in-postgresql.md) | Search and jobs in PostgreSQL |
 | [0016](../adr/0016-non-commercial-hobby-site.md) | Non-commercial hobby site |
 | [0017](../adr/0017-visit-tied-reviews-and-fair-ranking.md) | Reviews tied to a logged visit; Bayesian ranking |
+| [0018](../adr/0018-wikimedia-commons-images-self-hosted-with-attribution.md) | Wikimedia Commons images, self-hosted with attribution (amends 0005) |

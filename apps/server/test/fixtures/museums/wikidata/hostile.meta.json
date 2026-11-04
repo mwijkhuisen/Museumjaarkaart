@@ -1,0 +1,9 @@
+{
+  "source": "wikidata",
+  "case": "hostile",
+  "origin": "synthetic",
+  "recordedOn": "2026-11-01",
+  "licence": "CC0-1.0",
+  "querySha256": "764bfb9bbaab2cfd15aedc7097a36adb9b74d4d66dbff600d83e8036089de211",
+  "notes": "Hostile text: script and img markup, bidi overrides, zero-width characters, CR/LF/NEL, NUL, a label of 5,001 characters (label_too_long) and one of exactly 250 (valid), markup in a description, an alias equal to the name, a javascript: website and P973, bad file names, credentials in a URL."
+}

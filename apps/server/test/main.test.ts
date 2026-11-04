@@ -7,7 +7,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { dbUrl, EXIT_CONFIG, migratorUrl } from '../src/db/migrate.ts';
 import { HEARTBEAT_MAX_AGE_MS, healthy, touch } from '../src/heartbeat.ts';
-import { EXIT_NOT_BUILT, EXIT_USAGE, run } from '../src/main.ts';
+import { EXIT_NOT_BUILT, EXIT_USAGE, parseSyncArgs, run } from '../src/main.ts';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'mjk-test-'));
 const USAGE = 'usage: main.ts <api|ssr|worker|migrate|healthcheck|sync-museums|admin|backup> [args]';
@@ -26,18 +26,58 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([
-    [['api']],
-    [['ssr']],
-    [['worker']],
-    [['backup']],
-    [['sync-museums', '--dry-run']],
-    [['admin', 'invite', 'create']],
-  ])('%j is not built yet', async (argv) => {
+  it.each([[['api']], [['ssr']], [['backup']]])('%j is not built yet', async (argv) => {
     const lines: string[] = [];
     expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_NOT_BUILT);
     expect(lines).toEqual([`role ${argv[0]} is not built yet`]);
   });
+
+  it('admin groups of later phases are not built yet', async () => {
+    const lines: string[] = [];
+    const io = { out: (l: string) => lines.push(l) };
+    expect(await run(['admin', 'invite', 'create'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_NOT_BUILT);
+    expect(await run(['admin', 'user', 'role'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_NOT_BUILT);
+  });
+
+  it.each([
+    [['sync-museums', '--bogus']],
+    [['sync-museums', '--accept-drop', 'osm']],
+    [['sync-museums', '--accept-drop']],
+    [['sync-museums', '--seed', '--seed']],
+    [['sync-museums', '--accept-changes', '--accept-changes']],
+    [['sync-museums', '--accept-changes=yes']],
+  ])('%j is a usage error', async (argv) => {
+    const lines: string[] = [];
+    expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+    expect(lines).toEqual([
+      'usage: main.ts sync-museums [--dry-run] [--seed] [--accept-drop wikidata|rce] [--accept-changes]',
+    ]);
+  });
+
+  it('sync-museums reads each flag once, --accept-changes included', () => {
+    expect(parseSyncArgs([])).toEqual({ dryRun: false, seed: false, acceptDrop: null, acceptChanges: false });
+    expect(parseSyncArgs(['--accept-changes', '--dry-run', '--accept-drop', 'rce'])).toEqual({
+      dryRun: true,
+      seed: false,
+      acceptDrop: 'rce',
+      acceptChanges: true,
+    });
+  });
+
+  it('worker takes no arguments', async () => {
+    const lines: string[] = [];
+    expect(await run(['worker', 'x'], {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+  });
+
+  it.each([[['sync-museums', '--dry-run']], [['worker']]])(
+    '%j without a database setting is a config error that never prints the URL',
+    async (argv) => {
+      const lines: string[] = [];
+      const env = { DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
+      expect(await run(argv, env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
+      expect(lines.join('\n')).not.toMatch(/Secret-Value|mysql/);
+    },
+  );
 
   it('migrate without a database setting is a config error', async () => {
     const lines: string[] = [];
@@ -50,7 +90,7 @@ describe('run', () => {
 });
 
 describe('real CLI', () => {
-  it.each([['nope'], ['worker']])('%s exits 2', (role) => {
+  it.each([['nope'], ['api']])('%s exits 2', (role) => {
     const r = spawnSync(process.execPath, [MAIN, role], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });

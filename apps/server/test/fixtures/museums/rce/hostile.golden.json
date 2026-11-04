@@ -1,0 +1,99 @@
+{
+  "ok": true,
+  "rows": [
+    {
+      "rceId": "overzichtmusea.801",
+      "name": "</script><script>alert(1)</script>",
+      "street": "Straat",
+      "houseNumber": "1",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.3,
+      "lon": 4.9
+    },
+    {
+      "rceId": "overzichtmusea.802",
+      "name": "<img src=x onerror=alert(1)>",
+      "street": "Straat",
+      "houseNumber": "2",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.31,
+      "lon": 4.91
+    },
+    {
+      "rceId": "overzichtmusea.803",
+      "name": "gnitset Museum",
+      "street": "Straat",
+      "houseNumber": "3",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.32,
+      "lon": 4.92
+    },
+    {
+      "rceId": "overzichtmusea.804",
+      "name": "Museum",
+      "street": "<b>Straat</b>",
+      "houseNumber": "4",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.33,
+      "lon": 4.93
+    },
+    {
+      "rceId": "overzichtmusea.805",
+      "name": "Museum Met Regels",
+      "street": "Straat",
+      "houseNumber": "5",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.34,
+      "lon": 4.94
+    },
+    {
+      "rceId": "overzichtmusea.806",
+      "name": "Museum",
+      "street": "Straat",
+      "houseNumber": "6",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.35,
+      "lon": 4.95
+    },
+    {
+      "rceId": "overzichtmusea.808",
+      "name": "Museum Lange Straat",
+      "street": null,
+      "houseNumber": "8",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.37,
+      "lon": 4.97
+    },
+    {
+      "rceId": "overzichtmusea.809",
+      "name": "Museum Met Bidi Sleutel",
+      "street": "Straat",
+      "houseNumber": "9",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.38,
+      "lon": 4.98
+    }
+  ],
+  "invalid": {
+    "name_too_long": 1
+  },
+  "notes": {
+    "street_too_long": 1
+  }
+}

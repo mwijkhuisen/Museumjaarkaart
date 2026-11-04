@@ -327,7 +327,12 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
   - `admin user trust <handle> [--revoke]` sets or clears `trusted_at` (audit-logged), so the owner's account and test accounts can be trusted before P3c's trust rule and user screens exist
   - limits (A§12): ≤ 25 MB, ≤ 50 MP, ≤ 10 per review, ≤ 30 per day, 1 GB per user; optional alt text; the three checkboxes and the museum's `photo_policy` before upload; HEIC [U]: the file input accepts JPEG, PNG and WebP only, anything else gets a clear message
   - the A§15.6 CSP unchanged (`img-src 'self' data: https://media.<domain>`): photos need nothing new
-  - the worker's egress narrowed to sets (A§17.4: Wikidata, RCE, Lettermint's IPs, the Protomaps build host, R2, hc-ping) [U the set sources]; the decision whether libvips decoding moves to a role with no secrets and no egress, or the accepted risk (A§16.2) [U], written back
+  - the worker's egress narrowed to sets (A§17.4: Wikidata, RCE, Lettermint's IPs, the Protomaps build host, R2, hc-ping, `commons.wikimedia.org` and `upload.wikimedia.org`) [U the set sources]; the decision whether libvips decoding moves to a role with no secrets and no egress, or the accepted risk (A§16.2) [U], written back
+  - **Wikimedia Commons images** (ADR-0018, added by P1a's plan, Q5/Q7):
+    - a `commons_image` job turns `museum.commons_file` (stored by P1a) into our own image in the same pipeline: Commons' `imageinfo`/`extmetadata` for the licence, author, file page and sha1; the download from `upload.wikimedia.org` (allowlisted hosts, a size cap, no redirect); the same sharp re-encode; R2
+    - the licence allowlist (CC0, public domain, CC BY, CC BY-SA 1.0–4.0; anything else skipped with a fixed code)
+    - plain-text attribution under the image: the author (Commons' `Artist` HTML turned into text), the licence linked to its deed, the file page, "resized"
+    - the weekly re-check of licence and sha1 (a deleted, replaced or relicensed file removes our copy); the owner can hide an image
 - **Scope out:** the queue UI (P3c), video (P7).
 - **Acceptance:**
   - [CI] an upload whose magic bytes are not an allowed image → 415 and nothing reaches the worker (no job row, the quarantine file is gone).
@@ -340,6 +345,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
   - [CI] variants carry the immutable `Cache-Control` and the exact `Content-Type`; keys hold no user id, media id or file name.
   - [CI] an untrusted member's photo is absent from the media bucket (S3 stand-in listing), every API answer, every SSR page and `pub_media` while it is `pending_review`; its author sees it only through `GET /api/v1/uploads/:id/preview` (`private, no-store`); a trusted member's photo reaches the bucket through the `media_publish` job; no route serves a raw upload or an original; an untrusted member's original is absent from `/srv/mjk/originals` and the next restic snapshot until approved.
   - [CI] Playwright: upload and show a photo with zero requests to hosts other than `<domain>` and `media.<domain>` (stand-ins).
+  - [CI] Commons images (ADR-0018): with msw fixtures for Commons' API and file host, a CC BY-SA file becomes our variants with its attribution as plain text (a hostile `Artist` field never reaches an HTML sink); an NC, ND, GFDL-only or unknown licence is skipped with its fixed code; a deleted file, a new sha1 or a licence that leaves the allowlist removes our copy; a redirect or a host outside the allowlist is refused; the page makes no request to a Wikimedia host.
   - [box] a phone photo from a trusted account, uploaded through the tunnel, is served from `media.<domain>` with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`; its original is in the next restic snapshot; time and peak memory for a 24 MP photo go into A§17.2.
   - [box] `https://pub-<id>.r2.dev/<key>` serves nothing; a deleted variant stops being served by `media.<domain>` within the edge TTL.
   - [box] from `worker`, tcp/443 to a host outside the sets is dropped while the sync dry run, a mail, an R2 upload and the health ping still work.

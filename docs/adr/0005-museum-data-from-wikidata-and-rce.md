@@ -4,6 +4,7 @@
 - **Date:** 2026-11-01
 - **Source:** `docs/plan/ARCHITECTURE.md` (planning session 2026-11-01)
 - **Revisit:** when the Museumvereniging answers owner action A5 (a feed or a permission).
+- **Amended by:** [ADR-0018](0018-wikimedia-commons-images-self-hosted-with-attribution.md) (Commons images, 2026-11-02).
 
 ## Context
 
@@ -24,7 +25,7 @@
 - **N** = the museums `participating` when the last `mk_list_version` was published, copied into `mk_list_member` at publication and counted, never typed; always shown with its date ("37 van 512 · lijst nov 2026").
 - **Admission price** (adult, cents, `price_verified_at`), curated for € saved (A§10).
 - **Never** fetch, scrape or copy museum.nl; a museum page only links to it. The owner emails the Museumvereniging for a feed or permission, with a "not affiliated" courtesy note (A5).
-- No OSM data in our database (only inside the basemap tiles, ADR-0014) and no Google data. No museum images in v1 [U P1a: Commons images with attribution, self-hosted].
+- No OSM data in our database (only inside the basemap tiles, ADR-0014) and no Google data. Museum images: Wikimedia Commons files from P18, self-hosted with attribution ([ADR-0018](0018-wikimedia-commons-images-self-hosted-with-attribution.md), which amends the earlier "no museum images in v1"; P1a stores the file name, P3b builds the pipeline).
 - A museum closed on Wikidata (P576) or by the owner gets `closed_on`; its reviews become read-only.
 
 ## Consequences

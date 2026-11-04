@@ -1,0 +1,8 @@
+{
+  "source": "rce",
+  "case": "empty",
+  "origin": "synthetic",
+  "recordedOn": "2026-11-01",
+  "licence": "PDM-1.0",
+  "notes": "A valid FeatureCollection with zero features."
+}

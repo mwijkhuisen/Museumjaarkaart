@@ -1,0 +1,117 @@
+{
+  "ok": true,
+  "rows": [
+    {
+      "rceId": "overzichtmusea.901",
+      "name": "Museum Omgewisselde Assen",
+      "street": "Draaistraat",
+      "houseNumber": "1",
+      "postcode": "1011 AB",
+      "place": "Amsterdam",
+      "municipalityName": "Amsterdam",
+      "lat": 52.3676,
+      "lon": 4.9041
+    },
+    {
+      "rceId": "overzichtmusea.902",
+      "name": "Museum In Rijksdriehoek",
+      "street": "Meterstraat",
+      "houseNumber": "2",
+      "postcode": "3511 AB",
+      "place": "Utrecht",
+      "municipalityName": "Utrecht",
+      "lat": null,
+      "lon": null
+    },
+    {
+      "rceId": "overzichtmusea.903",
+      "name": "Museum Zonder Plek",
+      "street": "Nergensstraat",
+      "houseNumber": "3",
+      "postcode": "3011 AB",
+      "place": "Rotterdam",
+      "municipalityName": "Rotterdam",
+      "lat": null,
+      "lon": null
+    },
+    {
+      "rceId": "overzichtmusea.905",
+      "name": "Museum Dubbel Een",
+      "street": "Eerste",
+      "houseNumber": "1",
+      "postcode": "2511 AB",
+      "place": "'s-Gravenhage",
+      "municipalityName": "'s-Gravenhage",
+      "lat": 52.0705,
+      "lon": 4.3007
+    },
+    {
+      "rceId": "overzichtmusea.907",
+      "name": "Museum Slechte Postcode",
+      "street": "Postweg",
+      "houseNumber": "7",
+      "postcode": null,
+      "place": "Groningen",
+      "municipalityName": "Groningen",
+      "lat": 53.2194,
+      "lon": 6.5665
+    },
+    {
+      "rceId": "overzichtmusea.909",
+      "name": "Museum Met Vlak",
+      "street": "Vlakstraat",
+      "houseNumber": "9",
+      "postcode": "8011 AB",
+      "place": "Zwolle",
+      "municipalityName": "Zwolle",
+      "lat": null,
+      "lon": null
+    },
+    {
+      "rceId": "overzichtmusea.912",
+      "name": "Museum Rand Van De Doos",
+      "street": "Randweg",
+      "houseNumber": "1",
+      "postcode": "4331 AB",
+      "place": "Middelburg",
+      "municipalityName": "Middelburg",
+      "lat": 51.4,
+      "lon": 3.2
+    },
+    {
+      "rceId": "overzichtmusea.913",
+      "name": "Museum Net Buiten De Doos",
+      "street": "Randweg",
+      "houseNumber": "2",
+      "postcode": "4331 AC",
+      "place": "Middelburg",
+      "municipalityName": "Middelburg",
+      "lat": null,
+      "lon": null
+    },
+    {
+      "rceId": "overzichtmusea.914",
+      "name": "Museum Met Tekst Als Coordinaat",
+      "street": "Tekstweg",
+      "houseNumber": "3",
+      "postcode": "5611 AB",
+      "place": "Eindhoven",
+      "municipalityName": "Eindhoven",
+      "lat": null,
+      "lon": null
+    }
+  ],
+  "invalid": {
+    "bad_feature": 1,
+    "duplicate_id": 1,
+    "name_too_long": 1,
+    "no_id": 2,
+    "no_name": 1
+  },
+  "notes": {
+    "coord_outside_nl": 2,
+    "coord_swapped": 1,
+    "coord_unparsed": 2,
+    "postcode_invalid": 1
+  }
+}
