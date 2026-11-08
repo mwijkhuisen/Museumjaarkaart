@@ -11,9 +11,9 @@
   "dependencies": {
     "@hono/node-server": "2.1.5",
     "@mjk/contracts": "workspace:*",
-    "croner": "10.0.1",
-    "hono": "4.13.13",
-    "kysely": "0.29.7",
+    "croner": "11.0.0",
+    "hono": "4.13.16",
+    "kysely": "0.29.8",
     "pg": "8.23.1",
     "pino": "10.4.0",
     "zod": "4.6.7"
