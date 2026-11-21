@@ -1,7 +1,8 @@
 import { MuseumDetail, Provinces, type SsrConfig } from '@mjk/contracts';
 import { m } from '../../paraglide/messages.js';
 import { museumName, provinceName } from '../names.ts';
-import { apiPath, type Locale, PROVINCE_SLUGS, type Route } from '../routes.ts';
+import { apiPath, inLocale, type Locale, PROVINCE_SLUGS, pathOf, type Route } from '../routes.ts';
+import { museumJsonLd } from './jsonld.ts';
 
 // The document head (A§15.1): built on the server only, from the route and the same API data the
 // page renders. The client keeps only the title in step after an in-place navigation (titleOf).
@@ -61,14 +62,50 @@ export function titleOf(route: Route, data: PageData, brand: string): string {
   }
 }
 
-/** The head of a 200 page. WP5 fills description, canonical, alternates and Open Graph. */
+const absolute = (route: Route, config: SsrConfig) => `https://${config.domain}${pathOf(route)}`;
+
+const museumOf = (route: Extract<Route, { page: 'museum' }>, data: PageData) =>
+  MuseumDetail.parse(data.get(apiPath.museum(route.slug)));
+
+/** A museum's description in the page's language, else Dutch, else a line from name and place. */
+function museumDescription(museum: MuseumDetail, locale: Locale): string {
+  const own = locale === 'en' ? museum.description_en : museum.description_nl;
+  const text = own ?? museum.description_nl;
+  if (text !== null) return text;
+  const name = museumName(museum, locale);
+  return museum.place === null
+    ? m.head_description_museum_noplace({ name })
+    : m.head_description_museum({ name, place: museum.place });
+}
+
+function descriptionOf(route: Route, data: PageData): string | null {
+  switch (route.page) {
+    case 'home':
+      return m.head_description_home();
+    case 'museums':
+      return m.head_description_museums();
+    case 'museum':
+      return museumDescription(museumOf(route, data), route.locale);
+    case 'province': {
+      const code = PROVINCE_SLUGS[route.province];
+      const province = Provinces.parse(data.get(apiPath.provinces)).items.find((p) => p.code === code);
+      return m.head_description_province({ province: province ? provinceName(province, route.locale) : '' });
+    }
+    case 'map':
+      return m.head_description_map();
+    default:
+      return null;
+  }
+}
+
+/** The head of a 200 page: description, canonical, the hreflang pair and Open Graph (A§15.2). */
 export function headOf(route: Route, data: PageData, config: SsrConfig): HeadData {
   return {
     locale: route.locale,
     title: titleOf(route, data, config.brand),
-    description: null,
-    canonical: null,
-    alternates: null,
+    description: descriptionOf(route, data),
+    canonical: absolute(route, config),
+    alternates: { nl: absolute(inLocale(route, 'nl'), config), en: absolute(inLocale(route, 'en'), config) },
     robots: route.page === 'shell' ? 'noindex' : route.page === 'search' ? 'noindex, follow' : null,
     brand: config.brand,
   };
@@ -90,18 +127,43 @@ export function errorHeadOf(kind: ErrorKind, locale: Locale, config: SsrConfig):
   };
 }
 
-/** The JSON-LD `Museum` object of a museum page (WP5), else null. */
-export function jsonLdOf(_route: Route, _data: PageData, _config: SsrConfig): object | null {
-  return null;
+/** The JSON-LD `Museum` object of a museum page, else null. */
+export function jsonLdOf(route: Route, data: PageData, config: SsrConfig): object | null {
+  if (route.page !== 'museum') return null;
+  const museum = museumOf(route, data);
+  return museumJsonLd(museum, route.locale, absolute(route, config), museumDescription(museum, route.locale));
 }
+
+const OG_LOCALE = { nl: 'nl_NL', en: 'en_GB' } as const;
 
 /** The head elements, rendered to static markup by the server (React escapes every value). */
 export function Head({ head }: { head: HeadData }) {
+  const other = head.locale === 'nl' ? 'en' : 'nl';
   return (
     <>
       <title>{head.title}</title>
       <meta name="application-name" content={head.brand} />
       {head.robots === null ? null : <meta name="robots" content={head.robots} />}
+      {head.description === null ? null : <meta name="description" content={head.description} />}
+      {head.canonical === null ? null : <link rel="canonical" href={head.canonical} />}
+      {head.alternates === null ? null : (
+        <>
+          <link rel="alternate" hrefLang="nl" href={head.alternates.nl} />
+          <link rel="alternate" hrefLang="en" href={head.alternates.en} />
+          <link rel="alternate" hrefLang="x-default" href={head.alternates.nl} />
+        </>
+      )}
+      {head.canonical === null ? null : (
+        <>
+          <meta property="og:type" content="website" />
+          <meta property="og:site_name" content={head.brand} />
+          <meta property="og:title" content={head.title} />
+          {head.description === null ? null : <meta property="og:description" content={head.description} />}
+          <meta property="og:url" content={head.canonical} />
+          <meta property="og:locale" content={OG_LOCALE[head.locale]} />
+          <meta property="og:locale:alternate" content={OG_LOCALE[other]} />
+        </>
+      )}
     </>
   );
 }
