@@ -12,6 +12,8 @@ import { EXIT_NOT_BUILT, EXIT_USAGE, parseSyncArgs, run } from '../src/main.ts';
 const tmp = () => mkdtempSync(join(tmpdir(), 'mjk-test-'));
 const USAGE = 'usage: main.ts <api|ssr|worker|migrate|healthcheck|sync-museums|admin|backup> [args]';
 const MAIN = fileURLToPath(new URL('../src/main.ts', import.meta.url));
+/** The api's config (P1e): the domain and the Access team and AUD, test values only. */
+const API_ENV = { MJK_DOMAIN: 'mjk.test', CF_ACCESS_TEAM: 'test-team', CF_ACCESS_AUD: 'a'.repeat(64) };
 
 describe('run', () => {
   it.each([[[]], [['nope']]])('%j exits 2 with the usage line', async (argv) => {
@@ -72,13 +74,36 @@ describe('run', () => {
 
   it('api without a database setting exits 78 naming the setting, never its value', async () => {
     const lines: string[] = [];
-    const env = { DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
+    const env = { ...API_ENV, DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
     expect(await run(['api'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
     expect(lines).toEqual(['api: DATABASE_URL is not a postgres URL']);
     lines.length = 0;
     // No DATABASE_URL: production's file secret, which the sandbox does not have.
-    expect(await run(['api'], {}, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
+    expect(await run(['api'], API_ENV, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(
+      EXIT_CONFIG,
+    );
     expect(lines).toEqual(['api: the file secret db_mjk_api is missing']);
+  });
+
+  it('api needs the domain and the Access team and AUD, exiting 78 for each before the database', async () => {
+    const lines: string[] = [];
+    const exit = (env: Record<string, string>) =>
+      run(['api'], { DATABASE_URL: 'postgres://u:p@db/x', ...env }, (l) => lines.push(l), undefined, {
+        signal: AbortSignal.abort(),
+      });
+    const { MJK_DOMAIN, CF_ACCESS_TEAM } = API_ENV;
+    expect(await exit({})).toBe(EXIT_CONFIG);
+    expect(await exit({ MJK_DOMAIN })).toBe(EXIT_CONFIG);
+    expect(await exit({ MJK_DOMAIN, CF_ACCESS_TEAM })).toBe(EXIT_CONFIG);
+    expect(await exit({ MJK_DOMAIN, CF_ACCESS_TEAM, CF_ACCESS_AUD: 'not-hex-Secret-Value' })).toBe(EXIT_CONFIG);
+    expect(await exit({ ...API_ENV, CF_ACCESS_TEAM: 'evil.example/Secret-Value' })).toBe(EXIT_CONFIG);
+    expect(lines).toEqual([
+      'api: MJK_DOMAIN is missing',
+      'api: CF_ACCESS_TEAM is missing',
+      'api: CF_ACCESS_AUD is missing',
+      'api: CF_ACCESS_AUD must be 64 lowercase hex characters',
+      'api: CF_ACCESS_TEAM must be one label of lowercase letters, digits and hyphens',
+    ]);
   });
 
   it('ssr needs the brand, the domain and its own database login, exiting 78 for each', async () => {
@@ -105,7 +130,7 @@ describe('run', () => {
     '%j without a database setting is a config error that never prints the URL',
     async (argv) => {
       const lines: string[] = [];
-      const env = { DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
+      const env = { ...API_ENV, DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
       expect(await run(argv, env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
       expect(lines.join('\n')).not.toMatch(/Secret-Value|mysql/);
     },

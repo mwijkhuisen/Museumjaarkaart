@@ -80,6 +80,10 @@ services:
   api:
     <<: *node
     command: ["node", "apps/server/src/main.ts", "api"]
+    environment:
+      MJK_DOMAIN: mjk.test
+      CF_ACCESS_TEAM: test-team
+      CF_ACCESS_AUD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     secrets:
       - db_mjk_api
     healthcheck:

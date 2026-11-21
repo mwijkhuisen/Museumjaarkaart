@@ -3,12 +3,22 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { matchedRoutes } from 'hono/route';
 import type { Logger } from '../../lib/log.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
+import type { AccessIdentity } from './access-jwt.ts';
+import type { ClientAddress } from './client-address.ts';
 
 // The first middleware (A§14 "Request logs", invariant 8): a request id, then one log line per
 // request with the method, the route pattern, the status, the duration and the id. Never the raw
 // path or query (a near-me query holds coordinates), a header, an address or a body.
 
-export type ApiEnv = { Variables: { requestId: string } };
+export type ApiEnv = {
+  Variables: {
+    requestId: string;
+    /** Set by the client-address middleware (runApi only); never logged. */
+    client?: ClientAddress;
+    /** Set only for a valid Access JWT on the admin host (runApi only). */
+    access?: AccessIdentity;
+  };
+};
 
 const METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
 

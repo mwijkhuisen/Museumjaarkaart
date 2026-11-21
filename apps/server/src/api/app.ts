@@ -4,7 +4,9 @@ import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { CACHE_NONE } from './cache.ts';
 import { ApiError, ContractMismatch, respondError } from './errors.ts';
+import { type AccessDeps, accessJwt } from './middleware/access-jwt.ts';
 import { bodyCap } from './middleware/body-cap.ts';
+import { type ClientAddressDeps, clientAddress } from './middleware/client-address.ts';
 import { type ApiEnv, requestLog } from './middleware/request.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
@@ -14,10 +16,11 @@ import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
-// The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2): request id and log →
-// /api/admin/* is a 404 whatever the method and body (P1e adds the Host and Access checks) → the
-// header-only 64 KB body cap (middleware/body-cap.ts) → each route parses its query strictly → the
-// route → the fixed error handler.
+// The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2): request id and
+// log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) → /api/admin/* is a
+// 404 whatever the method and body unless the admin host's JWT passed → the header-only 64 KB body
+// cap (middleware/body-cap.ts) → each route parses its query strictly → the route → the fixed error
+// handler.
 
 export type ApiDeps = {
   /** The pool as mjk_api; public queries read only the pub_* views. */
@@ -25,6 +28,10 @@ export type ApiDeps = {
   logger: Logger;
   /** `select 1` within a short timeout: false when the database does not answer. */
   ping(): Promise<boolean>;
+  /** The client-address rule; set only by runApi (the ssr's in-process app has no socket). */
+  clientAddress?: ClientAddressDeps;
+  /** The admin host's Access JWT check; set only by runApi, so the in-process app never serves it. */
+  access?: AccessDeps;
 };
 
 export type ApiApp = Hono<ApiEnv>;
@@ -81,9 +88,17 @@ function onError(err: Error, c: Context, logger: Logger): Response {
 export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   const app = new Hono<ApiEnv>();
   app.use('*', requestLog(deps.logger));
-  // Invariant 3: no admin route on this host. P1e adds the admin host's Host and Access checks.
-  // Registered before the body cap, so an admin path is a 404 whatever the method and body.
-  app.all('/api/admin/*', (c) => respondError(c, 'not_found'));
+  if (deps.clientAddress !== undefined) app.use('*', clientAddress(deps.clientAddress));
+  // First on the admin host, before any route, the auth routes included (A§9).
+  if (deps.access !== undefined) app.use('*', accessJwt(deps.access, deps.logger));
+  // Invariant 3: no admin route on any host but the admin host, and there only behind a valid
+  // Access JWT (`access` is set by nothing else). Registered before the body cap, so an admin path
+  // is a 404 whatever the method and body. P2a mounts the admin routes, with the role check
+  // (`AdminAuthorizer`), behind this; until then the admin host's admin paths are 404 too.
+  app.all('/api/admin/*', async (c, next) => {
+    if (c.var.access === undefined) return respondError(c, 'not_found');
+    await next();
+  });
   app.use('*', bodyCap(BODY_LIMIT_BYTES));
 
   const v1 = new Hono<ApiEnv>();
