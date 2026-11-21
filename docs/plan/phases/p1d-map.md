@@ -9,6 +9,56 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 - **Workflow:** the SigV4 client's test against the S3 stand-in needs Chainguard MinIO (by digest) in CI. If the plan runs it in the e2e stack, no workflow change is needed; a MinIO service in the `integration` job would be a `.github/workflows` diff that the owner pushes (A§16.3). Diffs under `deploy/` and `scripts/` get the owner's line-by-line read.
 - **During the phase:** the owner answers §1 in plan mode, records the fixture tiles if Q6 says so, runs the [box] tiles build and upload on the VM, and does the [owner] phone check.
 
+### 0.1 Lead's notes (2026-11-21, first P1d plan session)
+
+The first P1d session found P1e not merged: `main` (8edac46) ends at P1c (#41), with no `deploy/compose.yaml`, no Dockerfile, no server image with go-pmtiles and no deployed stack. **Owner decision: stop P1d and build P1e first**; P1d starts again in a fresh plan-mode session on top of P1e. No P1d code was written.
+
+**Owner answers given in that session** (they stand unless the owner changes them):
+
+- **Q5:** the first Sunday of January, April, July and October at 02:23 Europe/Amsterdam, croner `23 2 * 1,4,7,10 0#1`.
+- **Q6:** the tiny real extract the owner records. P1d adds `scripts/record-fixture-tiles.ts`, which refuses under `CI` as `record-fixture.ts` does. The owner runs it with go-pmtiles 1.31.2 (a few km² around Amsterdam, low zooms, under 2 MB) and pushes the `.pmtiles` and its meta file with the ODbL attribution.
+- **Glyphs and sprites:** the build session may download them once from `protomaps/basemaps-assets` at a pinned commit (raw.githubusercontent.com):
+  - Noto Sans Regular, Medium and Italic, all 256 ranges, OFL-1.1;
+  - the light sprites, MIT, derived from tangrams/icons;
+  - committed with their licence files and a sha256 list.
+- **Q8 and reviews:** yes. After the PR opens, the code review (Opus 5.5 `high`) and a security review (Sonnet 5.5 `high`, a different model from the Opus-built SigV4 client) run as fresh sub-agents. An Opus 5.5 `high` fix sub-agent follows.
+- **Still open** (the recommendations in §1 are unchanged): Q1 (the box equals `NL_BOX` in `packages/contracts/src/common.ts`), Q2 (P1b's `NearQuery` regex already allows at most 3 decimals), Q3, Q4 and Q7.
+
+**Pins** (npm registry, checked 2026-11-21): all four pass the 7-day rule.
+
+| Package | Version | Released | Licence | Direct deps |
+|---|---|---|---|---|
+| `maplibre-gl` | 6.15.0 | 2026-10-18 | BSD-3-Clause | 18 |
+| `pmtiles` | 4.5.0 | 2026-08-10 | BSD-3-Clause | 1 (`fflate`) |
+| `@protomaps/basemaps` | 5.7.2 | 2026-03-10 | BSD-3-Clause | 0 |
+| `@maplibre/maplibre-gl-style-spec` | 26.4.4 | 2026-09-15 | ISC | 6 |
+
+maplibre-gl asks for `^26.4.4` of the spec, so check that the lockfile dedupes it to 26.4.4. `npm view` is denied, so read the registry JSON.
+
+**What the code on `main` means for the plan** (names here win over §2 and §3 where they differ):
+
+- **Web:**
+  - The build test is `apps/web/test/build.test.ts`, not `test/build.test.ts`. It bans every `data:` URL in HTML and CSS (MapLibre's CSS needs the one exception), and every absolute URL in JS and CSS must be on `ALLOWED_URLS` (MapLibre's and pmtiles' strings need entries). It has no chunk check yet.
+  - `routeOf`'s map route has no query and no `KEPT` entry, so every filter is dropped today, and `apiPathsOf(map)` returns `[]`. `routes/MapPage.tsx` is the placeholder. The list filters (`q`, `province`, `category`, `mk`) are read in `routes/Museums.tsx`.
+  - `entry-server.tsx` preloads only static `imports`, which suits a lazy chunk.
+  - `vite.config.ts` has `publicDir: false`, and Caddy serves files only under `/assets/*`. So `/map/*` needs its own Caddy route, and the build has to place the files in `dist/client`.
+  - Biome formats a committed style JSON, so it needs an exclusion in `biome.json` (an owner read).
+  - `test/forbidden-hosts.test.ts` fails on `openstreetmap.org` in any file that is not `.md`: keep the attribution as plain text.
+- **Server:**
+  - Reuse the list's `filters()` in `museums/query.ts`, which is not exported yet.
+  - New routes go before `/museums/:slug` in `mountCatalogue`, which `ssr` shares, and into the route sweeps (`test/api/sweep.ts`, `headers`, `params` and `hidden` int tests).
+  - The worker's `LEASE_SECONDS` is 1800, too short for a 1–2 GB extract and upload: give `tiles_refresh` a longer lease or a lease touch.
+  - `readSecret` (`db/migrate.ts`, `/run/secrets`) accepts a single line, so the two-part S3 credential needs its own strict reader.
+  - Outbound HTTP is plain global `fetch` with a host allowlist and `redirect: 'manual'` (`museums/sources/http.ts`); there is no undici `Agent`.
+  - Request logs carry the route pattern only, and P1b's `test/museums/near.int.test.ts` already proves that near-me's coordinates are not logged. The Caddyfile has no `log` directive.
+- **e2e stack:**
+  - `stack.sh` starts services by name, so MinIO has to be named there. The e2e job calls `stack.sh` directly, so no workflow change is needed.
+  - `media.<domain>` has no stand-in yet. The edge needs a `media.mjk.test` site in front of MinIO with R2's CORS rule, the Transform Rule headers and Range.
+  - The Playwright projects have no launch arguments. Current Chromium needs a SwiftShader flag for WebGL2, and WebKit's WebGL2 with Mesa in the image is [U].
+- **A2 [U]:** R2's CORS rule probably needs `AllowedHeaders: range`, for browsers that preflight a `Range` request, and `ExposeHeaders: ETag`, for pmtiles' ETag check. The e2e stand-in proves the rule and the [box] run confirms it.
+- **From P1e:** the worker mounts `r2_media_rw` (GID 63009, `group_add`) and `/srv/mjk/tiles-build` (rw). go-pmtiles 1.31.2 is sha256-pinned at a fixed path in the server image. The web image has room for the map files. Stable `mjk.env` names for the R2 account id, endpoint and buckets (A§17.3).
+- **Session:** that container had Node 22 rather than 26.10.0 and no running Docker daemon. The build's WP0 installs Node 26.10.0, pnpm 12.5.1 and dbmate 2.36.0 and starts dockerd before any local integration or e2e run.
+
 ## 1. Questions for the owner (plan mode)
 
 | # | Question | Recommendation |
