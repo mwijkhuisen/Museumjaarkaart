@@ -1,0 +1,60 @@
+# mjk-firewall.service: loads table inet mjk (A§17.4, ADR-0003) and fills its resolvers4 set.
+#
+# Installed by mjk-install as /etc/systemd/system/mjk-firewall.service, with the root-owned copies
+# /etc/mjk/mjk.nft and /usr/local/bin/mjk-resolvers (never a file of the checkout).
+#
+# Ordering: after Debian's nftables.service, whose /etc/nftables.conf empties every table when it
+# starts or stops, and before docker.service, so the table is in place before Docker starts the mjk
+# containers. It is wanted by docker.service but never required: a failure here must not stop Docker,
+# because Waterheight's and F1's containers run on the same daemon. mjk-tick (every 10 min) reloads a
+# missing table and, when the load fails, stops every mjk container and writes
+# /srv/mjk/state/firewall-stopped (A§17.7); mjk-update refuses to deploy while the table is missing.
+#
+# PartOf=nftables.service: a restart of nftables.service restarts this unit too, which loads the table
+# again after nftables.service has emptied it.
+#
+# Stop: there is no ExecStop. Stopping this unit leaves the table loaded, because an mjk stack without
+# its table has open egress (fail closed). To remove the table on purpose, stop the stack first
+# (docker compose -p mjk down), then run nft delete table inet mjk.
+# Reload and restart both load the file again in one transaction, then refill resolvers4.
+
+[Unit]
+Description=mjk egress firewall (nftables table inet mjk)
+Documentation=file:///etc/mjk/mjk.nft
+After=nftables.service
+Before=docker.service
+PartOf=nftables.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/nft -c -f /etc/mjk/mjk.nft
+ExecStart=/usr/sbin/nft -f /etc/mjk/mjk.nft
+# Non-fatal: the table is the boundary and is loaded by now; without resolvers DNS stays blocked (fail
+# closed) until mjk-tick fills the set.
+ExecStartPost=-/usr/local/bin/mjk-resolvers
+ExecReload=/usr/sbin/nft -c -f /etc/mjk/mjk.nft
+ExecReload=/usr/sbin/nft -f /etc/mjk/mjk.nft
+ExecReload=-/usr/local/bin/mjk-resolvers
+
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_NETLINK AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target docker.service nftables.service
