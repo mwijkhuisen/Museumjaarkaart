@@ -4,7 +4,9 @@ import { createDb, type Db } from '../db/kysely.ts';
 import { dbUrl, EXIT_CONFIG } from '../db/migrate.ts';
 import { createPool, WORKER_POOL_MAX } from '../db/pool.ts';
 import { HEARTBEAT_PATH } from '../heartbeat.ts';
+import { createPinger, type Pinger } from '../lib/healthchecks.ts';
 import type { Logger } from '../lib/log.ts';
+import { startHealthPing } from './health-ping.ts';
 import { startSchedule } from './schedule.ts';
 import type { JobHandler } from './types.ts';
 import { runWorker } from './worker.ts';
@@ -22,6 +24,8 @@ export async function runWorkerRole(
     logger: Logger;
     signal: AbortSignal;
     heartbeatPath?: string;
+    /** Test seam: the healthchecks pinger (default: the one made from the `hc_ping_key` file secret). */
+    pinger?: Pinger;
   },
 ): Promise<number> {
   const { logger } = opts;
@@ -35,6 +39,7 @@ export async function runWorkerRole(
   }
   const db = createDb(pool);
   const schedule = startSchedule({ db, logger });
+  const healthPing = startHealthPing({ db, logger, pinger: opts.pinger ?? createPinger({ logger }) });
   try {
     await runWorker({
       db,
@@ -47,6 +52,7 @@ export async function runWorkerRole(
     });
   } finally {
     schedule.stop();
+    healthPing.stop();
     await db.destroy();
   }
   return 0;

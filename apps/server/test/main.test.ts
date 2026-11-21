@@ -28,10 +28,10 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([[['backup']]])('%j is not built yet', async (argv) => {
+  it('backup with an argument is a usage error', async () => {
     const lines: string[] = [];
-    expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_NOT_BUILT);
-    expect(lines).toEqual([`role ${argv[0]} is not built yet`]);
+    expect(await run(['backup', 'x'], {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+    expect(lines).toEqual([USAGE]);
   });
 
   it('admin groups of later phases are not built yet', async () => {
@@ -147,9 +147,19 @@ describe('run', () => {
 });
 
 describe('real CLI', () => {
-  it.each([['nope'], ['backup']])('%s exits 2', (role) => {
-    const r = spawnSync(process.execPath, [MAIN, role], { encoding: 'utf8' });
+  it('an unknown role exits 2', () => {
+    const r = spawnSync(process.execPath, [MAIN, 'nope'], { encoding: 'utf8' });
     expect(r.status).toBe(2);
+  });
+
+  it('backup without its config exits 78 and logs only a fixed code', () => {
+    const r = spawnSync(process.execPath, [MAIN, 'backup'], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH ?? '' },
+    });
+    expect(r.status).toBe(78);
+    expect(r.stderr).toContain('config_invalid');
+    expect(r.stderr).not.toMatch(/secret|password|postgres:/i);
   });
 });
 

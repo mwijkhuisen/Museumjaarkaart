@@ -1,5 +1,6 @@
 import { nodeIo, runAdmin } from './admin/cli.ts';
 import { runApi } from './api/server.ts';
+import { type BackupDeps, runBackup } from './backup/run.ts';
 import { createDb } from './db/kysely.ts';
 import { EXIT_CONFIG, runMigrate } from './db/migrate.ts';
 import { createPool, WORKER_POOL_MAX } from './db/pool.ts';
@@ -42,6 +43,8 @@ export type RunDeps = {
   port?: number;
   hostname?: string;
   onListening?: (port: number) => void;
+  /** The backup role's paths and tool binaries (tests). */
+  backup?: BackupDeps;
 };
 
 /** The signal that stops a daemon: the test's, or SIGTERM and SIGINT. */
@@ -174,6 +177,12 @@ export async function run(
       }
       if (role === 'worker') return runWorker(env, heartbeatPath, deps);
       return role === 'api' ? runApiRole(env, heartbeatPath, log, deps) : runSsrRole(env, heartbeatPath, log, deps);
+    case 'backup':
+      if (rest.length > 0) {
+        log(USAGE);
+        return EXIT_USAGE;
+      }
+      return runBackup(env, { signal: stopSignal(deps), ...deps.backup });
     case 'sync-museums':
       return runSyncRole(rest, env, log, deps);
     case 'admin':
