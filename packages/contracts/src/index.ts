@@ -5,3 +5,4 @@ export * from './common.ts';
 export * from './errors.ts';
 export * from './museums.ts';
 export * from './queries.ts';
+export type * from './ssr.ts';

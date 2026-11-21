@@ -50,6 +50,24 @@ const ALLOWED: readonly Allowed[] = [
     why: 'the link-out host constant and its comment',
   },
   {
+    path: 'apps/web/messages/nl.json',
+    pattern: 'museum.nl',
+    count: 1,
+    why: 'the label of the link-out row on the museum page',
+  },
+  {
+    path: 'apps/web/messages/en.json',
+    pattern: 'museum.nl',
+    count: 1,
+    why: 'the label of the link-out row on the museum page',
+  },
+  {
+    path: 'apps/web/test/pages.test.tsx',
+    pattern: 'museum.nl',
+    count: 1,
+    why: "a fixture museum's link-out URL (the museumnl_url contract allows only that host)",
+  },
+  {
     path: 'apps/server/src/museums/sources/types.ts',
     pattern: 'museum.nl',
     count: 1,

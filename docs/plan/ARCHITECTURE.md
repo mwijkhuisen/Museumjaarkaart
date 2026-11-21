@@ -69,8 +69,8 @@ Shared-stack pins are F1's as of today (its `package.json` files, which are newe
 | E2E, accessibility | @playwright/test 1.64.1 (Chromium + WebKit, in the Playwright CI image), @axe-core/playwright 4.14.0 | Waterheight's pins. Passkeys via Chromium's virtual authenticator |
 | Server | Hono 4.13.13 + @hono/node-server 2.1.5, undici 8.12.3, pino 10.4.0, croner 10.0.1, zod 4.6.7 | One image, roles in A§5 |
 | Database | PostgreSQL 18.6, Kysely 0.29.7 + pg 8.23.1, kysely-codegen 0.20.0, dbmate 2.36.0 | Trusted extensions `pg_trgm`, `unaccent`, `citext`. Immutable migrations |
-| Web | React 19.3.1, Vite 8.3.5 + @vitejs/plugin-react 6.1.2, TanStack Query 5.104.5 | No router library (`routeOf` as in F1), shared by server and client [U P1c] |
-| SSR | `react-dom/server` (`renderToReadableStream` or `prerender` [U P1c]) in the `ssr` role; Vite 8 SSR build | ADR-0009, A§15.1 |
+| Web | React 19.3.1, Vite 8.3.8 + @vitejs/plugin-react 6.1.2, TanStack Query 5.104.5 | No router library: `routeOf` as in F1, shared by `ssr` (through the SSR bundle) and the client (P1c). Vite moved from 8.3.5 to 8.3.8 in P1c (the 8.3.7 fix for a dev-server RCE; owner), also as a root dev dependency so Vitest's peer follows |
+| SSR | `prerender` from `react-dom/static` in the `ssr` role (P1c); one self-contained Vite 8 SSR bundle | ADR-0009, A§15.1 |
 | i18n | @inlang/paraglide-js 2.29.1, @inlang/plugin-message-format 4.5.4 | Plugins load from `node_modules`, never a CDN (Waterheight gotcha) |
 | Map | maplibre-gl 6.15.0 (lazy chunk), pmtiles 4.5.0; dev: @protomaps/basemaps 5.7.2, @maplibre/maplibre-gl-style-spec 26.4.4; go-pmtiles 1.31.2 in the server image | Waterheight ADR-0016 set-up; tiles on R2 (A§15.3) |
 | Media | sharp 0.35.5 (prebuilt libvips, LGPL-3.0-or-later), file-type 22.3.0, own SigV4 client (~150 lines, `node:crypto`; P1d, for the tiles) | No AWS SDK. ffmpeg only in `mjk-media` (P7) |
@@ -146,7 +146,7 @@ backup ─► R2 backup bucket (EU, private, bucket lock)
 apps/server/src/{main.ts, api/, ssr/, worker/, auth/, museums/, passport/, reviews/, media/, moderation/, mail/, db/, lib/}
 apps/server/test/
 apps/web/
-  index.html, admin.html, vite.config.ts
+  vite.config.ts, build.ts        # no index.html: the SSR bundle writes the document (P1c); admin.html from P2a
   src/entry-server.tsx           # SSR entry, imported by the ssr role from the built bundle
   src/entry-client.tsx           # hydrateRoot on public pages; SPA for logged-in routes
   src/admin/                     # admin SPA (main.tsx; moderation queue, museum curation, notices)
@@ -345,7 +345,7 @@ Times are `timestamptz` in UTC. Visit dates are `date` (local). Money is integer
   - `pub_province` (the 12, with visible-museum counts)
   - `pub_mk_list` (the newest version's date and N, as published)
 - `hidden` is filtered in `pub_museum` only; the others join it.
-- Every public query of the `api` reads only these views and `pub_search`, so P1c's SSR loaders reuse the same functions as `mjk_ssr`.
+- Every public query of the `api` reads only these views and `pub_search`, so P1c's `ssr` runs the same catalogue routes in-process as `mjk_ssr` (A§15.1).
 - **They are `security_barrier`** (P1b review, owner decision 2026-11-02): they are the isolation boundary for `mjk_ssr`, which must see public rows only even when the `ssr` process is compromised and sends its own SQL.
   - **What passes the barrier.** Only leakproof quals pass below a barrier. The text, uuid, date and float8 comparisons of the list, the keyset, the province and municipality filters, the detail and near-me do, and still reach `museum_sort_idx`, `museum_slug_key`, `museum_pkey` and `museum_lat_lon_idx`.
     - The list's ORDER BY becomes a top-N sort above the barrier, ~4 ms at 1,400 rows.
@@ -664,24 +664,27 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 
 ### 15.1 Server rendering and hydration
 
-- One Vite 8 build of `apps/web`, three outputs: the client bundle (`src/entry-client.tsx`), the SSR bundle (`src/entry-server.tsx`, imported by the `ssr` role) and the admin entry (`admin.html`, `src/admin/main.tsx`) (ADR-0009).
-- **Server:** `ssr` (Hono `:8081`) matches the path with the shared `routeOf`, runs the route's loader on the `pub_*` views as `mjk_ssr`, and renders with React 19 (`renderToReadableStream` or `prerender` [U P1c]): title, description, canonical, `hreflang`, Open Graph and JSON-LD `Museum` in the head, the content in the body.
-- **Same data, same contract:** a loader returns exactly what the matching `/api/v1` GET returns (same zod contract, a test per route) under the same TanStack Query key. The dehydrated cache goes into `<script type="application/json" id="mjk-state">`; the client parses it, calls `hydrateRoot` and fetches nothing it already has (P1c).
+- One Vite 8 build of `apps/web` (`vite build`, or `buildWeb()` in `apps/web/build.ts`), three outputs (ADR-0009):
+  - the client bundle (`src/entry-client.tsx`) in `dist/client`. There is no `index.html`: the SSR bundle writes the whole document and finds the hashed files through Vite's manifest;
+  - the SSR bundle (`src/entry-server.tsx`) as one self-contained `dist/server/entry-server.js` with production React, which the `ssr` role imports;
+  - the admin entry (`admin.html`, `src/admin/main.tsx`) from P2a.
+- **Server:** `ssr` (Hono `:8081`) matches the path with the shared `routeOf`, runs the route's loader on the `pub_*` views as `mjk_ssr`, and renders with React 19's `prerender` from `react-dom/static` (P1c, owner): the data is loaded first, so nothing suspends, the status and headers are known before the first byte, and the output is one finished document. Each render runs in its own `AsyncLocalStorage` locale, which Paraglide 2.29's `getLocale()` reads through `overwriteServerAsyncLocalStorage`, so concurrent NL and EN renders never mix. The head holds title, description, canonical, `hreflang`, Open Graph and JSON-LD `Museum`; the content is in the body. The SSR bundle gets only the path and query, the api's answers and the config, never a request.
+- **Same data, same contract:** `ssr` runs the api's own catalogue routes in-process on its `mjk_ssr` pool (`mountCatalogue`, `inProcessApi`, P1c), so a loader returns exactly what the matching `/api/v1` GET returns: the same parse, query function, contract check and reshaping. A test per page kind compares the two. The TanStack Query key is the `/api/v1` path. `<script type="application/json" id="mjk-state">` holds `{"<api path>": <the api's JSON>}` in the page's fetch order: no TanStack timestamps, so the HTML stays byte-identical. The client seeds its cache from it, calls `hydrateRoot` and fetches nothing it already has (`staleTime: Infinity`, no refetch on mount, focus or reconnect).
 - **Data blocks, no inline script:** `mjk-state` and the JSON-LD (`application/ld+json`) are the only `<script>` elements without `src`. Neither executes, so `script-src 'self'` holds. Both are serialised with `<`, `>`, `&`, U+2028 and U+2029 escaped as `\u` sequences (invariant 5). The SSR test allows exactly those two types.
 - **Anonymous by construction:** Caddy strips `Cookie` and `Authorization` before proxying to `ssr`, and `ssr` sets no cookie. Public HTML is byte-identical with or without a session (P1c test) and cacheable: `Cache-Control: public, max-age=0, s-maxage=60` [U P5a tunes it; Cloudflare caches HTML only through the Cache Rules of A§17.7].
 - **Personal bits after hydration:** the account menu, visited badges, the wishlist button and the member's own review come from `/api/v1/me` and `/api/v1/me/museums/:slug`, in slots that keep their size (no layout shift).
 - **Logged-in routes** (`/paspoort`, `/verlanglijst`, `/account`, `/inloggen`) get the app shell: one HTML for everyone, `noindex`; the SPA takes over.
-- **The prefs script** (A§11): `/assets/prefs-<hash>.js`, tiny, blocking, same-origin, in `<head>`. It reads the `localStorage` flags (the ratings fold, the theme) and sets attributes on `<html>` before the first paint.
+- **The prefs script** (A§11, from P3a; owner, P1c Q6): `/assets/prefs-<hash>.js`, tiny, blocking, same-origin, in `<head>`. It reads the `localStorage` flags (the ratings fold, the theme) and sets attributes on `<html>` before the first paint. Until then the theme follows `prefers-color-scheme` only.
 - **Hydration rules:** dates through `Intl.DateTimeFormat` in Europe/Amsterdam on both sides (F1); no `style=` in server markup (CLAUDE.md gotcha); no clock or random values during render. A hydration warning fails Playwright (P1c).
-- **Errors:** an unknown route or museum → the SSR 404 page with status 404; a render failure → a plain 500 page without details, logged as a code; in the SPA an error boundary shows "Er ging iets mis: herlaad de pagina."
+- **Errors:** an unknown route or museum → the SSR 404 page with status 404; an invalid filter → 400; an old slug → 301 to the current page (`s-maxage=3600`); a render failure → the 500 page without details, logged as `render_failed`; the database down → 503. Error documents are static: no client script, no `mjk-state`, `private, no-store`, `noindex`. In the SPA an error boundary shows "Er ging iets mis: herlaad de pagina."
 
 ### 15.2 Routing and i18n
 
 - No router library: `routeOf(pathname)` in `apps/web/src/lib/routes.ts`, shared by `ssr` and the client, plus `history.pushState`. Links are real `<a href>`s; only a plain left click navigates in place (F1).
 - Paraglide 2.29.1 (ADR-0013): NL at `/`, EN under `/en/`. The locale comes from the URL only: no cookie and no `Accept-Language` redirect. Every page links its other language and carries an nl/en `hreflang` pair plus `x-default` (NL). `check-i18n` keeps `messages/{nl,en}.json` in step. Reviews show in the language they were written in.
-- Museum slugs are the same in both languages (name and place, stable; an old slug answers 301 through `pub_slug_redirect`, P1b). The English path segments are [U P1c: the owner confirms them].
+- Museum slugs are the same in both languages (name and place, stable; an old slug answers 301 through `pub_slug_redirect`, P1b). The English path segments are the table's (owner, P1c Q3). Province slugs come from the Dutch name in both languages (`/provincie/noord-holland`, `/en/province/noord-holland`, `fryslan` for Fryslân; owner, Q4). List pages keep only the API's list parameters in a fixed order, so a tracking parameter never makes a 400; a trailing slash answers 301 to our own canonical path (never request text, so `//host/` is a 404, not an open redirect).
 
-| NL | EN [U] | Page | Rendered | Indexed (from P5b) |
+| NL | EN | Page | Rendered | Indexed (from P5b) |
 |---|---|---|---|---|
 | `/` | `/en/` | home: search, map teaser, recent reviews | SSR | yes |
 | `/musea` | `/en/museums` | list with filters (state in the query string) | SSR | yes |
@@ -689,7 +692,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 | `/musea/<slug>/reviews` | `/en/museums/<slug>/reviews` | all reviews of a museum, paged | SSR | yes |
 | `/reviews/<id>` | `/en/reviews/<id>` | one review | SSR | yes |
 | `/provincie/<slug>` | `/en/province/<slug>` | museums per province | SSR | yes |
-| `/kaart` | `/en/map` | the map (A§15.3) and its list | SSR + lazy chunk | yes |
+| `/kaart` | `/en/map` | the map (A§15.3) and its list; a placeholder until P1d | SSR + lazy chunk | yes |
 | `/zoeken` | `/en/search` | results for `?q=` | SSR | `noindex, follow` |
 | `/u/<handle>` | `/en/u/<handle>` | public profile | SSR | yes [U P2c: or only when the member opts in] |
 | `/paspoort` | `/en/passport` | progress, visits, € saved, import | app shell | no |
@@ -701,7 +704,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 | `/melden` | `/en/report` | the notice form, `?item=` filled from "Meld inhoud" | SSR + form | no |
 
 - An invite link carries its code in the fragment (`/inloggen#uitnodiging=<code>`), which never reaches a server or a log.
-- `sitemap.xml` (both languages: home, lists, provinces, museums, reviews, and profiles per the [U] above) and `robots.txt` (names the sitemap from P5a). The admin SPA uses the same messages.
+- `sitemap.xml` (both languages: home, lists, provinces, museums, reviews, and profiles per the [U] above) and `robots.txt`: `User-agent: *` with an empty `Disallow:`, because a crawler must fetch a page to see its `noindex` (owner, P1c Q5); P5a adds the `Sitemap:` line. Until then the sitemap lists home, the list, the 12 provinces and every visible museum. The admin SPA uses the same messages.
 
 ### 15.3 Map
 
@@ -724,7 +727,7 @@ On `admin.<domain>` the same routes (signup aside: 404) create a session with `h
 ### 15.5 Design and accessibility
 
 - **Phone first:** designed at 390 px wide; nothing scrolls sideways (tables scroll inside `.scroll`); tap targets ≥ 44 px; one column on phones.
-- **Themes:** light and dark tokens on `:root` in `apps/web/src/styles.css`, following `prefers-color-scheme`, with a manual choice in `localStorage` applied by the prefs script (no flash). `contrast.test.ts`: text tokens ≥ 4.5:1, large text and UI parts (borders, focus ring, stars, map markers) ≥ 3:1, both themes.
+- **Themes:** light and dark tokens on `:root` in `apps/web/src/styles.css`, following `prefers-color-scheme`, with a manual choice in `localStorage` applied by the prefs script (no flash) from P3a (owner, P1c Q6; the dark block is written so P3a only adds `[data-theme]` overrides). `contrast.test.ts`: text tokens ≥ 4.5:1, large text and UI parts (borders, focus ring, stars, map markers) ≥ 3:1, both themes.
 - Colour is never the only cue: the Museumkaart status has an icon and a word; stars carry their number as text ("4 van 5").
 - No font or icon files: the system font stack; icons are inline SVG components without `style` attributes.
 - **WCAG 2.2 AA** is the target (good practice: the EAA does not reach a non-commercial site [U A9]): focus visible and not hidden by the sticky header (2.4.11), targets ≥ 24 px (2.5.8; we use 44), an alternative to dragging the map (2.5.7), no cognitive test at sign-in (3.3.8: ALTCHA is proof of work without a puzzle, codes can be pasted, passkeys), help in the same place on every page (3.2.6: the footer's contact link), no re-entry within a flow (3.3.7).
@@ -749,6 +752,7 @@ Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'
   - `Cross-Origin-Opener-Policy: same-origin` · `Cross-Origin-Resource-Policy: same-origin`
   - `X-Robots-Tag: noindex` on every response until P5b (prelaunch profile); then only on `/api/*`, the app shell, private routes, search results (`noindex, follow`) and `/melden` (launch profile; the admin host keeps `noindex, nofollow`)
   - `Cache-Control` per A§14 and A§15.1; no `Set-Cookie` but `__Host-mjk_sid` from the auth routes
+- **WebKit and `<select>`** (P1c): Playwright 1.64.1's WebKit raises one `style-src-attr` violation of its own for every `<select>`, plus a console error, even on a static page with no script. Chromium raises none. This is no style of ours, and the policy stays as it is. The e2e guard skips that first report per `<select>` element, in WebKit only, and that many of the console errors (A§18). Whether Safari does the same is [U the owner's phone check of the list filters, P1c]. A `report-to` endpoint (below) would then count one `style-src-attr` per `<select>` from Safari.
 - A CSP `report-to` endpoint that counts violations per directive and stores nothing else [U P5a decides]; none until then.
 - **Admin host** `admin.<domain>`: `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://media.<domain>; connect-src 'self'; worker-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` (`worker-src` for ALTCHA at sign-in; no map and no manifest; `media-src https://media.<domain>` joins in P7 for the video queue), plus `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and the other headers above.
 - **Media host** `media.<domain>` (R2, a Transform Rule, A2): `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` on every object (A§12).
@@ -962,6 +966,11 @@ Copied into CLAUDE.md and quoted in every build and review prompt (Waterheight's
 - **msw 3** with `onUnhandledFrame: 'error'`: a request without a handler fails the test. Wikidata, RCE, Lettermint and the Access certs are handlers.
 - **Web:** component tests render with `react-dom/server` in Vitest's node environment (F1). `build.test.ts` scans `dist` and the SSR output for inline scripts (the two data blocks aside), `<style>`, `style=` attributes, inline handlers, `data:` and `blob:` URLs (ADR-0009's `img-src data:` for MapLibre aside) and third-party references, and checks that MapLibre sits only in the map route's lazy chunk. `contrast.test.ts` (A§15.5); `check-i18n` in `pnpm check`.
 - **E2E:** Playwright 1.64.1, Chromium and WebKit, in the Playwright CI image, against the CI compose stack (the real `caddy`, `ssr`, `api`, `worker` and `db`) with stand-ins: Chainguard MinIO for R2 (also used for restic, without a lock: MinIO's Object Lock needs versioning, so a delete adds a marker and succeeds, and it is bucket-wide, so it cannot model R2's per-prefix lock rule; the lock is proven only on the box, by P1e and the restore drill) and a mail sink that speaks Lettermint's API. Under the production CSP each spec asserts 0 `securitypolicyviolation` events and no request to a host other than `<domain>` and `media.<domain>` (their stand-ins). Passkeys run on Chromium's virtual authenticator, the map on headless WebGL2, `@axe-core/playwright` 4.14.0 on every page template (P5a).
+  - The stack is `deploy/e2e/` (P1c; `stack.sh`, run after `pnpm --filter @mjk/web build`): `db`, `migrate`, `seed`, `api`, `ssr`, the real `caddy` and an `edge` caddy. Later phases add the `worker`, MinIO and the mail sink.
+  - The edge stands in for Cloudflare: TLS for `https://mjk.test` (the reserved `.test` TLD) with `tls internal`. Playwright joins the stack network with `ignoreHTTPSErrors`.
+  - `cookie.spec.ts` proves that a `__Host-` cookie set by a response with `Secure` and `HttpOnly` round-trips in both engines, which is P2a's session cookie.
+  - A second pass with `ssr` stopped checks the 502.
+  - One deviation from "0 `securitypolicyviolation` events" is accepted (owner, 2026-11-21, PR #41): WebKit's own report for each `<select>` (A§15.6). The guard in `apps/web/e2e/fixtures.ts` skips only the first report per `<select>` element, in WebKit only, so a `style=` of ours still fails in both engines.
 - **Deploy** (job `ci / deploy`, from P1e): `deploy/tests/hardening.sh` (on `compose config`: the hardening anchor, UID 63532, limits, only 8280 published, no `rws` or `f1` names, subnets, GIDs or volumes, no `DATABASE_URL`), `nft-check.sh` (`nft -c` and a double load in a container, no `flush ruleset`) and `e2e.sh` (install, deploy, egress per network, rollback, `mjk-tick` reloading a deleted table).
 - **Never in CI:** Wikidata, RCE, Lettermint, R2, Cloudflare, real phones. Those are [box] and [owner] criteria (PHASES §2).
 

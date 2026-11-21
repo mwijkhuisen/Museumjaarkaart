@@ -1,0 +1,87 @@
+# The public host (A§5, A§14, A§15.6, A§17.2). One plain :80 server: TLS ends at Cloudflare's edge.
+# P1e adds: the admin host, the client IP (trusted_proxies_strict, X-Mjk-Client), the
+# X-Forwarded-Proto 308 and the 421 for any other Host, the prelaunch X-Robots-Tag, the upstream
+# keep-alive and lb_try_duration. The CI e2e stack (deploy/e2e) mounts this file as it is.
+{
+	admin off
+	auto_https off
+}
+
+# A§15.6, on every response: routes, proxied answers and (below) handle_errors.
+(headers) {
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://media.{$MJK_DOMAIN}; media-src https://media.{$MJK_DOMAIN}; connect-src 'self' https://media.{$MJK_DOMAIN}; worker-src 'self'; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), browsing-topics=()"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Resource-Policy same-origin
+		-Server
+	}
+}
+
+:80 {
+	@site host {$MJK_DOMAIN}
+	handle @site {
+		import headers
+
+		# A file under /srv/web only (not a directory): headers set before file_server would stay on
+		# its own 404s (Caddy 2.11), so the immutable one sits behind this `file` matcher.
+		@asset {
+			path /assets/*
+			not path */
+			file {
+				root /srv/web
+				try_files {path}
+			}
+		}
+		handle @asset {
+			header Cache-Control "public, max-age=31536000, immutable"
+			root * /srv/web
+			file_server
+		}
+		handle /assets/* {
+			header Cache-Control no-store
+			respond 404
+		}
+
+		# Invariant 3: admin exists only on admin.<domain>. The bare path too: an inline matcher takes
+		# one path (Caddy 2.11), and these paths overlap no other route, so a re-sort cannot reorder them.
+		@admin path /api/admin /api/admin/*
+		handle @admin {
+			header Cache-Control no-store
+			respond 404
+		}
+
+		# A§14: 64 KB here (the api caps at 64 * 1024 too); its own Cache-Control stays. The bare
+		# /api/v1 is the api's too, so it answers its own JSON 404, not an HTML page from `ssr`.
+		@api path /api/v1 /api/v1/*
+		handle @api {
+			request_body {
+				max_size 64KiB
+			}
+			reverse_proxy api:8080
+		}
+
+		# `ssr` never sees a session (invariant 8): one header_up line per header. It answers GET and
+		# HEAD only (405 otherwise) and never reads a body, so the cap is the api's.
+		handle {
+			request_body {
+				max_size 64KiB
+			}
+			reverse_proxy ssr:8081 {
+				header_up -Cookie
+				header_up -Authorization
+			}
+		}
+	}
+
+	# 413, 502, file_server's 404 and every other error Caddy builds itself carry none of the site
+	# headers (Caddy 2.11): repeat them, and never let a CDN keep the answer.
+	handle_errors {
+		import headers
+		header Cache-Control no-store
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}

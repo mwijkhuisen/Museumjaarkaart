@@ -20,13 +20,13 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([[['healthcheck', 'x']], [['migrate', 'x']]])('%j is a usage error', async (argv) => {
+  it.each([[['healthcheck', 'x']], [['migrate', 'x']], [['ssr', 'x']]])('%j is a usage error', async (argv) => {
     const lines: string[] = [];
     expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([[['ssr']], [['backup']]])('%j is not built yet', async (argv) => {
+  it.each([[['backup']]])('%j is not built yet', async (argv) => {
     const lines: string[] = [];
     expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_NOT_BUILT);
     expect(lines).toEqual([`role ${argv[0]} is not built yet`]);
@@ -81,6 +81,23 @@ describe('run', () => {
     expect(lines).toEqual(['api: the file secret db_mjk_api is missing']);
   });
 
+  it('ssr needs the brand, the domain and its own database login, exiting 78 for each', async () => {
+    const lines: string[] = [];
+    const exit = (env: Record<string, string>) =>
+      run(['ssr'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() });
+    expect(await exit({})).toBe(EXIT_CONFIG);
+    expect(await exit({ MJK_BRAND_NAME: 'Testmerk' })).toBe(EXIT_CONFIG);
+    expect(await exit({ MJK_BRAND_NAME: 'Testmerk', MJK_DOMAIN: 'mjk.test' })).toBe(EXIT_CONFIG);
+    const url = 'mysql://user:Secret-Value-123@db/x';
+    expect(await exit({ MJK_BRAND_NAME: 'Testmerk', MJK_DOMAIN: 'mjk.test', DATABASE_URL: url })).toBe(EXIT_CONFIG);
+    expect(lines).toEqual([
+      'ssr: MJK_BRAND_NAME is missing',
+      'ssr: MJK_DOMAIN is missing',
+      'ssr: the file secret db_mjk_ssr is missing',
+      'ssr: DATABASE_URL is not a postgres URL',
+    ]);
+  });
+
   it.each([[['sync-museums', '--dry-run']], [['worker']], [['api']]])(
     '%j without a database setting is a config error that never prints the URL',
     async (argv) => {
@@ -102,7 +119,7 @@ describe('run', () => {
 });
 
 describe('real CLI', () => {
-  it.each([['nope'], ['ssr']])('%s exits 2', (role) => {
+  it.each([['nope'], ['backup']])('%s exits 2', (role) => {
     const r = spawnSync(process.execPath, [MAIN, role], { encoding: 'utf8' });
     expect(r.status).toBe(2);
   });

@@ -1,0 +1,405 @@
+/*
+ * Design tokens, base styles and components (A§15.5). Plain CSS, no @import, url() or fonts.
+ * Classes (BEM-ish):
+ *   layout   .skip-link .site-header .site-nav .site-footer .page .stack .cluster
+ *   content  .card .card-list .facts (dl of div > dt + dd) .badge .badge--participating|left|unknown
+ *   controls .button .field .filters .pager
+ *   utility  .muted .visually-hidden .icon .scroll
+ * Dark theme: the colour block inside the prefers-color-scheme media query. When the toggle arrives
+ * (P3a), repeat that block under `:root[data-theme="dark"]` and give the media block
+ * `:root:not([data-theme="light"])`; the light block also serves `:root[data-theme="light"]`.
+ */
+:root {
+  color-scheme: light dark;
+  --color-bg: #ffffff;
+  --color-surface: #f4f4f0;
+  --color-text: #1a1a1a;
+  --color-text-muted: #505050;
+  --color-link: #0a4aa6;
+  --color-border: #d2d2cc;
+  --color-border-strong: #757575;
+  --color-focus: #0a58ca;
+  --color-accent: #1d5a47;
+  --color-accent-text: #ffffff;
+  --color-mk-participating: #17693a;
+  --color-mk-left: #b3261e;
+  --color-mk-unknown: #5f5f5f;
+  --color-danger: #b3261e;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2.5rem;
+  --radius: 0.5rem;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.625rem;
+  --font-size-2xl: 2rem;
+  --line-height: 1.6;
+  --line-height-tight: 1.25;
+  --max-width: 72rem;
+  --measure: 70ch;
+  --tap: 2.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121212;
+    --color-surface: #1e1e1e;
+    --color-text: #ececec;
+    --color-text-muted: #b4b4b4;
+    --color-link: #8ab4f8;
+    --color-border: #3a3a3a;
+    --color-border-strong: #8c8c8c;
+    --color-focus: #8ab4f8;
+    --color-accent: #7fd1a8;
+    --color-accent-text: #0b1f16;
+    --color-mk-participating: #5fd08a;
+    --color-mk-left: #ff8a80;
+    --color-mk-unknown: #a6a6a6;
+    --color-danger: #ff8a80;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 6rem;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3 {
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-3);
+  scroll-margin-top: 6rem;
+}
+h1 {
+  font-size: var(--font-size-xl);
+}
+h2 {
+  font-size: var(--font-size-lg);
+}
+h3 {
+  font-size: var(--font-size-base);
+}
+
+p,
+ul,
+ol,
+dl {
+  margin: 0 0 var(--space-4);
+}
+p,
+li {
+  max-width: var(--measure);
+}
+ul,
+ol {
+  padding-left: 1.5rem;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+img {
+  height: auto;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  scroll-margin-top: 6rem;
+}
+main:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none;
+    animation: none;
+    scroll-behavior: auto;
+  }
+}
+
+/* layout */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: -10rem;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  z-index: 20;
+}
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--space-2);
+}
+
+.site-footer {
+  margin-top: var(--space-6);
+  padding: var(--space-5) var(--space-4);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.site-footer a {
+  display: inline-block;
+  padding: var(--space-3) 0;
+  min-height: var(--tap);
+}
+
+.page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+}
+
+.stack > * + * {
+  margin-top: var(--space-4);
+}
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* content */
+.card-list {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+.card-list > li {
+  max-width: none;
+}
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  height: 100%;
+}
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.facts > div {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.facts dd {
+  margin: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid currentcolor;
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+}
+.badge--participating {
+  color: var(--color-mk-participating);
+}
+.badge--left {
+  color: var(--color-mk-left);
+}
+.badge--unknown {
+  color: var(--color-mk-unknown);
+}
+
+/* controls */
+.button,
+.field input,
+.field select,
+.pager a {
+  min-height: var(--tap);
+  font: inherit;
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: var(--tap);
+  padding: 0 var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.button:hover {
+  opacity: 0.9;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.field label {
+  font-weight: 600;
+}
+.field input,
+.field select {
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+}
+.pager a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: var(--tap);
+  padding: 0 var(--space-3);
+}
+
+/* utilities */
+.muted {
+  color: var(--color-text-muted);
+}
+.icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex: none;
+  vertical-align: -0.2em;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 40rem) {
+  h1 {
+    font-size: var(--font-size-2xl);
+  }
+  .card-list,
+  .filters {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .facts > div {
+    display: grid;
+    grid-template-columns: 12rem 1fr;
+    gap: var(--space-4);
+  }
+}
+
+@media (min-width: 64rem) {
+  .card-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .filters {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

@@ -8,6 +8,7 @@ import { createLogger } from './lib/log.ts';
 import type { Source } from './museums/fields.ts';
 import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
+import { runSsr } from './ssr/server.ts';
 import { runWorkerRole } from './worker/role.ts';
 
 /** Roles of the single server image (A§5); the first argument picks one. */
@@ -130,6 +131,19 @@ function runApiRole(env: Env, heartbeatPath: string, log: (line: string) => void
   });
 }
 
+/** The ssr daemon (A§5): Hono on :8081 as mjk_ssr, rendering the public pages, until SIGTERM or SIGINT, then a drain. */
+function runSsrRole(env: Env, heartbeatPath: string, log: (line: string) => void, deps: RunDeps): Promise<number> {
+  return runSsr(env, {
+    logger: createLogger({ role: 'ssr' }),
+    signal: stopSignal(deps),
+    heartbeatPath,
+    log,
+    ...(deps.port === undefined ? {} : { port: deps.port }),
+    ...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
+    ...(deps.onListening === undefined ? {} : { onListening: deps.onListening }),
+  });
+}
+
 /** Resolves with the exit code. `heartbeatPath` and `deps` are test seams. */
 export async function run(
   argv: readonly string[],
@@ -153,11 +167,13 @@ export async function run(
       return role === 'healthcheck' ? (healthy(heartbeatPath) ? 0 : 1) : runMigrate(env, log);
     case 'worker':
     case 'api':
+    case 'ssr':
       if (rest.length > 0) {
         log(USAGE);
         return EXIT_USAGE;
       }
-      return role === 'worker' ? runWorker(env, heartbeatPath, deps) : runApiRole(env, heartbeatPath, log, deps);
+      if (role === 'worker') return runWorker(env, heartbeatPath, deps);
+      return role === 'api' ? runApiRole(env, heartbeatPath, log, deps) : runSsrRole(env, heartbeatPath, log, deps);
     case 'sync-museums':
       return runSyncRole(rest, env, log, deps);
     case 'admin':

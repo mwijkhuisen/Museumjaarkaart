@@ -4,11 +4,22 @@
   "type": "module",
   "scripts": {
     "i18n": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy globalVariable baseLocale --emit-ts-declarations --silent",
-    "e2e": "playwright test -c e2e/playwright.config.ts"
+    "build": "pnpm i18n && vite build"
+  },
+  "dependencies": {
+    "@mjk/contracts": "workspace:*",
+    "@tanstack/react-query": "5.104.5",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@inlang/paraglide-js": "2.29.1",
     "@inlang/plugin-message-format": "4.5.5",
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.64.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "vite": "8.3.8"
   }
 }
