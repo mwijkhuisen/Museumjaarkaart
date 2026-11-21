@@ -31,7 +31,9 @@ env -i PATH="$PATH" HOME="${HOME:-$tmp}" ${DOCKER_HOST:+DOCKER_HOST="$DOCKER_HOS
   docker compose -f "$compose_file" --env-file /dev/null --profile '*' \
   config --no-env-resolution --format json >"$tmp/config.json"
 
-# A§17.3 (with interfaces.md's change: hc_ping_key goes to worker only). Each service's secrets
+# A§17.3 (with interfaces.md's change: hc_ping_key goes to worker only, and the least-privilege
+# decision: lettermint_api_token, r2_media_rw and app_keys, GIDs 63008, 63009 and 63012, are out of the
+# P1e compose and come back with P2a and P3b). Each service's secrets
 # are its consumers' column; its group_add must be exactly the GIDs of those secrets.
 expected=$(
   cat <<'JSON'
@@ -39,24 +41,23 @@ expected=$(
   "gids": {
     "db_postgres": "63001", "db_mjk_migrator": "63002", "db_mjk_api": "63003",
     "db_mjk_ssr": "63004", "db_mjk_worker": "63005", "db_mjk_backup": "63006",
-    "cf_tunnel_token": "63007", "lettermint_api_token": "63008", "r2_media_rw": "63009",
-    "r2_backup_put": "63010", "restic_password": "63011", "app_keys": "63012",
+    "cf_tunnel_token": "63007", "r2_backup_put": "63010", "restic_password": "63011",
     "hc_ping_key": "63013"
   },
   "services": {
     "db": {"networks": ["mjk-db"],
            "secrets": ["db_postgres", "db_mjk_migrator", "db_mjk_api", "db_mjk_ssr", "db_mjk_worker", "db_mjk_backup"]},
     "migrate": {"networks": ["mjk-db"], "secrets": ["db_mjk_migrator"]},
-    "api": {"networks": ["mjk-edge", "mjk-db", "mjk-api-egress"], "secrets": ["db_mjk_api", "app_keys"]},
+    "api": {"networks": ["mjk-edge", "mjk-db", "mjk-api-egress"], "secrets": ["db_mjk_api"]},
     "ssr": {"networks": ["mjk-edge", "mjk-db"], "secrets": ["db_mjk_ssr"]},
     "worker": {"networks": ["mjk-egress", "mjk-db"],
-               "secrets": ["db_mjk_worker", "lettermint_api_token", "r2_media_rw", "app_keys", "hc_ping_key"]},
+               "secrets": ["db_mjk_worker", "hc_ping_key"]},
     "caddy": {"networks": ["mjk-edge", "mjk-tunnel-edge", "mjk-publish"], "secrets": []},
     "cloudflared": {"networks": ["mjk-tunnel", "mjk-tunnel-edge"], "secrets": ["cf_tunnel_token"]},
     "backup": {"networks": ["mjk-db", "mjk-backup-egress"],
                "secrets": ["db_mjk_backup", "r2_backup_put", "restic_password"]},
     "sync-museums": {"networks": ["mjk-egress", "mjk-db"], "secrets": ["db_mjk_worker"]},
-    "admin": {"networks": ["mjk-db"], "secrets": ["db_mjk_api", "app_keys"]}
+    "admin": {"networks": ["mjk-db"], "secrets": ["db_mjk_api"]}
   },
   "networks": {
     "mjk-db": {"subnet": "10.63.1.0/24", "internal": true},

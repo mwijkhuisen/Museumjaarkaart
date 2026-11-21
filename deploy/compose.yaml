@@ -136,8 +136,7 @@ services:
           create_host_path: false
     secrets:
       - db_mjk_api
-      - app_keys
-    group_add: ["63003", "63012"]
+    group_add: ["63003"]
     mem_limit: 384m
     cpus: 1.0
     networks:
@@ -183,11 +182,8 @@ services:
           create_host_path: false
     secrets:
       - db_mjk_worker
-      - lettermint_api_token
-      - r2_media_rw
-      - app_keys
       - hc_ping_key
-    group_add: ["63005", "63008", "63009", "63012", "63013"]
+    group_add: ["63005", "63013"]
     mem_limit: 768m
     cpus: 1.0
     networks:
@@ -327,8 +323,7 @@ services:
     profiles: [jobs, tools]
     secrets:
       - db_mjk_api
-      - app_keys
-    group_add: ["63003", "63012"]
+    group_add: ["63003"]
     mem_limit: 384m
     cpus: 1.0
     networks:
@@ -431,7 +426,9 @@ volumes:
   pgdata:
     name: mjk_pgdata
 
-# root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3).
+# root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3). Only the secrets a P1e role
+# uses are here (least privilege): lettermint_api_token (63008), r2_media_rw (63009) and app_keys
+# (63012) come back with P2a and P3b; their GIDs stay reserved and mjk-install creates the groups.
 secrets:
   db_postgres:
     file: /etc/mjk/secrets/db_postgres
@@ -447,15 +444,9 @@ secrets:
     file: /etc/mjk/secrets/db_mjk_backup
   cf_tunnel_token:
     file: /etc/mjk/secrets/cf_tunnel_token
-  lettermint_api_token:
-    file: /etc/mjk/secrets/lettermint_api_token
-  r2_media_rw:
-    file: /etc/mjk/secrets/r2_media_rw
   r2_backup_put:
     file: /etc/mjk/secrets/r2_backup_put
   restic_password:
     file: /etc/mjk/secrets/restic_password
-  app_keys:
-    file: /etc/mjk/secrets/app_keys
   hc_ping_key:
     file: /etc/mjk/secrets/hc_ping_key

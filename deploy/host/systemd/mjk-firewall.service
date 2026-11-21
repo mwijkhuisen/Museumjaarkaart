@@ -21,7 +21,8 @@
 [Unit]
 Description=mjk egress firewall (nftables table inet mjk)
 Documentation=file:///etc/mjk/mjk.nft
-After=nftables.service
+After=nftables.service network-online.target
+Wants=network-online.target
 Before=docker.service
 PartOf=nftables.service
 

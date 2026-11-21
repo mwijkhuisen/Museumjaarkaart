@@ -1,0 +1,15 @@
+# mjk-tick.timer: every 10 minutes, at :07 (F1's runs at :05), and once a minute after boot: it is the
+# fail-closed path when table inet mjk did not load at boot (A§17.7). mjk-install enables it once the
+# secrets and mjk.env are filled.
+
+[Unit]
+Description=mjk housekeeping, every 10 minutes at :07
+
+[Timer]
+OnBootSec=1min
+OnCalendar=*:07/10
+AccuracySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,52 @@
+# mjk-backup.service: the nightly backup (A§17.6, ADR-0011). Started by mjk-backup.timer.
+#
+# Installed by mjk-install as /etc/systemd/system/mjk-backup.service. It takes the deploy lock
+# (blocking, up to an hour, so a backup never runs against a half-deployed stack and mjk-update never
+# swaps images under it), then runs the `backup` role as a one-shot container of the stack:
+#   docker compose -p mjk ... --profile backup run --rm backup
+# with the images of current.env. The ping follows from the host (the container has no hc_ping_key,
+# interfaces.md): ExecStopPost runs mjk-ping, which reads $SERVICE_RESULT and pings healthchecks.io
+# with /fail unless the run succeeded. The key goes to curl on stdin only (mjk-ping), never into an
+# argument list or the journal. A failed ping does not fail the unit (the leading `-`).
+#
+# Hardening as far as a unit that calls Docker allows: no new privileges, no home directories, a
+# read-only system except the lock directory, no kernel tuning, no namespaces of its own.
+
+[Unit]
+Description=mjk nightly backup (pg_dump and restic to R2)
+Documentation=file:///etc/mjk/compose.yaml
+After=docker.service mjk-firewall.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+# A backup before the first deploy has no images to run: fail visibly (the missing ping alarms too).
+AssertPathExists=/srv/mjk/state/current.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flock -w 3600 /run/lock/mjk-deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup
+ExecStopPost=-/usr/local/bin/mjk-ping result
+TimeoutStartSec=3h
+Environment=HOME=/run/mjk-backup DOCKER_CONFIG=/run/mjk-backup/docker
+RuntimeDirectory=mjk-backup
+RuntimeDirectoryMode=0700
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/lock
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
