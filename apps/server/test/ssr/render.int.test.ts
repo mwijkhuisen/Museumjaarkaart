@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { FetchApi, SsrBundle } from '@mjk/contracts';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -154,6 +155,40 @@ describe('markup under the CSP', () => {
     for (const path of [`/musea/${rijks()}`, `/en/museums/${rijks()}`]) {
       expect(await (await get(path)).text()).toContain(detail.name);
     }
+  });
+});
+
+const messages = (l: 'nl' | 'en'): Record<string, string> =>
+  JSON.parse(readFileSync(new URL(`../../../web/messages/${l}.json`, import.meta.url), 'utf8'));
+const escaped = (t: string) =>
+  t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
+
+describe('the museum page (criterion 1)', () => {
+  it.each([
+    ['nl', 'nl-NL', (slug: string) => `/musea/${slug}`],
+    ['en', 'en-GB', (slug: string) => `/en/museums/${slug}`],
+  ] as const)('the Rijksmuseum in %s holds its name, address and Museumkaart status', async (l, tag, path) => {
+    const d = (await apiJson(`/api/v1/museums/${rijks()}`)) as {
+      name: string;
+      name_en: string | null;
+      street: string;
+      house_number: string | null;
+      postcode: string;
+      place: string;
+      museumkaart_status: string;
+      mk_list: { published_on: string };
+    };
+    const html = await (await get(path(rijks()))).text();
+    const msg = messages(l);
+    const has = (t: string) => expect(html).toContain(escaped(t));
+    has((l === 'en' ? d.name_en : null) ?? d.name);
+    has([d.street, d.house_number].filter((x) => x !== null).join(' '));
+    has([d.postcode, d.place].join(' '));
+    has(msg[`mk_${d.museumkaart_status}`] as string);
+    const month = new Intl.DateTimeFormat(tag, { timeZone: 'Europe/Amsterdam', month: 'long', year: 'numeric' }).format(
+      new Date(`${d.mk_list.published_on.slice(0, 10)}T12:00:00Z`),
+    );
+    has((msg.mk_list_date as string).replace('{date}', month));
   });
 });
 
