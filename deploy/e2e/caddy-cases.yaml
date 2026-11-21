@@ -1,0 +1,32 @@
+# CI only: the override for the Caddy cases (deploy/e2e/caddy-cases.mjs echo|down). stack.sh adds it with a
+# second -f after the Playwright runs: `api` and `ssr` become deploy/e2e/echo.mjs on the same names, ports
+# and networks, so every header that the real Caddyfile lets through is visible.
+services:
+  # The real Caddyfile, adapted, with only the default log's level raised to DEBUG: at INFO Caddy writes no
+  # line for an error that handle_errors answers, so this is where the log filter (no request fields) is
+  # proven, on every proxied request and every 502.
+  caddy:
+    command:
+      - sh
+      - -c
+      - >-
+        caddy adapt --config /etc/caddy/Caddyfile
+        | sed 's/"logs":{"default":{/"logs":{"default":{"level":"DEBUG",/' >/tmp/caddy.json
+        && grep -q '"level":"DEBUG"' /tmp/caddy.json
+        && exec caddy run --config /tmp/caddy.json
+
+  api:
+    command: ["node", "deploy/e2e/echo.mjs"]
+    environment:
+      ECHO_NAME: api
+      ECHO_PORT: "8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+
+  ssr:
+    command: ["node", "deploy/e2e/echo.mjs"]
+    environment:
+      ECHO_NAME: ssr
+      ECHO_PORT: "8081"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8081/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]

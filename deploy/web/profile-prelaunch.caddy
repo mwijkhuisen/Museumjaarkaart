@@ -1,0 +1,9 @@
+# MJK_PROFILE=prelaunch (A§15.6), imported by the Caddyfile: until P5b no response of the public host is
+# indexed, Caddy's own errors and the 421 included. The admin host sets `noindex, nofollow` itself. P5b's
+# `profile-launch.caddy` defines the same snippet name.
+(robots) {
+	header {
+		defer
+		X-Robots-Tag noindex
+	}
+}
