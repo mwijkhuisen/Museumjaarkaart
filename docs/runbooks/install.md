@@ -160,14 +160,20 @@ Before the first release exists, or for a drill, deploy given images (a ref with
 mjk-update --server ghcr.io/mwijkhuisen/mjk-server:sha-<git> --web ghcr.io/mwijkhuisen/mjk-web:sha-<git> --backup ghcr.io/mwijkhuisen/mjk-backup:sha-<git>
 ```
 
-What it does is in `docs/runbooks/update.md` §1. On the very first run the `db` volume is created and `roles.sql` sets the five logins' passwords from the secret files (it runs from `/docker-entrypoint-initdb.d/` only when the volume is new). If a database secret is wrong, remove the stack and the volume and start again: `mjkc down -v` (below) is safe only while the database is empty.
+What it does is in `docs/runbooks/update.md` §1. On the very first run the `db` volume is created and `roles.sql` sets the five logins' passwords from the secret files (it runs from `/docker-entrypoint-initdb.d/` only when the volume is new). If a database secret was wrong on that first deploy, the volume holds a half-initialised cluster on which `roles.sql` never runs again, and `mjkc` (below) does not work yet: a failed first deploy writes no `current.env`, and `mjk-update` has already stopped the stack. While the database is still empty (before the seed), fix the secret file, then:
+
+```bash
+docker volume rm mjk_pgdata               # the stack is already down; this is the only copy, so only before the seed
+rm -f /srv/mjk/state/failed.env
+systemctl start mjk-update.service        # or the same mjk-update --server … --web … --backup … again
+```
 
 Define the shorthand used in every runbook:
 
 ```bash
 mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env "$@"; }
 mjkc ps
-cat /srv/mjk/state/current.env          # the three refs by digest
+cat /srv/mjk/state/current.env          # the three refs by digest and MJK_COMPOSE_SHA256
 ```
 
 Expected: `db`, `api`, `ssr`, `worker`, `caddy` and `cloudflared` healthy; `current.env` holds `MJK_SERVER_IMAGE`, `MJK_WEB_IMAGE` and `MJK_BACKUP_IMAGE`.
@@ -272,4 +278,9 @@ Container uptimes in `docker compose ps` can differ if a stack restarted for its
 
 ## 11. Updating the host side later
 
-After a change to the compose file, the Caddyfile (it is in the web image), `mjk.nft`, a unit or a script: `git pull` in the checkout, then `deploy/bin/mjk-install`. It reloads the firewall only when `mjk.nft` changed and reloads systemd only when a unit changed. New images arrive through `mjk-update`, not through the installer (`docs/runbooks/update.md`).
+After a change to the compose file, the Caddyfile (it is in the web image), `mjk.nft`, a unit or a script: `git pull` in the checkout, then `deploy/bin/mjk-install`. It reloads the firewall only when `mjk.nft` changed and reloads systemd only when a unit changed. New images arrive through `mjk-update`, not through the installer (`docs/runbooks/update.md`). The installer only copies a changed compose file; the next `mjk-update` run sees its new sha256 and deploys the same images with it, with the health wait, the smoke test and the rollback. Start it at once and watch it:
+
+```bash
+systemctl start mjk-update.service
+journalctl -u mjk-update.service -n 40 --no-pager   # "compose file changed since current.env", then "deployed: …"
+```

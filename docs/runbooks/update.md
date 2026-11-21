@@ -12,13 +12,15 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 
 - The `release` job (environment `production`, you approve it) builds `ghcr.io/mwijkhuisen/mjk-server`, `mjk-web` and `mjk-backup` from one commit, labels all three `org.opencontainers.image.revision=<git sha>` and pushes `:main` and `:sha-<git>`. GitHub holds no credential for the VM.
 - `mjk-update.timer` runs `/usr/local/bin/mjk-update` every 10 minutes (and 3 minutes after boot). The script:
-  1. takes the lock `/run/lock/mjk-deploy.lock` without waiting (held by `mjk-tick` or the nightly backup means exit 0 and nothing done); refuses with exit 1 when `table inet mjk` is not loaded;
-  2. pulls the three `:main` images and records each by digest (`repo@sha256:…`, never a tag); waits (exit 0) while the three revision labels differ, because a release is still being pushed; stops when the digests equal `current.env`; refuses a set that equals `failed.env`;
+  1. takes the deploy lock exclusive, without waiting (held by `mjk-tick` or the nightly backup, which take it shared, means exit 0 and nothing done); refuses with exit 1 when `table inet mjk` is not loaded, and checks that again (with `firewall-stopped`) before each compose step;
+  2. pulls the three `:main` images (300 s each) and records each by digest (`repo@sha256:…`, never a tag); waits (exit 0) while the three revision labels differ, because a release is still being pushed; stops when the digests and the compose file's sha256 equal `current.env`; refuses a set that equals `failed.env`. A compose file that `mjk-install` changed is deployed with the same images (`compose file changed since current.env`);
   3. runs `migrate` (profile `jobs`, 300 s);
   4. runs `up -d --remove-orphans` (600 s);
   5. waits until every daemon is healthy (180 s), then smoke-tests `http://127.0.0.1:8280` with `Host: <domain>`: `/api/v1/healthz`, `/`, `/musea` and one museum page when the catalogue has one;
-  6. only after all that, replaces `current.env`; on any failure writes `failed.env`, puts the images of `current.env` back and waits until they are healthy (without a `current.env` it stops the stack).
-- State, all in `/srv/mjk/state`: `current.env` (the three refs of the last good deploy), `failed.env` (the refs of the last failed one), `disk` (written by `mjk-tick`), `firewall-stopped` (see `docs/runbooks/incident.md`).
+  6. only after all that, replaces `current.env`; on any failure writes `failed.env`, puts the images of `current.env` back (600 s) and waits until they are healthy (without a `current.env` it stops the stack). A failed compose step logs compose's last error lines as `compose: …`;
+  7. after a success, removes the local references of `ghcr.io/mwijkhuisen/mjk-*` that `current.env` does not use (`old images: N reference(s) … removed`). Other projects' images are never touched.
+- Every step is bounded; the worst case is about 57 minutes, under the unit's `TimeoutStartSec=65min`.
+- State, all in `/srv/mjk/state`: `current.env` (the three refs of the last good deploy and `MJK_COMPOSE_SHA256`), `failed.env` (the same for the last failed one), `disk` (written by `mjk-tick`), `firewall-stopped` (see `docs/runbooks/incident.md`).
 - **A migration must work with the previous image** (expand now, contract in a later release): a rollback restores the old images but never runs `down`. P1e itself adds no migration.
 
 ## 2. Watching and forcing
@@ -31,7 +33,7 @@ systemctl start mjk-update.service                     # run it now, instead of 
 mjkc ps
 ```
 
-The log lines to know: `waiting: the images' revision labels differ`, `up to date: the digests equal current.env`, `smoke test passed`, `deployed: …`, `deploy FAILED: <migrate_failed|up_failed|not_healthy|smoke_failed>`, `REFUSED: this set of images failed before`, `no_revision_label`, `pull_failed`, `firewall_missing`.
+The log lines to know: `waiting: the images' revision labels differ`, `up to date: the digests and the compose file equal current.env`, `compose file changed since current.env`, `smoke test passed`, `deployed: …`, `deploy FAILED: <migrate_failed|up_failed|not_healthy|smoke_failed>`, `REFUSED: this set of images failed before`, `no_revision_label`, `pull_failed`, `firewall_missing`, `firewall_stopped`, `compose: …` (compose's own error lines after a failed step).
 
 ## 3. The rollback proof (criterion 8, [box])
 

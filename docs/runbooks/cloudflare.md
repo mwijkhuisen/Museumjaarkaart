@@ -28,7 +28,7 @@ mjkc logs --tail 20 cloudflared           # "Registered tunnel connection" lines
 curl -sI https://<domain>/ | head -5      # 200 from the site, through Cloudflare
 ```
 
-`cloudflared` runs with `--no-autoupdate` and `--management-diagnostics=false`. Update it by changing its pin in `deploy/compose.yaml` through a PR (a digest at least 7 days old) and running `deploy/bin/mjk-install`.
+`cloudflared` runs with `--no-autoupdate` and `--management-diagnostics=false`. Update it by changing its pin in `deploy/compose.yaml` through a PR (a digest at least 7 days old), running `deploy/bin/mjk-install`, then `systemctl start mjk-update.service`: it deploys the changed compose file with the same images (`docs/runbooks/install.md` §11).
 
 ## 3. The Access application on `admin.<domain>` (A§16.2, ADR-0004)
 

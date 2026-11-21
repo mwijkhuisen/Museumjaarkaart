@@ -11,7 +11,7 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 ## 0. What runs
 
 - `mjk-backup.timer` fires every night at 01:43 Europe/Amsterdam (`Persistent=true`: a missed night runs after boot). It is clear of the Tuesday 03:17 museum sync and of the 10-minute timers.
-- It starts `mjk-backup.service` (a oneshot on the host). The unit takes the shared lock `/run/lock/mjk-deploy.lock` (waits up to an hour for `mjk-update` or `mjk-tick`, and `mjk-update` skips while the backup holds it) and runs `docker compose … --profile backup run --rm -T backup`.
+- It starts `mjk-backup.service` (a oneshot on the host). The unit takes the deploy lock shared (waits up to an hour for a running `mjk-update`, which takes it exclusive and skips while the backup holds it; `mjk-tick` takes it shared too, so the firewall, restart and disk checks keep running during a long backup) and runs `docker compose … --profile backup run --rm -T backup`.
 - The `backup` role (image `mjk-backup`, login `mjk_backup`, which can read everything and nothing else):
   1. `pg_dump --format=custom --lock-wait-timeout=60s` into `/srv/mjk/backup-staging/mjk.dump`, leaving out the data of `session`, `email_code`, `auth_challenge`, `rate_limit` and `job` (a restore signs everyone out; tables that do not exist yet are tolerated);
   2. `restic --no-cache backup --host mjk --tag nightly` of the dump and `/srv/mjk/originals` to `mjk-backup` on R2 (the first run does `restic cat config`, exit 10, then `restic init`);
