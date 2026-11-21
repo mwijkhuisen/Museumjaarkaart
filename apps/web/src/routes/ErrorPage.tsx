@@ -1,3 +1,5 @@
+import { Link, useRouter } from '../lib/router.tsx';
+import { pathOf } from '../lib/routes.ts';
 import type { ErrorKind } from '../lib/seo/head.tsx';
 import { m } from '../paraglide/messages.js';
 
@@ -11,10 +13,14 @@ const TEXT = {
 
 export function ErrorPage({ kind }: { kind: ErrorKind }) {
   const text = TEXT[kind];
+  const { route } = useRouter();
   return (
     <>
       <h1>{text.title()}</h1>
       <p>{text.body()}</p>
+      <p>
+        <Link href={pathOf({ page: 'home', locale: route.locale })}>{m.back_home()}</Link>
+      </p>
     </>
   );
 }
