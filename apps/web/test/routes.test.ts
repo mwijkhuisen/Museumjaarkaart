@@ -96,6 +96,26 @@ describe('routeOf: the A§15.2 table', () => {
       expect(routeOf(path)).toEqual({ kind: 'route', route: { page: 'not_found', locale: localeOf(path) } });
     },
   );
+
+  // A request line may be ~16 KB (Node's header cap, Cloudflare's URL limit). `/\/+$/` took ~200 ms
+  // on the first shape: routeOf runs on the single `ssr` event loop, so every shape stays linear.
+  const N = 16_000;
+  it.each<[string, string, Resolved]>([
+    ['slashes, then x/', `${'/'.repeat(N)}x/`, { kind: 'route', route: { page: 'not_found', locale: 'nl' } }],
+    ['en, slashes, then x/', `/en${'/'.repeat(N)}x/`, { kind: 'route', route: { page: 'not_found', locale: 'en' } }],
+    ['only slashes', '/'.repeat(N), { kind: 'route', route: { page: 'not_found', locale: 'nl' } }],
+    [
+      'a long slug-like segment',
+      `/musea/${'a-'.repeat(N / 2)}!/`,
+      { kind: 'route', route: { page: 'not_found', locale: 'nl' } },
+    ],
+    ['many segments', `/musea${'/a'.repeat(N / 2)}/`, { kind: 'route', route: { page: 'not_found', locale: 'nl' } }],
+    ['a long query', `/musea/?${'q=&'.repeat(N / 3)}`, { kind: 'redirect', location: '/musea' }],
+  ])('a hostile 16 KB path (%s) resolves in linear time', (_n, path, expected) => {
+    const start = performance.now();
+    expect(routeOf(path)).toEqual(expected);
+    expect(performance.now() - start).toBeLessThan(50);
+  });
 });
 
 describe('query parameters', () => {

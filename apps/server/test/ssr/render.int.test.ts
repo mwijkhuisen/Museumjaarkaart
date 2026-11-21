@@ -46,7 +46,7 @@ beforeAll(async () => {
   tdb = await createMigratedDb();
   cat = await seedCatalogue(tdb);
   const loaded = await loadBundle();
-  if (loaded === null) throw new Error('the web build is missing');
+  if (typeof loaded === 'string') throw new Error(`the web build is ${loaded}`);
   bundle = loaded;
   ssrDb = poolDb('mjk_ssr', tdb.urls.mjk_ssr);
   apiDb = poolDb('mjk_api', tdb.urls.mjk_api);

@@ -43,9 +43,15 @@ describe('dates (Europe/Amsterdam, long months)', () => {
     ['2026-11-01', 'nl', '1 november 2026', 'november 2026'],
     ['2026-11-01', 'en', '1 November 2026', 'November 2026'],
     ['2026-03-29', 'nl', '29 maart 2026', 'maart 2026'],
-    ['2026-12-31T23:30:00Z', 'nl', '31 december 2026', 'december 2026'],
+    ['2026-12-31', 'nl', '31 december 2026', 'december 2026'],
   ])('%s in %s', (iso, locale, date, month) => {
     expect(formatDate(iso, locale)).toBe(date);
     expect(formatMonth(iso, locale)).toBe(month);
+  });
+
+  // A datetime's first ten characters are its UTC day, not always the Amsterdam day: refused.
+  it.each(['2026-12-31T23:30:00Z', '2026-12-31 ', '31-12-2026', ''])('refuses %j', (iso) => {
+    expect(() => formatDate(iso, 'nl')).toThrow(RangeError);
+    expect(() => formatMonth(iso, 'nl')).toThrow(RangeError);
   });
 });

@@ -6,7 +6,14 @@ import { createSsrApp } from '../../src/ssr/app.ts';
 import { loadBundle } from '../../src/ssr/bundle.ts';
 import { inProcessApi } from '../../src/ssr/server.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
-import { HOSTILE_DESCRIPTION, HOSTILE_NAME, HOSTILE_SLUG, insertHostileMuseum } from '../hostile-museum.ts';
+import {
+  HOSTILE_DESCRIPTION,
+  HOSTILE_NAME,
+  HOSTILE_PLACE,
+  HOSTILE_SLUG,
+  HOSTILE_STREET,
+  insertHostileMuseum,
+} from '../hostile-museum.ts';
 import { seedCatalogue } from '../seed-catalogue.ts';
 
 // P1c criterion 4 (invariant 5): a museum whose text is hostile to every HTML sink renders escaped in
@@ -21,7 +28,7 @@ beforeAll(async () => {
   await seedCatalogue(tdb);
   await insertHostileMuseum(tdb.urls.mjk_api);
   const bundle = await loadBundle();
-  if (bundle === null) throw new Error('the web build is missing');
+  if (typeof bundle === 'string') throw new Error(`the web build is ${bundle}`);
   const pool = createPool('mjk_ssr', { DATABASE_URL: tdb.urls.mjk_ssr }, { max: 4, statementTimeoutMs: 5000 });
   if (typeof pool === 'string') throw new Error(pool);
   db = createDb(pool);
@@ -40,6 +47,10 @@ afterAll(async () => {
 });
 
 const ESCAPED_NAME = '&lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;';
+// React's text escaping of HOSTILE_STREET and HOSTILE_PLACE, written out by hand.
+const ESCAPED_STREET = '&lt;img src=x onerror=alert(2)&gt; &quot;Straat&quot; &amp; 1';
+const ESCAPED_PLACE = 'Zwolle&lt;/p&gt;&lt;b&gt;&#x27;vet&#x27;&lt;/b&gt; &amp; &quot;co&quot;';
+const FACTS = /<dl class="facts">(.*?)<\/dl>/s;
 const STATE = /<script type="application\/json" id="mjk-state">(.*?)<\/script>/s;
 const LD = /<script type="application\/ld\+json">(.*?)<\/script>/s;
 // U+2028 and U+2029 written as code point escapes, so no raw separator sits in this file.
@@ -68,6 +79,17 @@ describe.each([
     expect(html).toContain('&lt;!-- hostiel --&gt; museum &amp; meer');
   });
 
+  it('writes the street and the place only escaped, in the facts list too', () => {
+    const facts = FACTS.exec(html)?.[1] as string;
+    expect(facts).toBeDefined();
+    expect(facts).toContain(ESCAPED_STREET);
+    expect(facts).toContain(ESCAPED_PLACE);
+    expect(html).not.toContain('<img src=x');
+    expect(html).not.toContain('<b>');
+    expect(html).not.toContain(HOSTILE_STREET);
+    expect(html).not.toContain(HOSTILE_PLACE);
+  });
+
   it('has exactly the two data blocks and the module script, and no other inline script', () => {
     const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].map((m) => (m[1] as string).trim());
     expect(scripts.filter((a) => !/\bsrc=/.test(a)).sort()).toEqual([
@@ -89,8 +111,16 @@ describe.each([
     const museum =
       block === 'mjk-state' ? (parsed[`/api/v1/museums/${HOSTILE_SLUG}`] as Record<string, unknown>) : parsed;
     expect(museum.name).toBe(HOSTILE_NAME);
-    if (block === 'mjk-state') expect(museum[descriptionKey]).toBe(HOSTILE_DESCRIPTION);
-    else if ('description' in museum) expect(museum.description).toBe(HOSTILE_DESCRIPTION);
+    expect(text).toContain('\\u003cimg src=x onerror=alert(2)\\u003e \\"Straat\\" \\u0026 1');
+    expect(text).toContain(`Zwolle\\u003c/p\\u003e\\u003cb\\u003e'vet'\\u003c/b\\u003e \\u0026 \\"co\\"`);
+    if (block === 'mjk-state') {
+      expect(museum[descriptionKey]).toBe(HOSTILE_DESCRIPTION);
+      expect(museum.street).toBe(HOSTILE_STREET);
+      expect(museum.place).toBe(HOSTILE_PLACE);
+    } else {
+      if ('description' in museum) expect(museum.description).toBe(HOSTILE_DESCRIPTION);
+      expect(museum.address).toMatchObject({ streetAddress: HOSTILE_STREET, addressLocality: HOSTILE_PLACE });
+    }
   });
 
   it('the description is in the state with its comment opener and ampersand as escapes', () => {

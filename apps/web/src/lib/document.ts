@@ -11,7 +11,7 @@ export type Assets = { script: string; css: readonly string[]; preload: readonly
 /** Every asset path is ours: `/assets/` plus a hashed file name. */
 const ASSET = /^\/assets\/[A-Za-z0-9._-]+$/;
 
-const asset = (path: string): string => {
+export const assetPath = (path: string): string => {
   if (!ASSET.test(path)) throw new Error('unexpected_asset_path');
   return path;
 };
@@ -37,11 +37,11 @@ export function documentHtml(d: DocumentParts): string {
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     d.head,
-    ...d.assets.css.map((href) => `<link rel="stylesheet" href="${asset(href)}">`),
+    ...d.assets.css.map((href) => `<link rel="stylesheet" href="${assetPath(href)}">`),
   ];
   if (d.hydrate) {
-    head.push(...d.assets.preload.map((href) => `<link rel="modulepreload" href="${asset(href)}">`));
-    head.push(`<script type="module" src="${asset(d.assets.script)}"></script>`);
+    head.push(...d.assets.preload.map((href) => `<link rel="modulepreload" href="${assetPath(href)}">`));
+    head.push(`<script type="module" src="${assetPath(d.assets.script)}"></script>`);
   }
   if (d.jsonLd !== null) head.push(`<script type="application/ld+json">${jsonForScript(d.jsonLd)}</script>`);
   const state = d.hydrate ? `<script type="application/json" id="mjk-state">${jsonForScript(d.state)}</script>` : '';

@@ -23,7 +23,7 @@ beforeAll(async () => {
   tdb = await createMigratedDb();
   cat = await seedCatalogue(tdb);
   const bundle = await loadBundle();
-  if (bundle === null) throw new Error('the web build is missing');
+  if (typeof bundle === 'string') throw new Error(`the web build is ${bundle}`);
   const pool = createPool('mjk_ssr', { DATABASE_URL: tdb.urls.mjk_ssr }, { max: 4, statementTimeoutMs: 5000 });
   if (typeof pool === 'string') throw new Error(pool);
   db = createDb(pool);

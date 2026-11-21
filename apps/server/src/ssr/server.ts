@@ -71,8 +71,9 @@ export async function runSsr(env: Env, opts: SsrRunOpts): Promise<number> {
   }
   const db = createDb(pool);
   const bundle = await loadBundle(opts.bundleUrl);
-  if (bundle === null) {
-    opts.log('ssr: the web build is missing');
+  if (typeof bundle === 'string') {
+    // A fixed line per code: never the path or the import's error.
+    opts.log(bundle === 'missing' ? 'ssr: the web build is missing' : 'ssr: the web build is broken');
     await db.destroy();
     return EXIT_CONFIG;
   }

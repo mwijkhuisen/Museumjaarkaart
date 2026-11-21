@@ -107,8 +107,11 @@ export function routeOf(path: string): Resolved {
   const rest = locale === 'en' ? pathname.slice(3) : pathname;
   if (rest.length > 1 && rest.endsWith('/')) {
     // `/musea/` → `/musea`. The Location is always our own canonical path, never request text, so
-    // `//evil.example/` cannot become a protocol-relative redirect.
-    const target = routeOf(`${pathname.replace(/\/+$/, '')}${search}`);
+    // `//evil.example/` cannot become a protocol-relative redirect. A scan, not `/\/+$/`: that regex
+    // is quadratic on `/////…/x/` and would stall the single-threaded `ssr` on one request.
+    let end = pathname.length;
+    while (end > 0 && pathname.charCodeAt(end - 1) === 0x2f) end--;
+    const target = routeOf(`${pathname.slice(0, end)}${search}`);
     if (target.kind === 'route' && target.route.page !== 'not_found' && target.route.page !== 'home') {
       return { kind: 'redirect', location: pathOf(target.route) };
     }

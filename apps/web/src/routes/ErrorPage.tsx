@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
+import { useConfig } from '../lib/config.ts';
 import { Link, useRouter } from '../lib/router.tsx';
 import { pathOf } from '../lib/routes.ts';
-import type { ErrorKind } from '../lib/seo/head.tsx';
+import { type ErrorKind, errorTitleOf } from '../lib/seo/head.tsx';
 import { m } from '../paraglide/messages.js';
 
 // The not-found, bad-request and error pages: the SSR error documents and the SPA's error boundary.
@@ -14,6 +16,12 @@ const TEXT = {
 export function ErrorPage({ kind }: { kind: ErrorKind }) {
   const text = TEXT[kind];
   const { route } = useRouter();
+  const title = errorTitleOf(kind, useConfig().brand);
+  // The error boundary replaces the page, DocumentTitle with it: the title follows here. The server's
+  // error documents carry it in <head> and run no script.
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
   return (
     <>
       <h1>{text.title()}</h1>

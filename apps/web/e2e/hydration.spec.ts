@@ -40,3 +40,29 @@ for (const locale of LOCALES) {
     expect(documents).toHaveLength(1);
   });
 }
+
+// The error boundary replaces the page after a failed in-place navigation; the title follows it.
+test.describe('a failed in-place navigation', () => {
+  // One pattern: test.use reads a two-element array as [value, options].
+  test.use({ allowedConsole: [/Failed to load resource: the server responded with a status of 404|api_404/] });
+  for (const locale of LOCALES) {
+    test(`${locale}: the error page sets the document title`, async ({ page }) => {
+      const missing = museumPath(locale, 'nergens-te-vinden-museum');
+      await page.goto(missing);
+      const notFoundTitle = await page.title();
+      const notFoundHeading = (await page.getByRole('heading', { level: 1 }).textContent()) as string;
+      await page.goto(locale === 'en' ? '/en/' : '/');
+      await page.waitForFunction(() =>
+        Object.keys(document.getElementById('app') ?? {}).some((k) => k.startsWith('__reactContainer')),
+      );
+      const homeTitle = await page.title();
+      expect(homeTitle).not.toBe(notFoundTitle);
+      await page.evaluate((to) => {
+        history.pushState(null, '', to);
+        dispatchEvent(new PopStateEvent('popstate'));
+      }, missing);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(notFoundHeading);
+      await expect(page).toHaveTitle(notFoundTitle);
+    });
+  }
+});

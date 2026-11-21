@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { prerender } from 'react-dom/static';
 import { App } from './App.tsx';
 import { createQueryClient } from './lib/api.ts';
-import { type Assets, documentHtml } from './lib/document.ts';
+import { type Assets, assetPath, documentHtml } from './lib/document.ts';
 import { apiPathsOf, type Locale, pathOf, type Route, routeOf } from './lib/routes.ts';
 import { type ErrorKind, errorHeadOf, Head, type HeadData, headOf, jsonLdOf } from './lib/seo/head.tsx';
 import { sitemapXml } from './lib/seo/sitemap.ts';
@@ -28,11 +28,12 @@ const CACHE_PRIVATE = 'private, no-store';
 
 type Chunk = { file: string; css?: string[]; imports?: string[] };
 
-let assetsCache: Assets | undefined;
-
-/** The client entry's files from Vite's manifest, next to this bundle (`dist/client`, `dist/server`). */
-function assets(): Assets {
-  if (assetsCache !== undefined) return assetsCache;
+/**
+ * The client entry's files from Vite's manifest, next to this bundle (`dist/client`, `dist/server`).
+ * Read once when the bundle loads (below), so a missing or broken manifest fails the import and
+ * `ssr` exits 78 before it serves, instead of a 500 on every page.
+ */
+function readAssets(): Assets {
   const url = new URL('../client/.vite/manifest.json', import.meta.url);
   const manifest = JSON.parse(readFileSync(url, 'utf8')) as Record<string, Chunk>;
   const entry = manifest['src/entry-client.tsx'];
@@ -48,9 +49,14 @@ function assets(): Assets {
     }
   };
   walk(entry, true);
-  assetsCache = { script: `/${entry.file}`, css: [...css], preload: [...preload] };
-  return assetsCache;
+  const assets = { script: `/${entry.file}`, css: [...css], preload: [...preload] };
+  // The entry imports the stylesheet, so a build without CSS is broken too.
+  if (assets.css.length === 0) throw new Error('manifest_without_css');
+  for (const path of [assets.script, ...assets.css, ...assets.preload]) assetPath(path);
+  return assets;
 }
+
+const ASSETS = readAssets();
 
 async function markup(element: ReactElement): Promise<string> {
   const { prelude } = await prerender(element);
@@ -77,7 +83,7 @@ async function document(
     locale: route.locale,
     head: renderToStaticMarkup(<Head head={page.head} />),
     app,
-    assets: assets(),
+    assets: ASSETS,
     hydrate: page.fallback === null,
     state: page.state,
     jsonLd: page.jsonLd,

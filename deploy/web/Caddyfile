@@ -46,22 +46,30 @@
 			respond 404
 		}
 
-		# Invariant 3: admin exists only on admin.<domain>.
-		handle /api/admin/* {
+		# Invariant 3: admin exists only on admin.<domain>. The bare path too: an inline matcher takes
+		# one path (Caddy 2.11), and these paths overlap no other route, so a re-sort cannot reorder them.
+		@admin path /api/admin /api/admin/*
+		handle @admin {
 			header Cache-Control no-store
 			respond 404
 		}
 
-		# A§14: 64 KB here (the api caps at 64 * 1024 too); its own Cache-Control stays.
-		handle /api/v1/* {
+		# A§14: 64 KB here (the api caps at 64 * 1024 too); its own Cache-Control stays. The bare
+		# /api/v1 is the api's too, so it answers its own JSON 404, not an HTML page from `ssr`.
+		@api path /api/v1 /api/v1/*
+		handle @api {
 			request_body {
 				max_size 64KiB
 			}
 			reverse_proxy api:8080
 		}
 
-		# `ssr` never sees a session (invariant 8): one header_up line per header.
+		# `ssr` never sees a session (invariant 8): one header_up line per header. It answers GET and
+		# HEAD only (405 otherwise) and never reads a body, so the cap is the api's.
 		handle {
+			request_body {
+				max_size 64KiB
+			}
 			reverse_proxy ssr:8081 {
 				header_up -Cookie
 				header_up -Authorization

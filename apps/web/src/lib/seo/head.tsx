@@ -113,12 +113,15 @@ export function headOf(route: Route, data: PageData, config: SsrConfig): HeadDat
 
 export type ErrorKind = 'not_found' | 'bad_request' | 'error';
 
+/** The title of an error page; also the SPA's after a failed in-place navigation. */
+export const errorTitleOf = (kind: ErrorKind, brand: string): string =>
+  pageTitle({ not_found: m.page_not_found, bad_request: m.page_bad_request, error: m.page_error }[kind](), brand);
+
 /** The head of an error document: a title, never indexed. */
 export function errorHeadOf(kind: ErrorKind, locale: Locale, config: SsrConfig): HeadData {
-  const page = { not_found: m.page_not_found, bad_request: m.page_bad_request, error: m.page_error }[kind]();
   return {
     locale,
-    title: pageTitle(page, config.brand),
+    title: errorTitleOf(kind, config.brand),
     description: null,
     canonical: null,
     alternates: null,

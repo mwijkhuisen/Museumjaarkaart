@@ -45,11 +45,23 @@ test('a missing asset is a no-store 404', async ({ request, baseURL }) => {
   expect(res.headers()['cache-control']).toBe('no-store');
 });
 
-test('/api/admin is a 404 on the public host', async ({ request, baseURL }) => {
-  const res = await request.get('/api/admin/x');
+for (const path of ['/api/admin', '/api/admin/x']) {
+  test(`${path} is a no-store 404 on the public host`, async ({ request, baseURL }) => {
+    const res = await request.get(path);
+    expect(res.status()).toBe(404);
+    expectSiteHeaders(res, domain(baseURL));
+    expect(res.headers()['cache-control']).toBe('no-store');
+    expect(res.headers()['content-type'] ?? '').not.toContain('text/html');
+  });
+}
+
+test("the bare /api/v1 is the api's own JSON 404, not a page", async ({ request, baseURL }) => {
+  const res = await request.get('/api/v1');
   expect(res.status()).toBe(404);
   expectSiteHeaders(res, domain(baseURL));
-  expect(res.headers()['cache-control']).toBe('no-store');
+  expect(res.headers()['content-type']).toContain('application/json');
+  expect(res.headers()['cache-control']).toBe('private, no-store');
+  expect(await res.json()).toEqual({ error: 'not_found' });
 });
 
 test('the api keeps its own Cache-Control and gets the headers', async ({ request, baseURL }) => {
@@ -62,6 +74,16 @@ test('the api keeps its own Cache-Control and gets the headers', async ({ reques
 test('a body over 64 KB is a no-store 413', async ({ request, baseURL }) => {
   const res = await request.post('/api/v1/museums', {
     headers: { 'content-type': 'application/json' },
+    data: Buffer.alloc(64 * 1024 + 1, 'a'),
+  });
+  expect(res.status()).toBe(413);
+  expectSiteHeaders(res, domain(baseURL));
+  expect(res.headers()['cache-control']).toBe('no-store');
+});
+
+test('a body over 64 KB to a page is a no-store 413', async ({ request, baseURL }) => {
+  const res = await request.post('/', {
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
     data: Buffer.alloc(64 * 1024 + 1, 'a'),
   });
   expect(res.status()).toBe(413);
