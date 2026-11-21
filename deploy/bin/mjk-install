@@ -58,9 +58,17 @@ BIN=$ROOT/usr/local/bin
 UNITS=$ROOT/etc/systemd/system
 LOCKDIR=$ROOT/run/lock
 
-for cmd in docker getent groupadd stat cmp install realpath sed awk; do
+# What mjk-install itself needs, then what the installed scripts and units need (mjk-update without curl
+# would fail every smoke test and roll back forever; without jq it would skip the museum page).
+for cmd in docker getent groupadd stat cmp install realpath sed awk curl jq flock timeout sha256sum mktemp df; do
   command -v "$cmd" >/dev/null || die "$cmd is required"
 done
+if [[ -z $ROOT ]]; then
+  # The units load the table and run the timers (a test root runs neither).
+  for cmd in nft systemctl; do
+    command -v "$cmd" >/dev/null || die "$cmd is required"
+  done
+fi
 docker info >/dev/null 2>&1 || die "the Docker daemon does not answer"
 
 # --- the tables of A§17.3 ----------------------------------------------------------------------------
@@ -297,14 +305,15 @@ fi
 # --- 5. systemd --------------------------------------------------------------------------------------
 if [[ -z $ROOT ]]; then
   ((units_changed == 0)) || systemctl daemon-reload
-  systemctl enable mjk-firewall.service >/dev/null 2>&1
+  systemctl enable mjk-firewall.service >/dev/null 2>&1 || die "systemctl enable mjk-firewall.service failed"
   if systemctl is-active --quiet mjk-firewall.service; then
     ((nft_changed == 0)) || systemctl reload mjk-firewall.service
   else
     systemctl start mjk-firewall.service
   fi
   if ((${#MISSING[@]} == 0)); then
-    systemctl enable --now mjk-update.timer mjk-tick.timer mjk-backup.timer >/dev/null 2>&1
+    systemctl enable --now mjk-update.timer mjk-tick.timer mjk-backup.timer >/dev/null 2>&1 ||
+      die "systemctl enable --now of the three timers failed"
   fi
 else
   say "test root $ROOT: systemctl skipped (units installed, nothing enabled)"

@@ -2,7 +2,8 @@
 #
 # Installed by mjk-install as /etc/systemd/system/mjk-update.service; it runs the root-owned copy
 # /usr/local/bin/mjk-update, never a file of the checkout (F1 A§12.5). mjk-update takes the flock
-# /run/lock/mjk-deploy.lock itself and exits 0 when it is held.
+# /run/lock/mjk-deploy.lock itself (exclusive; mjk-tick and the backup take it shared) and exits 0 when
+# it is held.
 #
 # Hardening: the unit is root and talks to the Docker daemon, which is root-equivalent by itself, so
 # this limits what a bug in the script (not a container) can reach: no new privileges, no home
@@ -20,7 +21,8 @@ AssertPathExists=/etc/mjk/mjk.env
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/mjk-update
-TimeoutStartSec=20min
+# Every docker step of mjk-update is bounded; the bounds add up to about 57 minutes (mjk-update header).
+TimeoutStartSec=65min
 Environment=HOME=/run/mjk-update DOCKER_CONFIG=/run/mjk-update/docker
 RuntimeDirectory=mjk-update
 RuntimeDirectoryMode=0700

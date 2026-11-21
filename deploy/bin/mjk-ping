@@ -34,7 +34,8 @@ esac
 
 [[ -f $KEYFILE && -r $KEYFILE ]] || die "key_missing: hc_ping_key" 78
 key=$(<"$KEYFILE")
-[[ $key =~ ^[A-Za-z0-9_-]{8,64}$ ]] || die "key_malformed: hc_ping_key" 78
+# The same rule as the worker (apps/server/src/lib/healthchecks.ts): one key works for both or neither.
+[[ $key =~ ^[A-Za-z0-9_-]{16,64}$ ]] || die "key_malformed: hc_ping_key" 78
 
 url=$BASE/$key/$SLUG
 [[ $kind == ok ]] || url=$url/fail

@@ -1,8 +1,9 @@
 # mjk-backup.service: the nightly backup (A§17.6, ADR-0011). Started by mjk-backup.timer.
 #
-# Installed by mjk-install as /etc/systemd/system/mjk-backup.service. It takes the deploy lock
-# (blocking, up to an hour, so a backup never runs against a half-deployed stack and mjk-update never
-# swaps images under it), then runs the `backup` role as a one-shot container of the stack:
+# Installed by mjk-install as /etc/systemd/system/mjk-backup.service. It takes the deploy lock shared
+# (blocking, up to an hour, so a backup never runs against a half-deployed stack and mjk-update, which
+# takes it exclusive, never swaps images under it; mjk-tick takes it shared too, so the firewall, restart
+# and disk checks keep running during a long backup), then runs the `backup` role as a one-shot container:
 #   docker compose -p mjk ... --profile backup run --rm backup
 # with the images of current.env. The ping follows from the host (the container has no hc_ping_key,
 # interfaces.md): ExecStopPost runs mjk-ping, which reads $SERVICE_RESULT and pings healthchecks.io
@@ -23,7 +24,7 @@ AssertPathExists=/srv/mjk/state/current.env
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flock -w 3600 /run/lock/mjk-deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup
+ExecStart=/usr/bin/flock -s -w 3600 /run/lock/mjk-deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup
 ExecStopPost=-/usr/local/bin/mjk-ping result
 TimeoutStartSec=3h
 Environment=HOME=/run/mjk-backup DOCKER_CONFIG=/run/mjk-backup/docker

@@ -7,23 +7,34 @@
 #                                                  exactly these images (drills, CI). A ref that is left out
 #                                                  keeps its image from current.env (else :main).
 # Files (A§17.1), all under /srv/mjk/state:
-#   current.env   the three MJK_*_IMAGE refs of the last good deploy; replaced only after a success
-#   failed.env    the refs of the last failed deploy; the automatic run refuses that same set until
-#                 `rm /srv/mjk/state/failed.env`
+#   current.env   the three MJK_*_IMAGE refs of the last good deploy and MJK_COMPOSE_SHA256, the sha256 of
+#                 the compose file(s) it was deployed with; replaced only after a success
+#   failed.env    the same four values of the last failed deploy; the automatic run refuses that same set
+#                 until `rm /srv/mjk/state/failed.env` (a new image or a changed compose file is a new set)
 # Steps (A§17.5):
-#   1. flock /run/lock/mjk-deploy.lock, non-blocking (shared with mjk-tick and mjk-backup.service): held
-#      -> exit 0; table inet mjk not loaded -> exit 1. A leftover firewall-stopped marker (mjk-tick
+#   1. flock /run/lock/mjk-deploy.lock exclusive, non-blocking (mjk-tick and mjk-backup.service take it
+#      shared): held -> exit 0; table inet mjk not loaded -> exit 1 (checked again before each compose step). A leftover firewall-stopped marker (mjk-tick
 #      stopped the stack because the table could not load) is cleared by starting current.env again.
 #   2. pull; record each ref by digest (a ref with a registry host is recorded as repo@sha256:..., never
 #      as a tag); the automatic run waits (exit 0) while the three images' org.opencontainers.image.revision
-#      labels differ, and stops when the digests equal current.env or the set equals failed.env.
+#      labels differ, and stops when the digests and the compose sha256 equal current.env or the set
+#      equals failed.env. A compose change alone (mjk-install copied a new compose.yaml) is deployed with
+#      the same images, through the same steps.
 #   3. migrate (profile jobs), 4. up -d, 5. every daemon healthy within 180 s, then the smoke test with
 #      Host: <domain> on http://127.0.0.1:8280 (/api/v1/healthz, /, /musea and one museum if there is one).
 #   6. on a failure: write failed.env, put current.env's images back and wait until they are healthy;
 #      without a current.env, stop the stack. Exit 1. A rollback never runs a migration down: a migration
-#      must work with the previous image (expand now, contract later).
-# It logs image refs, digests, container names and fixed messages; never an environment, a secret or a
-# response body. Exit 0 done or nothing to do · 1 failed or refused · 64 usage · 78 config.
+#      must work with the previous image (expand now, contract later). It cannot put an older compose
+#      file back: after a failed compose change, fix the file and run mjk-install again.
+#   7. after a success: remove the local images of ghcr.io/mwijkhuisen/mjk-* that current.env does not
+#      use (by reference: never another project's image).
+# Each docker step is bounded (a fail-closed restart 600 s, pull 300 s per image, migrate 300 s, up 600 s,
+# health 180 s, smoke 50 s, the rollback's up 600 s and health 180 s): about 57 minutes at most, under
+# the unit's TimeoutStartSec=65min. On a
+# failed compose step the last lines of its error output are logged (compose names files, services and
+# image refs there; it never prints a secret file's content).
+# It logs image refs, digests, container names, compose's error lines and fixed messages; never an
+# environment, a secret or a response body. Exit 0 done or nothing to do · 1 failed or refused · 64 usage · 78 config.
 # MJK_ROOT (a directory) moves every host path below it and lets MJK_NFT stand in for nft; only
 # deploy/tests/e2e.sh sets it. The units never do.
 set -euo pipefail
@@ -56,6 +67,7 @@ REVISION_LABEL=org.opencontainers.image.revision
 WAIT_SECONDS=180
 SMOKE_PORT=8280
 VARS=(MJK_SERVER_IMAGE MJK_WEB_IMAGE MJK_BACKUP_IMAGE)
+OWN_IMAGES="$REPO_PREFIX/mjk-*"
 
 log() { printf 'mjk-update: %s\n' "$*"; }
 die() {
@@ -128,25 +140,47 @@ dc() { # <env file> <compose arguments...>
 }
 
 exec 9>"$LOCKFILE"
-if ! flock -n 9; then
+if ! flock -x -n 9; then
   log "busy: another deploy, tick or backup holds the lock; nothing done"
   exit 0
 fi
 
 table_loaded() { "$NFT" list table inet mjk >/dev/null 2>&1; }
 
-table_loaded || die "firewall_missing: table inet mjk is not loaded; no deploy (mjk-tick reloads it)"
+require_table() { table_loaded || die "firewall_missing: table inet mjk is not loaded; no deploy (mjk-tick reloads it)"; }
+require_table
+# Before each later compose step: the table, and no fail-closed stop by mjk-tick since this run began.
+require_firewall() {
+  require_table
+  [[ ! -e $MARKER ]] || die "firewall_stopped: mjk-tick stopped the stack during this deploy; nothing started"
+}
 
-pair_line() { printf '%s %s %s' "${1:-}" "${2:-}" "${3:-}"; }
-pair_of() { # file -> "<server> <web> <backup>"
-  pair_line "$(env_get "$1" MJK_SERVER_IMAGE)" "$(env_get "$1" MJK_WEB_IMAGE)" "$(env_get "$1" MJK_BACKUP_IMAGE)"
+# The sha256 of the compose file(s) as this run uses them (the override exists only under MJK_ROOT).
+compose_sha=$(cat "$COMPOSE" ${OVERRIDE:+"$OVERRIDE"} | sha256sum | cut -d ' ' -f 1)
+[[ $compose_sha =~ ^[0-9a-f]{64}$ ]] || die "config_invalid: cannot hash $COMPOSE" 78
+
+pair_line() { printf '%s %s %s %s' "${1:-}" "${2:-}" "${3:-}" "${4:-}"; }
+pair_of() { # file -> "<server> <web> <backup> <compose sha256>"
+  pair_line "$(env_get "$1" MJK_SERVER_IMAGE)" "$(env_get "$1" MJK_WEB_IMAGE)" "$(env_get "$1" MJK_BACKUP_IMAGE)" \
+    "$(env_get "$1" MJK_COMPOSE_SHA256)"
 }
 
 write_env() { # file server web backup
   local tmp=$1.tmp
-  printf 'MJK_SERVER_IMAGE=%s\nMJK_WEB_IMAGE=%s\nMJK_BACKUP_IMAGE=%s\n' "$2" "$3" "$4" >"$tmp"
+  printf 'MJK_SERVER_IMAGE=%s\nMJK_WEB_IMAGE=%s\nMJK_BACKUP_IMAGE=%s\nMJK_COMPOSE_SHA256=%s\n' "$2" "$3" "$4" "$compose_sha" >"$tmp"
   chmod 0644 "$tmp"
   mv -f "$tmp" "$1"
+}
+
+# Compose's error output of one step: a 0600 file in the unit's private /tmp, logged on a failure.
+ERRLOG=$(mktemp "${TMPDIR:-/tmp}/mjk-update.XXXXXX")
+trap 'rm -f "$ERRLOG"' EXIT
+log_compose_error() {
+  local line
+  while IFS= read -r line; do
+    line=${line//[^[:print:]]/}
+    log "compose: ${line:0:300}"
+  done < <(tail -n 5 "$ERRLOG")
 }
 
 # Every daemon service of the compose file has one container, running and healthy.
@@ -212,7 +246,8 @@ smoke_test() {
 if [[ -e $MARKER ]]; then
   if [[ -f $CURRENT ]]; then
     log "firewall-stopped marker present and the table is loaded: starting current.env again"
-    dc "$CURRENT" up -d --remove-orphans >/dev/null || die "could not start current.env again"
+    timeout 600 docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$CURRENT" \
+      up -d --remove-orphans >/dev/null 2>"$ERRLOG" || { log_compose_error; die "could not start current.env again"; }
     rm -f "$MARKER"
   else
     rm -f "$MARKER"
@@ -238,7 +273,7 @@ done
 pin() { # <ref> -> prints the recorded ref (by digest when the ref has a registry host)
   local ref=$1 repo digest
   if has_registry "$ref"; then
-    docker pull -q "$ref" >/dev/null 2>&1 || return 1
+    timeout 300 docker pull -q "$ref" >/dev/null 2>&1 || return 1
     if [[ $ref == *@sha256:* ]]; then
       printf '%s' "$ref"
       return 0
@@ -270,10 +305,13 @@ if ((!explicit)); then
   fi
 fi
 
-desired=$(pair_line "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}")
+desired=$(pair_line "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}" "$compose_sha")
 if [[ -f $CURRENT && $desired == "$(pair_of "$CURRENT")" ]]; then
-  log "up to date: the digests equal current.env"
+  log "up to date: the digests and the compose file equal current.env"
   exit 0
+fi
+if [[ -f $CURRENT && $(pair_line "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}" "$(env_get "$CURRENT" MJK_COMPOSE_SHA256)") == "$(pair_of "$CURRENT")" ]]; then
+  log "compose file changed since current.env (sha256 $compose_sha): deploying the same images with it"
 fi
 if ((!explicit)) && [[ -f $FAILED && $desired == "$(pair_of "$FAILED")" ]]; then
   die "REFUSED: this set of images failed before (failed.env); remove $FAILED to retry"
@@ -281,32 +319,38 @@ fi
 
 # --- deploy ------------------------------------------------------------------------------------------
 write_env "$NEXT" "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}"
-trap 'rm -f "$NEXT" "$NEXT.tmp"' EXIT
+trap 'rm -f "$NEXT" "$NEXT.tmp" "$ERRLOG"' EXIT
 
 fail_deploy() { # <reason code>
   log "deploy FAILED: $1"
   write_env "$FAILED" "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}"
+  require_firewall
   if [[ -f $CURRENT ]]; then
     log "rolling back to the images of current.env"
-    if dc "$CURRENT" up -d --remove-orphans >/dev/null 2>&1 && wait_healthy "$CURRENT" "$WAIT_SECONDS"; then
+    if timeout 600 docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$CURRENT" \
+      up -d --remove-orphans >/dev/null 2>"$ERRLOG" && wait_healthy "$CURRENT" "$WAIT_SECONDS"; then
       log "rollback done: the previous images are healthy"
     else
+      log_compose_error
       log "rollback FAILED: the previous images are not healthy; mjk-tick restarts what is unhealthy"
     fi
   else
     log "no current.env to return to: stopping the stack"
-    dc "$NEXT" down --remove-orphans >/dev/null 2>&1 || true
+    timeout 300 docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$NEXT" \
+      down --remove-orphans >/dev/null 2>&1 || true
   fi
   exit 1
 }
 
 log "migrating"
+require_firewall
 timeout 300 docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$NEXT" \
-  --profile jobs run --rm -T migrate >/dev/null || fail_deploy migrate_failed
+  --profile jobs run --rm -T migrate >/dev/null 2>"$ERRLOG" || { log_compose_error; fail_deploy migrate_failed; }
 
 log "bringing the stack up"
+require_firewall
 timeout 600 docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$NEXT" \
-  up -d --remove-orphans >/dev/null 2>&1 || fail_deploy up_failed
+  up -d --remove-orphans >/dev/null 2>"$ERRLOG" || { log_compose_error; fail_deploy up_failed; }
 
 wait_healthy "$NEXT" "$WAIT_SECONDS" || fail_deploy not_healthy
 smoke_test || fail_deploy smoke_failed
@@ -314,3 +358,25 @@ smoke_test || fail_deploy smoke_failed
 write_env "$CURRENT" "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}"
 rm -f "$FAILED"
 log "deployed: ${pinned[MJK_SERVER_IMAGE]} ${pinned[MJK_WEB_IMAGE]} ${pinned[MJK_BACKUP_IMAGE]}"
+
+# --- 7. old images -----------------------------------------------------------------------------------
+# Only references of our own repositories, and never one of the images current.env runs. `docker rmi
+# <ref>` removes the reference, and the image with its last one; an image still in use stays.
+declare -A keep=()
+for name in "${VARS[@]}"; do
+  id=$(docker image inspect -f '{{.Id}}' "${pinned[$name]}" 2>/dev/null) && keep[$id]=1
+done
+removed=0
+while read -r repo tag digest id; do
+  [[ -n $id && -z ${keep[$id]:-} ]] || continue
+  if [[ $tag != "<none>" ]]; then
+    ref=$repo:$tag
+  elif [[ $digest == sha256:* ]]; then
+    ref=$repo@$digest
+  else
+    continue
+  fi
+  if docker rmi "$ref" >/dev/null 2>&1; then removed=$((removed + 1)); fi
+done < <(docker image ls --no-trunc --digests --filter "reference=$OWN_IMAGES" \
+  --format '{{.Repository}} {{.Tag}} {{.Digest}} {{.ID}}' 2>/dev/null || true)
+log "old images: $removed reference(s) of $OWN_IMAGES removed"
