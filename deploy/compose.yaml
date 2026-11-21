@@ -1,0 +1,461 @@
+# Production stack (A§17.2, A§17.3). mjk-install copies this file to /etc/mjk/compose.yaml;
+# mjk-update runs it as `docker compose -p mjk -f /etc/mjk/compose.yaml --env-file
+# /srv/mjk/state/current.env`, which sets the three MJK_*_IMAGE refs (tag@digest).
+# deploy/tests/hardening.sh asserts the hardening, networks, secrets and names below.
+#
+# - No secret in an environment variable: every secret is a file under /etc/mjk/secrets,
+#   root:<gid> 0440, bind-mounted with its host owner and mode, so each consumer gets the
+#   GID through group_add (A§17.3; Compose ignores uid/gid/mode on a file secret).
+# - Compose never sets DATABASE_URL: the roles build it from their db_* secret.
+# - /etc/mjk/mjk.env holds config only (brand, domain, profile, Access, R2 names).
+# - Host paths are never created by Compose (create_host_path: false): mjk-install makes them
+#   63532 0700 (A§17.1), and a missing one fails the start instead of a root-owned directory.
+name: mjk
+
+x-hardening: &hardening
+  user: "63532:63532"
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  logging:
+    driver: local
+
+# The Node roles of the server image (interfaces.md: ENTRYPOINT node main.ts, the role as command).
+x-server: &server
+  <<: *hardening
+  image: ${MJK_SERVER_IMAGE:?set MJK_SERVER_IMAGE to the server image ref (tag@digest)}
+  env_file:
+    - path: /etc/mjk/mjk.env
+      required: true
+  pids_limit: 256
+  healthcheck:
+    test: ["CMD", "/usr/local/bin/node", "/app/apps/server/src/main.ts", "healthcheck"]
+    interval: 15s
+    timeout: 5s
+    retries: 3
+    start_period: 60s
+    start_interval: 2s
+  depends_on:
+    db:
+      condition: service_healthy
+
+# One-shot jobs: no restart and no heartbeat healthcheck (mjk-tick restarts unhealthy containers).
+x-job: &job
+  restart: "no"
+  healthcheck:
+    disable: true
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=40
+      - -c
+      - max_notify_queue_pages=64
+      - -c
+      - log_error_verbosity=terse
+      - -c
+      - log_min_error_statement=panic
+    environment:
+      POSTGRES_DB: mjk
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_postgres
+      POSTGRES_INITDB_ARGS: --locale-provider=builtin --builtin-locale=C.UTF-8
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql:uid=63532,gid=63532,mode=0755
+    # Parallel query uses /dev/shm (Docker's default is 64 MiB); it counts against mem_limit.
+    shm_size: 128m
+    volumes:
+      - type: volume
+        source: pgdata
+        target: /var/lib/postgresql
+      - type: bind
+        source: /etc/mjk/postgres/roles.sql
+        target: /docker-entrypoint-initdb.d/00-roles.sql
+        read_only: true
+        bind:
+          create_host_path: false
+    secrets:
+      - db_postgres
+      - db_mjk_migrator
+      - db_mjk_api
+      - db_mjk_ssr
+      - db_mjk_worker
+      - db_mjk_backup
+    # roles.sql reads the login passwords with pg_read_file (A§17.3).
+    group_add: ["63001", "63002", "63003", "63004", "63005", "63006"]
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 30s
+    healthcheck:
+      # UID 63532 has no passwd entry, hence -U postgres.
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "mjk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 2s
+    networks:
+      - mjk-db
+
+  migrate:
+    <<: [*job, *server]
+    command: ["migrate"]
+    profiles: [jobs]
+    secrets:
+      - db_mjk_migrator
+    group_add: ["63002"]
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      - mjk-db
+
+  api:
+    <<: *server
+    command: ["api"]
+    volumes:
+      - type: bind
+        source: /srv/mjk/quarantine
+        target: /srv/mjk/quarantine
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /srv/mjk/exports
+        target: /srv/mjk/exports
+        read_only: true
+        bind:
+          create_host_path: false
+    secrets:
+      - db_mjk_api
+      - app_keys
+    group_add: ["63003", "63012"]
+    mem_limit: 384m
+    cpus: 1.0
+    networks:
+      - mjk-edge
+      - mjk-db
+      - mjk-api-egress
+
+  ssr:
+    <<: *server
+    command: ["ssr"]
+    secrets:
+      - db_mjk_ssr
+    group_add: ["63004"]
+    mem_limit: 384m
+    cpus: 1.0
+    networks:
+      - mjk-edge
+      - mjk-db
+
+  worker:
+    <<: *server
+    command: ["worker"]
+    volumes:
+      - type: bind
+        source: /srv/mjk/quarantine
+        target: /srv/mjk/quarantine
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /srv/mjk/originals
+        target: /srv/mjk/originals
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /srv/mjk/exports
+        target: /srv/mjk/exports
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /srv/mjk/tiles-build
+        target: /srv/mjk/tiles-build
+        bind:
+          create_host_path: false
+    secrets:
+      - db_mjk_worker
+      - lettermint_api_token
+      - r2_media_rw
+      - app_keys
+      - hc_ping_key
+    group_add: ["63005", "63008", "63009", "63012", "63013"]
+    mem_limit: 768m
+    cpus: 1.0
+    networks:
+      - mjk-egress
+      - mjk-db
+
+  caddy:
+    <<: *hardening
+    image: ${MJK_WEB_IMAGE:?set MJK_WEB_IMAGE to the web image ref (tag@digest)}
+    env_file:
+      - path: /etc/mjk/mjk.env
+        required: true
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 80
+    tmpfs:
+      - /tmp
+      - /data:uid=63532,gid=63532,mode=0700
+      - /config:uid=63532,gid=63532,mode=0700
+    # The only published port (A§17.3). mjk-publish is the one non-internal network, because
+    # Docker publishes no port for a container that is only on internal networks.
+    ports:
+      - target: 80
+        host_ip: 127.0.0.1
+        published: "8280"
+        protocol: tcp
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 128
+    healthcheck:
+      # The loopback-only health site of deploy/web/Caddyfile (busybox wget).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8089/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      api:
+        condition: service_healthy
+      ssr:
+        condition: service_healthy
+    networks:
+      mjk-edge:
+        # The api trusts X-Mjk-Client only from this address (A§9).
+        ipv4_address: 10.63.2.10
+      mjk-tunnel-edge: {}
+      mjk-publish: {}
+
+  cloudflared:
+    <<: *hardening
+    image: cloudflare/cloudflared:2026.11.0@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
+    # The token from a file, never argv or env. Metrics on loopback (the default binds 0.0.0.0).
+    # The diagnostics routes (pprof) stay off the management service.
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --management-diagnostics=false
+      - --metrics
+      - 127.0.0.1:20241
+      - run
+      - --token-file
+      - /run/secrets/cf_tunnel_token
+    secrets:
+      - cf_tunnel_token
+    group_add: ["63007"]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    healthcheck:
+      # `cloudflared tunnel ready` calls the metrics server's /ready (exit 0 with a live connection).
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
+    networks:
+      mjk-tunnel: {}
+      mjk-tunnel-edge:
+        ipv4_address: 10.63.6.10
+
+  # Run by mjk-backup.service: `docker compose -p mjk run --rm backup`.
+  backup:
+    <<: [*job, *server]
+    image: ${MJK_BACKUP_IMAGE:?set MJK_BACKUP_IMAGE to the backup image ref (tag@digest)}
+    command: ["backup"]
+    profiles: [jobs, backup]
+    environment:
+      # The role runs restic with --no-cache; this is the fallback for a cache on the tmpfs.
+      XDG_CACHE_HOME: /tmp/.cache
+    volumes:
+      - type: bind
+        source: /srv/mjk/originals
+        target: /srv/mjk/originals
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /srv/mjk/backup-staging
+        target: /srv/mjk/backup-staging
+        bind:
+          create_host_path: false
+    secrets:
+      - db_mjk_backup
+      - r2_backup_put
+      - restic_password
+    # No 63013: the backup's health ping runs from the host unit (interfaces.md).
+    group_add: ["63006", "63010", "63011"]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    networks:
+      - mjk-db
+      - mjk-backup-egress
+
+  # The role sits in the entrypoint, so `docker compose -p mjk run --rm sync-museums --dry-run`
+  # passes only the flags. Limits and networks as `worker` (A§17.2).
+  sync-museums:
+    <<: [*job, *server]
+    entrypoint: ["/usr/local/bin/node", "/app/apps/server/src/main.ts", "sync-museums"]
+    command: []
+    profiles: [jobs, tools]
+    secrets:
+      - db_mjk_worker
+    group_add: ["63005"]
+    mem_limit: 768m
+    cpus: 1.0
+    networks:
+      - mjk-egress
+      - mjk-db
+
+  # `docker compose -p mjk run --rm admin museum flag …`. Limits as `api` (A§17.2).
+  admin:
+    <<: [*job, *server]
+    entrypoint: ["/usr/local/bin/node", "/app/apps/server/src/main.ts", "admin"]
+    command: []
+    profiles: [jobs, tools]
+    secrets:
+      - db_mjk_api
+      - app_keys
+    group_add: ["63003", "63012"]
+    mem_limit: 384m
+    cpus: 1.0
+    networks:
+      - mjk-db
+
+# A§17.3, in order. Bridges named mjk-* so nftables can match iifname, IPv4 only, ICC off on
+# the five non-internal ones. A bridge name has at most 15 characters, hence mjk-bkp-egress.
+# The two networks with a fixed address keep dynamic addresses in the upper half (ip_range),
+# so no other container can ever take 10.63.2.10 or 10.63.6.10.
+networks:
+  mjk-db:
+    name: mjk-db
+    driver: bridge
+    internal: true
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-db
+    ipam:
+      config:
+        - subnet: 10.63.1.0/24
+  mjk-edge:
+    name: mjk-edge
+    driver: bridge
+    internal: true
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-edge
+    ipam:
+      config:
+        - subnet: 10.63.2.0/24
+          ip_range: 10.63.2.128/25
+  mjk-egress:
+    name: mjk-egress
+    driver: bridge
+    internal: false
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-egress
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 10.63.3.0/24
+  mjk-api-egress:
+    name: mjk-api-egress
+    driver: bridge
+    internal: false
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-api-egress
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 10.63.4.0/24
+  mjk-tunnel:
+    name: mjk-tunnel
+    driver: bridge
+    internal: false
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-tunnel
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 10.63.5.0/24
+  mjk-tunnel-edge:
+    name: mjk-tunnel-edge
+    driver: bridge
+    internal: true
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-tunnel-edge
+    ipam:
+      config:
+        - subnet: 10.63.6.0/24
+          ip_range: 10.63.6.128/25
+  mjk-publish:
+    name: mjk-publish
+    driver: bridge
+    internal: false
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-publish
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 10.63.7.0/24
+  mjk-backup-egress:
+    name: mjk-backup-egress
+    driver: bridge
+    internal: false
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.name: mjk-bkp-egress
+      com.docker.network.bridge.enable_icc: "false"
+    ipam:
+      config:
+        - subnet: 10.63.8.0/24
+
+volumes:
+  pgdata:
+    name: mjk_pgdata
+
+# root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3).
+secrets:
+  db_postgres:
+    file: /etc/mjk/secrets/db_postgres
+  db_mjk_migrator:
+    file: /etc/mjk/secrets/db_mjk_migrator
+  db_mjk_api:
+    file: /etc/mjk/secrets/db_mjk_api
+  db_mjk_ssr:
+    file: /etc/mjk/secrets/db_mjk_ssr
+  db_mjk_worker:
+    file: /etc/mjk/secrets/db_mjk_worker
+  db_mjk_backup:
+    file: /etc/mjk/secrets/db_mjk_backup
+  cf_tunnel_token:
+    file: /etc/mjk/secrets/cf_tunnel_token
+  lettermint_api_token:
+    file: /etc/mjk/secrets/lettermint_api_token
+  r2_media_rw:
+    file: /etc/mjk/secrets/r2_media_rw
+  r2_backup_put:
+    file: /etc/mjk/secrets/r2_backup_put
+  restic_password:
+    file: /etc/mjk/secrets/restic_password
+  app_keys:
+    file: /etc/mjk/secrets/app_keys
+  hc_ping_key:
+    file: /etc/mjk/secrets/hc_ping_key
