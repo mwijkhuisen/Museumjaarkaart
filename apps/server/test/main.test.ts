@@ -87,9 +87,12 @@ describe('run', () => {
       run(['ssr'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() });
     expect(await exit({})).toBe(EXIT_CONFIG);
     expect(await exit({ MJK_BRAND_NAME: 'Testmerk' })).toBe(EXIT_CONFIG);
-    expect(await exit({ MJK_BRAND_NAME: 'Testmerk', MJK_DOMAIN: 'mjk.test' })).toBe(EXIT_CONFIG);
+    const legal = { MJK_CONTROLLER_NAME: 'Test Beheerder', MJK_CONTACT_EMAIL: 'info@mjk.test' };
+    expect(await exit({ MJK_BRAND_NAME: 'Testmerk', MJK_DOMAIN: 'mjk.test', ...legal })).toBe(EXIT_CONFIG);
     const url = 'mysql://user:Secret-Value-123@db/x';
-    expect(await exit({ MJK_BRAND_NAME: 'Testmerk', MJK_DOMAIN: 'mjk.test', DATABASE_URL: url })).toBe(EXIT_CONFIG);
+    expect(await exit({ MJK_BRAND_NAME: 'Testmerk', MJK_DOMAIN: 'mjk.test', ...legal, DATABASE_URL: url })).toBe(
+      EXIT_CONFIG,
+    );
     expect(lines).toEqual([
       'ssr: MJK_BRAND_NAME is missing',
       'ssr: MJK_DOMAIN is missing',

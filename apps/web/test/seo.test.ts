@@ -6,7 +6,7 @@ import { headOf, jsonLdOf, type PageData } from '../src/lib/seo/head.tsx';
 import { sitemapXml } from '../src/lib/seo/sitemap.ts';
 import { overwriteServerAsyncLocalStorage } from '../src/paraglide/runtime.js';
 
-const CONFIG = { brand: 'Musea Test', domain: 'mjk.test' };
+const CONFIG = { brand: 'Musea Test', domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
 
 // The same locale mechanism as entry-server.tsx.
 const renders = new AsyncLocalStorage<{ locale?: Locale }>();
@@ -200,7 +200,7 @@ describe('sitemapXml', () => {
   });
 
   it('escapes XML metacharacters', () => {
-    const xml = sitemapXml(['a'], { brand: 'x', domain: `h&<>"'` });
+    const xml = sitemapXml(['a'], { brand: 'x', domain: `h&<>"'`, controller: 'x', contactEmail: 'x@x.nl' });
     expect(xml).toContain('<loc>https://h&amp;&lt;&gt;&quot;&apos;/</loc>');
   });
 });

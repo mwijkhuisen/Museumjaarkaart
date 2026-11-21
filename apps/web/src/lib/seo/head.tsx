@@ -21,6 +21,8 @@ export type HeadData = {
   /** `noindex` for the app shell, `noindex, follow` for search (A§15.2). */
   robots: string | null;
   brand: string;
+  controller: string;
+  contactEmail: string;
 };
 
 const pageTitle = (page: string, brand: string) => m.head_title({ page, brand });
@@ -108,6 +110,8 @@ export function headOf(route: Route, data: PageData, config: SsrConfig): HeadDat
     alternates: { nl: absolute(inLocale(route, 'nl'), config), en: absolute(inLocale(route, 'en'), config) },
     robots: route.page === 'shell' ? 'noindex' : route.page === 'search' ? 'noindex, follow' : null,
     brand: config.brand,
+    controller: config.controller,
+    contactEmail: config.contactEmail,
   };
 }
 
@@ -127,6 +131,8 @@ export function errorHeadOf(kind: ErrorKind, locale: Locale, config: SsrConfig):
     alternates: null,
     robots: 'noindex',
     brand: config.brand,
+    controller: config.controller,
+    contactEmail: config.contactEmail,
   };
 }
 
@@ -146,6 +152,8 @@ export function Head({ head }: { head: HeadData }) {
     <>
       <title>{head.title}</title>
       <meta name="application-name" content={head.brand} />
+      <meta name="mjk-controller" content={head.controller} />
+      <meta name="mjk-contact" content={head.contactEmail} />
       {head.robots === null ? null : <meta name="robots" content={head.robots} />}
       {head.description === null ? null : <meta name="description" content={head.description} />}
       {head.canonical === null ? null : <link rel="canonical" href={head.canonical} />}

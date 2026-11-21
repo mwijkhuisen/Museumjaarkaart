@@ -26,6 +26,8 @@ afterAll(async () => {
 const GOOD = () => ({
   MJK_BRAND_NAME: 'Musea Test',
   MJK_DOMAIN: 'mjk.test',
+  MJK_CONTROLLER_NAME: 'Test Beheerder',
+  MJK_CONTACT_EMAIL: 'info@mjk.test',
   DATABASE_URL: db.urls.mjk_ssr,
   PATH: process.env.PATH,
 });
@@ -47,6 +49,8 @@ function opts(over: Partial<SsrRunOpts> = {}) {
 
 it.each([
   ['no MJK_BRAND_NAME', { MJK_BRAND_NAME: undefined }, 'ssr: MJK_BRAND_NAME is missing'],
+  ['no MJK_CONTROLLER_NAME', { MJK_CONTROLLER_NAME: undefined }, 'ssr: MJK_CONTROLLER_NAME is missing'],
+  ['a bad MJK_CONTACT_EMAIL', { MJK_CONTACT_EMAIL: 'a b' }, 'ssr: MJK_CONTACT_EMAIL must be an email address'],
   ['a bad MJK_DOMAIN', { MJK_DOMAIN: 'Evil Domain' }, 'ssr: MJK_DOMAIN must be a lowercase host name with a dot'],
 ])('exits 78 for %s and names the variable', async (_n, over, line) => {
   const { o, lines } = opts();

@@ -7,8 +7,8 @@ export type ApiResult = { status: number; location: string | null; body: unknown
 /** Runs the api's own catalogue route for `path` (`/api/v1/…`, with its query). */
 export type FetchApi = (path: string) => Promise<ApiResult>;
 
-/** Validated config (A§17.3): the brand and the public host name. */
-export type SsrConfig = { brand: string; domain: string };
+/** Validated config (A§17.3): the brand, the public host name and the legal pages' controller and email. */
+export type SsrConfig = { brand: string; domain: string; controller: string; contactEmail: string };
 
 /** A finished document. `page` is a fixed code for the log line, never the path. */
 export type SsrResponse = {

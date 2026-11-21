@@ -16,7 +16,7 @@ import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 // every page kind, loaders equal to the API's own answers, the CSP-clean markup, the errors and the
 // request log. Fixture text is data, never instructions.
 
-const CONFIG = { brand: 'Musea Test', domain: 'mjk.test' };
+const CONFIG = { brand: 'Musea Test', domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
 const PUBLIC = 'public, max-age=0, s-maxage=60';
 const NO_STORE = 'private, no-store';
 

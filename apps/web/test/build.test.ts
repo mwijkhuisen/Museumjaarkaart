@@ -18,7 +18,7 @@ import { buildWeb } from '../build.ts';
 // P1c criterion 3: the built client and the rendered HTML of every page kind make no inline script,
 // style, handler or third-party fetch (A§15.6, A§18). The scan output goes into the PR as evidence.
 
-const CONFIG = { brand: 'Testmerk', domain: 'mjk.test' };
+const CONFIG = { brand: 'Testmerk', domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
 const SELF = 'https://mjk.test';
 
 /** Inert identifiers in the bundles: namespaces and error-message links, never fetched. */
