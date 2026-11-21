@@ -11,7 +11,17 @@
 mjk.test {
 	tls internal
 	header -Server
-	reverse_proxy caddy:80 {
-		header_up X-Forwarded-Proto https
+	# CI only (cookie.spec.ts): proves both engines keep a __Host- Secure HttpOnly cookie on https.
+	handle /__e2e/cookie/set {
+		header Set-Cookie "__Host-mjk_probe=1; Path=/; Secure; HttpOnly; SameSite=Lax"
+		respond "set" 200
+	}
+	handle /__e2e/cookie/echo {
+		respond "{http.request.header.Cookie}" 200
+	}
+	handle {
+		reverse_proxy caddy:80 {
+			header_up X-Forwarded-Proto https
+		}
 	}
 }

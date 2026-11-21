@@ -12,7 +12,7 @@
     "check": "pnpm i18n && biome check && tsc -b && vitest run --project unit && node scripts/check-i18n.ts",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "test:e2e": "pnpm --filter @mjk/web e2e"
+    "test:e2e": "pnpm --filter @mjk/web build && deploy/e2e/stack.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",

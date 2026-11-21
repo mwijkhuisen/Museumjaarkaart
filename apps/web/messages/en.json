@@ -1,7 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "smoke_title": "Museums in the Netherlands",
-  "smoke_heading": "All museums in the Netherlands",
   "head_title": "{page} · {brand}",
   "head_title_home": "{brand}: every museum in the Netherlands",
   "head_description_home": "Every museum in the Netherlands in one place: search, filter and see where the Museumkaart is valid.",
