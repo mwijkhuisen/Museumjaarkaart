@@ -1,6 +1,6 @@
 # ADR-0009: Server-rendered public pages under a strict CSP
 
-- **Status:** Accepted (owner, 2026-11-01)
+- **Status:** Accepted (owner, 2026-11-01); its two [U P1c] points settled in P1c (owner, 2026-11-21)
 - **Date:** 2026-11-01
 - **Source:** `docs/plan/ARCHITECTURE.md` (planning session 2026-11-01)
 
@@ -13,13 +13,13 @@
 
 ## Decision
 
-- **A Vite 8 SSR build** of `apps/web` (`src/entry-server.tsx`, `src/entry-client.tsx`). The `ssr` role (Hono `:8081`) renders public routes with React 19 (`renderToReadableStream` or `prerender` [U P1c]) and embeds the dehydrated TanStack Query state as `<script type="application/json" id="mjk-state">`: a data block that never executes, so `script-src 'self'` allows it. The client calls `hydrateRoot` (A§15.1).
+- **A Vite 8 SSR build** of `apps/web` (`src/entry-server.tsx`, `src/entry-client.tsx`). The `ssr` role (Hono `:8081`) renders public routes with React 19's `prerender` (P1c: the data is loaded first, so nothing suspends and the document is finished before the first byte) and embeds the dehydrated TanStack Query state (the api's answers keyed by their `/api/v1` path) as `<script type="application/json" id="mjk-state">`: a data block that never executes, so `script-src 'self'` allows it. The client calls `hydrateRoot` (A§15.1).
 - **Logged-in screens stay an SPA** in the same build. The admin is a separate entry (`admin.html`) on the admin host (ADR-0004).
 - **Anonymous only:** `ssr` never reads a session or cookie, logs in as `mjk_ssr` with `SELECT` on the `pub_*` views only (A§8), and has no egress network. Personal bits load client-side from `/api/v1/me` (`private, no-store`).
 - **Cacheable public HTML** with a short shared cache at Cloudflare [U `s-maxage`].
 - **SEO:** canonical URLs, `hreflang` nl/en (ADR-0013), Open Graph, JSON-LD `Museum`, `sitemap.xml`, `robots.txt`. `X-Robots-Tag: noindex` until P5b (Waterheight's prelaunch profile).
 - **The CSP does not loosen** (A§15.6). A build test fails on any inline script or style and on any `data:` or `blob:` source, except `img-src data:` for MapLibre's CSS icons (Waterheight ADR-0016). The `mjk-state` (`application/json`) and JSON-LD (`application/ld+json`) data blocks are the only `<script>` elements without `src`; neither executes, and both are escaped per A§15.1. The "hide ratings until I've visited" fold uses a tiny blocking same-origin script, not an inline one (A§11).
-- No router library: a `routeOf` shared by server and client [U P1c].
+- No router library: a `routeOf` shared by server and client (P1c: one pure table in `apps/web/src/lib/routes.ts`, used by the SSR bundle and the browser).
 
 ## Consequences
 
