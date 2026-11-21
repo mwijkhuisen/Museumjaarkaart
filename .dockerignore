@@ -1,0 +1,55 @@
+# Build context for the multi-stage images (deploy/server, deploy/web). The builds run
+# `pnpm install --frozen-lockfile` and `pnpm --filter @mjk/web build` inside the image,
+# so nothing built or installed on the host may enter the context.
+
+# version control and agent state
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.worktrees
+
+# installed and built output (rebuilt inside the image)
+**/node_modules
+**/dist
+**/dist-ssr
+**/*.tsbuildinfo
+coverage
+**/coverage
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+blob-report
+**/blob-report
+apps/web/src/paraglide
+
+# secrets and private data (A§16.1): never in a context or a layer
+.env*
+**/.env*
+secrets
+**/secrets
+*.secret
+*.pem
+*.key
+**/*.pem
+**/*.key
+fixtures-private
+**/fixtures-private
+.npmrc
+**/.npmrc
+
+# documentation and CI-only stacks: not needed to build or run. Unit and integration tests
+# stay in the context on purpose: the tsconfig projects include them.
+docs
+**/*.md
+apps/web/e2e
+deploy/e2e
+deploy/tests
+
+# editor and OS noise
+.DS_Store
+.vscode
+.idea
+*.log
