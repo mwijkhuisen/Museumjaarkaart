@@ -30,6 +30,8 @@ export default defineConfig({
           name: 'integration',
           include: integrationFiles,
           exclude: ['**/node_modules/**'],
+          // The ssr tests render through the built SSR bundle (apps/web/dist): one build per run.
+          globalSetup: ['apps/web/test/web-build.setup.ts'],
           fileParallelism: false,
           hookTimeout: 60_000,
         },

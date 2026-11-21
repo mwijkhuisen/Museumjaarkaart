@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": false,
+    "tsBuildInfoFile": "node_modules/.cache/tsc/web.tsbuildinfo"
+  },
+  "include": ["src", "test", "vite.config.ts", "build.ts"],
+  "references": [{ "path": "../../packages/contracts" }]
+}

@@ -1,5 +1,27 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "smoke_title": "Museums in the Netherlands",
-  "smoke_heading": "All the museums of the Netherlands"
+  "smoke_heading": "All museums in the Netherlands",
+  "head_title": "{page} · {brand}",
+  "head_title_home": "{brand}: every museum in the Netherlands",
+  "page_museums": "Museums",
+  "page_province": "Museums in {province}",
+  "page_search": "Search",
+  "page_search_results": "Search: {q}",
+  "page_map": "Map",
+  "page_privacy": "Privacy",
+  "page_terms": "Terms",
+  "page_contact": "Contact",
+  "page_reviews": "How we check reviews",
+  "page_passport": "Passport",
+  "page_wishlist": "Wishlist",
+  "page_account": "Account",
+  "page_signin": "Sign in",
+  "page_not_found": "Page not found",
+  "not_found_body": "This page does not exist (any more).",
+  "page_bad_request": "Invalid search",
+  "bad_request_body": "We cannot search with these filters or this search term.",
+  "page_error": "Something went wrong",
+  "error_body": "Something went wrong: reload the page.",
+  "loading": "Loading…"
 }

@@ -1,5 +1,27 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "smoke_title": "Musea in Nederland",
-  "smoke_heading": "Alle musea van Nederland"
+  "smoke_heading": "Alle musea van Nederland",
+  "head_title": "{page} · {brand}",
+  "head_title_home": "{brand}: alle musea van Nederland",
+  "page_museums": "Musea",
+  "page_province": "Musea in {province}",
+  "page_search": "Zoeken",
+  "page_search_results": "Zoeken: {q}",
+  "page_map": "Kaart",
+  "page_privacy": "Privacy",
+  "page_terms": "Voorwaarden",
+  "page_contact": "Contact",
+  "page_reviews": "Hoe wij reviews controleren",
+  "page_passport": "Paspoort",
+  "page_wishlist": "Verlanglijst",
+  "page_account": "Account",
+  "page_signin": "Inloggen",
+  "page_not_found": "Pagina niet gevonden",
+  "not_found_body": "Deze pagina bestaat niet (meer).",
+  "page_bad_request": "Ongeldige zoekopdracht",
+  "bad_request_body": "Met deze filters of deze zoekterm kunnen we niets vinden.",
+  "page_error": "Er ging iets mis",
+  "error_body": "Er ging iets mis: herlaad de pagina.",
+  "loading": "Laden…"
 }
