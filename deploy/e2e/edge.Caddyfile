@@ -1,0 +1,17 @@
+# CI only: stands in for Cloudflare's edge (TLS for mjk.test, X-Forwarded-Proto https).
+{
+	admin off
+	skip_install_trust
+	auto_https disable_redirects
+	servers {
+		protocols h1 h2
+	}
+}
+
+mjk.test {
+	tls internal
+	header -Server
+	reverse_proxy caddy:80 {
+		header_up X-Forwarded-Proto https
+	}
+}

@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// CI starts the smoke server on the runner (Node 26) and runs Playwright inside the pinned image
-// mcr.microsoft.com/playwright:v1.64.1-noble with `--network host` and E2E_BASE_URL.
-const external = process.env.E2E_BASE_URL;
-const baseURL = external ?? 'http://127.0.0.1:4173';
+// deploy/e2e/stack.sh starts the CI stack (db, api, ssr, caddy, a TLS edge) and runs Playwright inside the
+// pinned image mcr.microsoft.com/playwright:v1.64.1-noble on its network, with E2E_BASE_URL=https://mjk.test.
+const baseURL = process.env.E2E_BASE_URL;
+if (!baseURL) throw new Error('E2E_BASE_URL is required: run deploy/e2e/stack.sh');
 
 export default defineConfig({
   testDir: '.',
@@ -11,20 +11,10 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   reporter: [['list']],
-  use: { baseURL },
+  // The edge's certificate comes from Caddy's internal CA.
+  use: { baseURL, ignoreHTTPSErrors: true },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
-  ...(external
-    ? {}
-    : {
-        webServer: {
-          command: 'node e2e/server.ts',
-          cwd: new URL('..', import.meta.url).pathname,
-          url: 'http://127.0.0.1:4173/healthz',
-          reuseExistingServer: false,
-          timeout: 30_000,
-        },
-      }),
 });
