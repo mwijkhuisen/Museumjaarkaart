@@ -104,13 +104,16 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
 /**
  * Every catalogue route (P1b). Only the lead edits this list, so the route packages stay disjoint.
  * The first registered route answers, so the fixed /museums/… paths come before /museums/:slug.
+ * The `ssr` role mounts the same list on its own in-process app (P1c).
  */
+export const mountCatalogue: Mount = (v1, d) => {
+  mountProvinces(v1, d);
+  mountMkList(v1, d);
+  mountMuseumsList(v1, d);
+  mountMuseumsNear(v1, d);
+  mountMuseumDetail(v1, d);
+};
+
 export function createApp(deps: ApiDeps): ApiApp {
-  return buildApp(deps, (v1, d) => {
-    mountProvinces(v1, d);
-    mountMkList(v1, d);
-    mountMuseumsList(v1, d);
-    mountMuseumsNear(v1, d);
-    mountMuseumDetail(v1, d);
-  });
+  return buildApp(deps, mountCatalogue);
 }
