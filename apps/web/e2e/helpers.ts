@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { APIRequestContext } from '@playwright/test';
+import { type APIRequestContext, expect, type Page } from '@playwright/test';
 
 // Shared by the page specs. UI text is read from the message files (never hard-coded), so a copy change
 // cannot make a spec drift. stack.sh runs Playwright from apps/web.
@@ -61,3 +61,11 @@ export const pageKinds = (locale: Locale, slug: string): Record<string, string> 
     shell: p('paspoort', 'passport'),
   };
 };
+
+export const mapPath = (locale: Locale, query = '') => `${locale === 'en' ? '/en/map' : '/kaart'}${query}`;
+
+/** Opens the map page and waits for the lazy chunk, the tiles and the points: `data-map-state="ready"`. */
+export async function openMap(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await expect(page.locator('#museum-map')).toHaveAttribute('data-map-state', 'ready', { timeout: 30_000 });
+}

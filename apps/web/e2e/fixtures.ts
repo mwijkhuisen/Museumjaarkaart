@@ -12,6 +12,14 @@ const WEBKIT_SELECT =
   "console error: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.";
 
 /**
+ * Chromium's own performance hint for the map on the image's software GL (SwiftShader): the map page alone, with no
+ * test read-back, logs it as a console warning a few times per page (seen in P1d, Chromium 1.64.1's build). It says
+ * nothing about our code, and WebKit never logs it.
+ */
+const GL_STALL =
+  /^console warning: \[\.WebGL-[0-9a-fx]+\]GL Driver Message \(OpenGL, Performance, GL_CLOSE_PATH_NV, High\): GPU stall due to ReadPixels( \(this message will no longer repeat\))?$/;
+
+/**
  * The guard every spec uses. After each test that opened a page it asserts: no CSP violation, no request to a
  * host other than the base URL's host or `media.` + it (A§18), no console error or warning and no page error.
  * A spec that expects one (a 404 page's "Failed to load resource") lists it in `allowedConsole`.
@@ -59,7 +67,7 @@ export const test = base.extend<{ allowedConsole: RegExp[]; guard: undefined }>(
       const offHost = urls.filter((u) => /^(https?|wss?):/.test(u) && !allowed.has(new URL(u).host));
       expect(violations, 'CSP violations').toEqual([]);
       expect(offHost, 'requests to other hosts').toEqual([]);
-      const own = problems.filter((p) => !(p === WEBKIT_SELECT && skipped-- > 0));
+      const own = problems.filter((p) => !(p === WEBKIT_SELECT && skipped-- > 0) && !GL_STALL.test(p));
       expect(own, 'console errors and page errors').toEqual([]);
     },
     { auto: true },
