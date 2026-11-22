@@ -43,7 +43,15 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 ]
 ```
 
-   `range` is for browsers that preflight a `Range` request, `ETag` is what pmtiles checks between two range reads of one file. Both are [U] until the [box] run in §8 has shown a map load from `https://<domain>`.
+   `range` is for browsers that preflight a `Range` request, `ETag` is what pmtiles checks between two range reads of one file. Both are [U] until the [box] run in §8 has shown a map load from `https://<domain>`. Protomaps' own R2 policy also allows `if-match`; pmtiles 4.5.0 never sends it (its `FetchSource` sets only `range` and compares the `ETag` itself, refetching with `cache: "reload"` on a mismatch; checked in its source for P1d), so the rule stays without it.
+
+   That JSON is the dashboard's form. The R2 API and `wrangler r2 bucket cors set` take another one:
+
+```json
+{"rules": [{"allowed": {"origins": ["https://<domain>"], "methods": ["GET", "HEAD"], "headers": ["range"]}, "exposeHeaders": ["ETag"], "maxAgeSeconds": 86400}]}
+```
+
+   A CORS change does not reach objects that Cloudflare already holds in its cache: they keep their old headers until purged. The tiles file, over 512 MB, is never cached (§8 item 4), so this matters only for the photos under `/p/*` (P3b).
 3. **The token.** R2 → Manage API tokens → Object Read & Write, scoped to the one bucket `mjk-media`, never account-wide. Write it as an AWS credentials file (the format of `r2_backup_put`) into `/etc/mjk/secrets/r2_media_rw`, owner `root:63009`, mode `0440`, as `docs/runbooks/install.md` §4 describes. Compose will not start the `worker` without the file: on a first install `mjk-install` lists it as missing and leaves the timers off; on a P1e host `mjk-update` refuses to deploy until it is there.
 4. **Config.** `/etc/mjk/mjk.env` has `MJK_R2_ENDPOINT=https://<account id>.eu.r2.cloudflarestorage.com` (the backup uses it too) and `MJK_R2_BUCKET_MEDIA=mjk-media`. Recreate the worker so it reads them: `mjkc up -d --force-recreate worker`.
 5. **The host.** `/srv/mjk/tiles-build` exists (`mjk-install` makes it `63532:63532 0700`) on a disk with room for **twice the file**: go-pmtiles writes a temporary file as large as the extract in the same directory (`TMPDIR`), and then the output. Check `df -h /srv/mjk/tiles-build` against a ceiling of 4 GiB.
@@ -127,7 +135,7 @@ mjkc logs -f worker | grep -E 'tiles_|job_'        # until job_done (or job_fail
 ```
 
    Note the build date (`tiles_build_found`), how long it took (`job_done` has `ms`), and `df -h /srv/mjk/tiles-build` during the run.
-2. **The size.** From your workstation with the bucket token (or in the dashboard): the size of `tiles/nl-<build>.pmtiles`. A§15.3 expects ~1–2 GB [U]; write the measured size into A§15.3 and tell the lead. If it is far over 2 GB, drop the top zoom level (a `--maxzoom` argument in a PR; MapLibre overzooms).
+2. **The size.** From your workstation with the bucket token (or in the dashboard): the size of `tiles/nl-<build>.pmtiles`. A§15.3 expects ~1–2 GB [U]; write the measured size into A§15.3 and tell the lead. If it is far over 2 GB, drop the top zoom level (a `--maxzoom` argument in a PR; MapLibre overzooms). Over 512 MB, Cloudflare never caches the file (item 4).
 3. **`current.json`:**
 
 ```bash
@@ -135,14 +143,28 @@ curl -sS https://media.<domain>/tiles/current.json
 # {"file":"nl-<build>.pmtiles","previous":null}
 ```
 
-4. **A range request, cold and warm** (owner Q7: no Cache Rule on `tiles/*` first). Run it twice, a minute apart, and record both outputs:
+4. **A range request, cold and warm** (owner Q7: no Cache Rule on `tiles/*`). Run it twice, a minute apart, and record both outputs:
 
 ```bash
 curl -sS -o /dev/null -D - -r 0-1023 https://media.<domain>/tiles/nl-<build>.pmtiles
 ```
 
-   Record the status (206 expected), `content-range` (`bytes 0-1023/<size>`), `content-type`, `cache-control` (`public, max-age=31536000, immutable`) and `cf-cache-status` (`MISS` or `DYNAMIC` cold, `HIT` warm if Cloudflare caches ranges of this object). The answer goes into A§15.3 and ADR-0014. If the cold request is slow or `cf-cache-status` stays `DYNAMIC`/`MISS` on a warm one, tell the lead before adding a Cache Rule for `tiles/*` (cloudflare.md §5).
-5. **CORS:**
+   Record the status (206 expected), `content-range` (`bytes 0-1023/<size>`), `content-type`, `cache-control` (`public, max-age=31536000, immutable`) and `cf-cache-status`. **For a file over 512 MB the expected `cf-cache-status` is `DYNAMIC` or `MISS`, cold and warm alike; `HIT` is not expected.** Cloudflare's Free, Pro and Business plans cache objects up to 512 MB and judge the complete size from `Content-Range`, so a small range does not get around it; `.pmtiles` is not a default cached extension, so without a rule Cloudflare forwards the browser's `Range` and R2 answers 206. The outputs go into A§15.3 and ADR-0014.
+
+   **Never add a cache-eligible rule that covers `tiles/` while the file is over 512 MB** (cloudflare.md §4 item 5): on a cacheable miss Cloudflare may drop the browser's `Range` and fetch the complete file, a 1–2 GB read from R2 that it then does not store.
+5. **Time to first byte of cold reads.** About ten range reads spread over the file (R2 reads are slower than other storage; Protomaps warns of 500 ms or more):
+
+```bash
+size=<size in bytes from item 2>
+for i in 0 1 2 3 4 5 6 7 8 9; do
+  off=$(( size / 10 * i ))
+  curl -sS -o /dev/null -r "$off-$(( off + 16383 ))" -w "$off %{http_code} %{time_starttransfer}\n" \
+    https://media.<domain>/tiles/nl-<build>.pmtiles
+done
+```
+
+   Record the ten lines (offset, status, seconds to the first byte); every status is 206.
+6. **CORS:**
 
 ```bash
 curl -sS -o /dev/null -D - -H 'Origin: https://<domain>' -r 0-1023 https://media.<domain>/tiles/nl-<build>.pmtiles | grep -i -E '^(HTTP|access-control|etag)'
@@ -150,8 +172,13 @@ curl -sS -o /dev/null -D - -H 'Origin: https://example.org' -r 0-1023 https://me
 ```
 
    The first answers `access-control-allow-origin: https://<domain>` and an `etag`; the second has no `access-control-allow-origin`.
-6. **Idempotence:** run `tiles refresh` again: the log shows `tiles_up_to_date` and `job_done` within seconds, and nothing is extracted. A refresh on a later date (the next quarter) leaves two files and the first one stays as `previous`.
-7. **A rollback drill** after the second refresh exists: `tiles rollback`, check `current.json` names the older file, then `tiles rollback` again to restore it.
-8. Check `ls /srv/mjk/tiles-build` is empty and `mjkc ps worker` is healthy.
+7. **Idempotence:** run `tiles refresh` again: the log shows `tiles_up_to_date` and `job_done` within seconds, and nothing is extracted. A refresh on a later date (the next quarter) leaves two files and the first one stays as `previous`.
+8. **A rollback drill** after the second refresh exists: `tiles rollback`, check `current.json` names the older file, then `tiles rollback` again to restore it.
+9. Check `ls /srv/mjk/tiles-build` is empty and `mjkc ps worker` is healthy.
+10. **The reads of one phone session** (with the [owner] phone check: pan, zoom, tap a cluster and a museum, near me, over 4G). Every uncached range read is an R2 GetObject, a Class B operation: 10 million a month free, then $0.36 per million (Protomaps: each tile request counts as a GET). Note the Class B count of `mjk-media` (R2 → `mjk-media` → Metrics) before and after the session, and how long the session took; the difference set against 10 million says how many such sessions a month fit in the free tier.
+11. **If the map feels slow on the phone over 4G**, do not change anything yet: tell the lead, and the choice is yours (owner):
+    - (a) accept it;
+    - (b) cap the extract under 512 MB (drop the top zoom level; MapLibre overzooms) and test whether a Cache Rule on `tiles/*` with "Origin Range Requests" then gives `HIT`s (untested: that setting fetches 1 MiB-aligned ranges but makes nothing cacheable by itself, and the 512 MB limit applies to the whole file);
+    - (c) a Worker in front of the bucket that serves edge-cached tiles, as Protomaps recommends: a new component, so an ADR first.
 
-Put the outputs in the P1d PR (job log lines, size, the two `curl` outputs).
+Put the outputs in the P1d PR: the job log lines, the size, the two `curl` outputs of item 4, the ten lines of item 5, the CORS lines of item 6, and the Class B count and length of the phone session (item 10).
