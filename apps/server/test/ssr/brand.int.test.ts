@@ -27,7 +27,7 @@ beforeAll(async () => {
   const pool = createPool('mjk_ssr', { DATABASE_URL: tdb.urls.mjk_ssr }, { max: 4, statementTimeoutMs: 5000 });
   if (typeof pool === 'string') throw new Error(pool);
   db = createDb(pool);
-  const config = { brand: BRAND, domain: 'mjk.test' };
+  const config = { brand: BRAND, domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
   app = createSsrApp({ bundle, fetchApi: inProcessApi(db, silentLogger), db, config, logger: silentLogger });
   failing = createSsrApp({
     bundle,

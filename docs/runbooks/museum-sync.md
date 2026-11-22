@@ -2,7 +2,7 @@
 
 For the owner. It covers the weekly Wikidata and RCE sync, the first import, the two queues, the empty guard and the mass-change brake, curation of the Museumkaart flag and prices, fixture recording and the P1a [box] dry run. The code wins where this text differs: report the difference.
 
-Commands run from the repository root as `node apps/server/src/main.ts <role> …` (Node 26.10.0). In production the database login comes from the file secrets (`sync-museums` and `worker` as `mjk_worker`, `admin` as `mjk_api`). `DATABASE_URL` overrides every login and is for a throw-away database only (§11).
+Commands run from the repository root as `node apps/server/src/main.ts <role> …` (Node 26.13.1). In production the database login comes from the file secrets (`sync-museums` and `worker` as `mjk_worker`, `admin` as `mjk_api`). `DATABASE_URL` overrides every login and is for a throw-away database only (§11).
 
 ## 1. What the sync does
 
@@ -322,13 +322,13 @@ docker run -d --name mjk-p1a-db --network mjk-p1a-tmp \
 until docker exec mjk-p1a-db pg_isready -h 127.0.0.1 -U postgres; do sleep 1; done
 ```
 
-Then roles, migrations and the dry run, in a Node container on that network (the A§4 build image; P1e pins it by digest, so use that digest once it exists). The checkout is mounted read-only and copied. dbmate 2.36.0 is sha-checked against the sha256 in `.github/workflows/ci.yml` (`DBMATE_SHA256`; re-read it there if it changed):
+Then roles, migrations and the dry run, in a Node container on that network (the A§4 build image, pinned by digest). The checkout is mounted read-only and copied. dbmate 2.36.0 is sha-checked against the sha256 in `.github/workflows/ci.yml` (`DBMATE_SHA256`; re-read it there if it changed):
 
 ```bash
 docker run --rm -i --network mjk-p1a-tmp -v "$PWD":/src:ro \
   -e DATABASE_URL="postgres://postgres:$PW@mjk-p1a-db:5432/postgres?sslmode=disable" \
   -e MJK_SYNC_CONTACT='<your email or an https URL>' \
-  node:26.12.0-trixie-slim bash -s <<'EOF'
+  node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc bash -s <<'EOF'
 set -euo pipefail
 apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates >/dev/null
 curl --proto '=https' -fsSL -o /usr/local/bin/dbmate \
@@ -353,3 +353,17 @@ unset PW
 ```
 
 Paste into the PR: the summary JSON. It holds counts and codes only, no names. The lead writes it into A§7.1 to A§7.3: Wikidata rows, dissolved and ignored, invalid by code, RCE matched per rule and queued per reason, the coverage of coordinates, municipalities and postcodes, and the query time (`sources.wikidata.ms`).
+
+## 12. In production (P1e)
+
+On the VM, as root (`sudo -i`), the jobs run from the compose project `mjk` with the images of the last good deploy. The role is in the image's entrypoint, so only the flags follow. `sync-museums` has the `worker`'s login and network, `admin` the `api`'s (A§17.2). Both are profile `jobs` and `tools`; `docker compose run` starts the profile's service by name.
+
+```bash
+mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env "$@"; }
+mjkc --profile tools run --rm sync-museums --seed --dry-run
+mjkc --profile tools run --rm sync-museums --seed
+mjkc --profile tools run --rm admin museum flag --help
+```
+
+- `MJK_SYNC_CONTACT` comes from `/etc/mjk/mjk.env`. The weekly run (Tuesday 03:17) is the `worker`'s own schedule; its health ping is the check `mjk-worker` (`docs/runbooks/install.md` §7).
+- Never run the seed twice: it refuses on a filled table (`already_seeded`, exit 65).

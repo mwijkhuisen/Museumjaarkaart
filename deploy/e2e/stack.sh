@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # The CI e2e stack (A§18): db, migrate, seed, api, ssr, caddy and a TLS edge, then Playwright in the
-# pinned image on the stack's network, then again with `ssr` stopped (the @ssr-down specs: a 502).
+# pinned image on the stack's network, then again with `ssr` stopped (the @ssr-down specs: a 502). Then
+# the Caddy cases (deploy/e2e/caddy-cases.mjs, p1e criteria 3 and 4): against the real api and ssr, then
+# with both replaced by an echo server (caddy-cases.yaml), then with the echo servers stopped, and last
+# Caddy's own log, which must hold no client address, URI or query.
 # Run from the repository root, after `pnpm --filter @mjk/web build`.
 #   DBMATE_BIN=/path/to/dbmate deploy/e2e/stack.sh [playwright arguments, e.g. headers.spec.ts]
 # DBMATE_BIN is a dbmate 2.36.0 binary (the workflow installs it, sha256-checked). PLAYWRIGHT_IMAGE
@@ -38,8 +41,21 @@ compose up -d --wait db
 compose run --rm migrate
 compose run --rm seed
 
+# MJK_PROFILE picks profile-<name>.caddy, and only `prelaunch` ships: an unknown or empty one must fail at
+# start, never serve without the profile's headers.
+for profile in launch ''; do
+  if compose run --rm -T --no-deps -e MJK_PROFILE="$profile" caddy caddy validate --config /etc/caddy/Caddyfile \
+    >/dev/null 2>&1; then
+    echo "stack: caddy accepted MJK_PROFILE='$profile'" >&2
+    exit 1
+  fi
+done
+echo "caddy validate: an unknown or empty MJK_PROFILE fails"
+
 # The Caddyfile that Compose mounts, as Caddy parsed it: `ssr` never sees a session, and it ignores
 # headers, so no response test could catch a missing delete. Both must be in the reverse_proxy to ssr:8081.
+# The upstream keep-alive (30 s, under Node's 65 s) and lb_try_duration (5 s) are timing, so they are
+# checked here on every reverse_proxy to the api and ssr.
 # shellcheck disable=SC2016  # the JavaScript has template literals, no shell expansion
 compose run --rm -T --no-deps caddy caddy adapt --config /etc/caddy/Caddyfile |
   node -e '
@@ -58,6 +74,14 @@ compose run --rm -T --no-deps caddy caddy adapt --config /etc/caddy/Caddyfile |
     for (const h of ["cookie", "authorization"])
       if (!deleted.includes(h)) throw new Error(`caddy adapt: the reverse_proxy to ssr:8081 does not delete ${h}`);
     console.log("caddy adapt: the reverse_proxy to ssr:8081 deletes Cookie and Authorization");
+    const proxies = walk(config, []);
+    if (proxies.length !== 3) throw new Error(`caddy adapt: ${proxies.length} reverse_proxy handlers, expected 3`);
+    for (const p of proxies) {
+      const to = (p.upstreams ?? []).map((u) => u.dial).join(",");
+      if (p.transport?.keep_alive?.idle_timeout !== 30e9) throw new Error(`caddy adapt: ${to} keep-alive is not 30 s`);
+      if (p.load_balancing?.try_duration !== 5e9) throw new Error(`caddy adapt: ${to} lb_try_duration is not 5 s`);
+    }
+    console.log("caddy adapt: every reverse_proxy keeps idle upstream connections 30 s and retries 5 s");
   '
 
 compose up -d --wait api ssr caddy edge
@@ -70,6 +94,30 @@ playwright() {
 }
 
 playwright --grep-invert @ssr-down "$@"
+compose run --rm -T --no-deps probe node deploy/e2e/caddy-cases.mjs real
 
 compose stop ssr
 playwright --grep @ssr-down --pass-with-no-tests "$@"
+
+# The Caddy cases against the echo upstreams (caddy recreated with its log at DEBUG), then with them
+# stopped (the 502s after lb_try_duration).
+cases() { compose -f deploy/e2e/caddy-cases.yaml "$@"; }
+cases up -d --wait api ssr caddy
+cases run --rm -T --no-deps probe node deploy/e2e/caddy-cases.mjs echo
+cases stop api ssr
+cases run --rm -T --no-deps probe node deploy/e2e/caddy-cases.mjs down
+
+# A§17.7, invariant 8: even at DEBUG, Caddy logged the proxied requests and the 502s without a client
+# address (the probe's or a forged one), URI, query or request field. The marker is the query of every
+# down case (caddy-cases.mjs MARKER).
+caddy_log=$(compose logs --no-color --no-log-prefix caddy)
+grep -q '"logger":"http.log.error"' <<<"$caddy_log" || { echo "stack: caddy logged no error for the 502s" >&2; exit 1; }
+grep -q '"logger":"http.handlers.reverse_proxy"' <<<"$caddy_log" ||
+  { echo "stack: caddy logged no proxied request" >&2; exit 1; }
+for needle in mjk-probe-marker-7f3a 10.63.2.20 10.63.6.20 203.0.113. '"request"' '"uri"' remote_ip client_ip; do
+  if grep -qF -- "$needle" <<<"$caddy_log"; then
+    echo "stack: caddy's log holds $needle" >&2
+    exit 1
+  fi
+done
+echo "caddy log: errors without the request, a client address or a query"

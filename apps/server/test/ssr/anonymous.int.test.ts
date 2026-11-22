@@ -28,7 +28,7 @@ beforeAll(async () => {
     bundle,
     fetchApi: inProcessApi(db, silentLogger),
     db,
-    config: { brand: 'Musea Test', domain: 'mjk.test' },
+    config: { brand: 'Musea Test', domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' },
     logger: silentLogger,
   });
 }, 120_000);

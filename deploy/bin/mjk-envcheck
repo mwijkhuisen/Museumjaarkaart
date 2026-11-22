@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# mjk-envcheck: the one check of /etc/mjk/mjk.env (P1e security review S7), shared by mjk-install (from the
+# checkout, before it changes anything) and mjk-update (the root-owned copy in /usr/local/bin, before every
+# deploy, so an edit after the last install is checked too).
+#   mjk-envcheck <file>
+# The file must be a plain file, root:root with mode 0644 or 0640, of `KEY=value` lines (blank lines and
+# `#` comments allowed) whose keys are all in the allowlist: A§17.3's config list plus the optional
+# MJK_R2_REGION. Every key reaches every Node container (compose env_file), so nothing else may: never
+# DATABASE_URL (it would replace every login's file secret), NODE_OPTIONS, a *_FILE path or a secret.
+# A refusal names the key or the line number, never a value. It checks keys, not which ones are set
+# (mjk-install lists the required ones that are missing).
+# Exit 0 the file is acceptable · 64 usage · 78 refused.
+set -euo pipefail
+export LC_ALL=C
+
+ALLOWED=(
+  MJK_BRAND_NAME MJK_DOMAIN MJK_PROFILE MJK_SYNC_CONTACT CF_ACCESS_TEAM CF_ACCESS_AUD
+  MJK_CONTROLLER_NAME MJK_CONTACT_EMAIL MJK_R2_ENDPOINT MJK_R2_BUCKET_BACKUP
+  MJK_R2_BUCKET_MEDIA MJK_MAIL_CAP MJK_SIGNUP MJK_R2_REGION
+)
+
+refuse() {
+  printf 'mjk-envcheck: REFUSED: %s\n' "$1" >&2
+  exit 78
+}
+
+(($# == 1)) || {
+  echo "usage: mjk-envcheck <mjk.env>" >&2
+  exit 64
+}
+file=$1
+
+[[ -f $file && ! -L $file ]] || refuse "$file is not a regular file"
+case $(stat -c '%u:%g:%a' -- "$file") in
+  0:0:644 | 0:0:640) ;;
+  *) refuse "$file must be root:root 0644 or 0640" ;;
+esac
+lineno=0
+while IFS= read -r line || [[ -n $line ]]; do
+  lineno=$((lineno + 1))
+  [[ -z $line || $line == \#* ]] && continue
+  [[ $line =~ ^([A-Z][A-Z0-9_]*)= ]] || refuse "mjk.env line $lineno is not KEY=value"
+  key=${BASH_REMATCH[1]}
+  [[ " ${ALLOWED[*]} " == *" $key "* ]] || refuse "mjk.env: the key $key is not allowed (allowed: ${ALLOWED[*]})"
+done <"$file"

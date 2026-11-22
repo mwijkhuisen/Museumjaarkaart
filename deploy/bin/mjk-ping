@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# mjk-ping: the healthchecks.io ping of mjk-backup.service (A§17.4, A§17.7), from the host.
+#   mjk-ping ok        ping https://hc-ping.com/<key>/mjk-backup
+#   mjk-ping fail      ping https://hc-ping.com/<key>/mjk-backup/fail
+#   mjk-ping result    ok when $SERVICE_RESULT is "success", else fail (what systemd sets for ExecStopPost)
+# The ping key is the file /etc/mjk/secrets/hc_ping_key. It reaches curl only on stdin, as a config
+# (`curl -K -`), so it never appears in an argument list, the process table, the journal or an error
+# message. printf is a builtin: the key is never an argument of a program either.
+# Exit 0 pinged · 1 the ping failed · 64 usage · 78 the key file is missing or malformed.
+# MJK_ROOT (a directory) moves the key file; MJK_HC_BASE replaces https://hc-ping.com (only with
+# MJK_ROOT set): deploy/tests/e2e.sh only. The unit sets neither.
+set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+umask 0077
+
+ROOT=${MJK_ROOT:-}
+KEYFILE=$ROOT/etc/mjk/secrets/hc_ping_key
+BASE=https://hc-ping.com
+SLUG=mjk-backup
+[[ -z $ROOT ]] || BASE=${MJK_HC_BASE:-$BASE}
+
+die() {
+  printf 'mjk-ping: %s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+(($# == 1)) || die "usage: mjk-ping ok|fail|result" 64
+case $1 in
+  ok | fail) kind=$1 ;;
+  result) [[ ${SERVICE_RESULT:-} == success ]] && kind=ok || kind=fail ;;
+  *) die "usage: mjk-ping ok|fail|result" 64 ;;
+esac
+
+[[ -f $KEYFILE && -r $KEYFILE ]] || die "key_missing: hc_ping_key" 78
+key=$(<"$KEYFILE")
+# The same rule as the worker (apps/server/src/lib/healthchecks.ts): one key works for both or neither.
+[[ $key =~ ^[A-Za-z0-9_-]{16,64}$ ]] || die "key_malformed: hc_ping_key" 78
+
+url=$BASE/$key/$SLUG
+[[ $kind == ok ]] || url=$url/fail
+
+proto=
+[[ $BASE != https://* ]] || proto='proto = "=https"'
+printf 'url = "%s"\n%s\n' "$url" "$proto" | curl -fsS -m 10 --retry 3 -o /dev/null -K - || die "ping_failed: $kind" 1
+echo "mjk-ping: $kind pinged"

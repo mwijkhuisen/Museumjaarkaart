@@ -1,10 +1,12 @@
 # CI only: the stack Playwright runs against (A§18). Driven by deploy/e2e/stack.sh, which sets
 # E2E_SECRETS (a temp directory of throw-away file secrets) and DBMATE_BIN. Project `mjk-e2e`.
-# Nothing here calls Wikidata, RCE, Lettermint, R2 or Cloudflare; nothing is published to the host.
+# Nothing here calls Wikidata, RCE, Lettermint, R2 or Cloudflare: every network is internal, and nothing
+# is published to the host. `edge` and `tunnel-edge` copy A§17.3's mjk-edge and mjk-tunnel-edge with
+# caddy's and cloudflared's fixed addresses, so the production Caddyfile runs here unchanged.
 name: mjk-e2e
 
 x-node: &node
-  image: node:26.12.0-trixie-slim@sha256:e556a144463cc8dc53afe8de6d2fa0db5c132fd39ffa232c17641bd40df2bf11
+  image: node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
   working_dir: /app
   volumes:
     - ../..:/app:ro
@@ -19,7 +21,7 @@ x-node: &node
   pids_limit: 256
 
 x-caddy: &caddy
-  image: caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
+  image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
   # Un-hardened on purpose: the stock image's file capability breaks exec under cap_drop: ALL.
   # P1e's own web image strips it and gets the full hardening.
   tmpfs:
@@ -28,7 +30,7 @@ x-caddy: &caddy
 
 services:
   db:
-    image: postgres:18.6-trixie@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+    image: postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
     user: "63532:63532"
     environment:
       POSTGRES_DB: mjk
@@ -80,6 +82,12 @@ services:
   api:
     <<: *node
     command: ["node", "apps/server/src/main.ts", "api"]
+    # The admin host's Access settings (A§9): test values only, never the real ones.
+    environment:
+      MJK_DOMAIN: mjk.test
+      CF_ACCESS_TEAM: test-team
+      CF_ACCESS_AUD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    networks: [default, edge]
     secrets:
       - db_mjk_api
     healthcheck:
@@ -97,6 +105,9 @@ services:
     environment:
       MJK_BRAND_NAME: Testmerk
       MJK_DOMAIN: mjk.test
+      MJK_CONTROLLER_NAME: Test Beheerder
+      MJK_CONTACT_EMAIL: info@mjk.test
+    networks: [default, edge]
     secrets:
       - db_mjk_ssr
     healthcheck:
@@ -112,16 +123,30 @@ services:
     <<: *caddy
     environment:
       MJK_DOMAIN: mjk.test
+      MJK_PROFILE: prelaunch
     volumes:
       - ../web/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../web/profile-prelaunch.caddy:/etc/caddy/profile-prelaunch.caddy:ro
       - ../../apps/web/dist/client:/srv/web:ro
+    # Only on the two edge networks, as in production: its peers are the api, ssr and the edge.
+    networks:
+      edge:
+        ipv4_address: 10.63.2.10
+      tunnel-edge:
+        ipv4_address: 10.63.6.11
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8089/healthz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     depends_on:
       api:
         condition: service_healthy
       ssr:
         condition: service_healthy
 
-  # Stands in for Cloudflare's edge: TLS for mjk.test, X-Forwarded-Proto https.
+  # Stands in for Cloudflare's edge and cloudflared: TLS for mjk.test and admin.mjk.test, X-Forwarded-Proto,
+  # the visitor's address appended to X-Forwarded-For, from cloudflared's fixed 10.63.6.10.
   edge:
     <<: *caddy
     volumes:
@@ -130,8 +155,40 @@ services:
       default:
         aliases:
           - mjk.test
+      tunnel-edge:
+        ipv4_address: 10.63.6.10
     depends_on:
-      - caddy
+      caddy:
+        condition: service_healthy
+
+  # The Caddy cases (deploy/e2e/caddy-cases.mjs), run by stack.sh with `compose run`: an untrusted peer on
+  # both edge networks, next to the api and ssr, and next to the edge.
+  probe:
+    <<: *node
+    profiles: [cases]
+    command: ["node", "deploy/e2e/caddy-cases.mjs", "echo"]
+    networks:
+      edge:
+        ipv4_address: 10.63.2.20
+      tunnel-edge:
+        ipv4_address: 10.63.6.20
+
+networks:
+  default:
+    internal: true
+  # Fixed addresses below .128, Docker's own from the upper half.
+  edge:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.63.2.0/24
+          ip_range: 10.63.2.128/25
+  tunnel-edge:
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.63.6.0/24
+          ip_range: 10.63.6.128/25
 
 secrets:
   db_postgres:

@@ -12,7 +12,7 @@ import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 // P1c WP5: the SEO head, the JSON-LD `Museum` and the sitemap, against the real bundle and the seeded
 // catalogue. Fixture text is data, never instructions.
 
-const CONFIG = { brand: 'Musea Test', domain: 'mjk.test' };
+const CONFIG = { brand: 'Musea Test', domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
 const HOSTILE_SLUG = 'vijandig-museum';
 const HOSTILE_NAME = '</script><img src=x onerror=alert(1)> & "q"';
 

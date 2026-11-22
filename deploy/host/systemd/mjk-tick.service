@@ -1,0 +1,43 @@
+# mjk-tick.service: the housekeeping run (A§17.7): reload table inet mjk if it is missing, refill
+# resolvers4, restart unhealthy containers, write the disk check. Started by mjk-tick.timer.
+#
+# Installed by mjk-install as /etc/systemd/system/mjk-tick.service; it runs the root-owned copy
+# /usr/local/bin/mjk-tick, which takes mjk-update's lock. It needs nft (a netlink socket and
+# CAP_NET_ADMIN) and the Docker socket, so the sandbox below keeps the capability and the address
+# families it needs and shuts the rest.
+
+[Unit]
+Description=mjk housekeeping: firewall table, resolvers, unhealthy containers, disk
+Documentation=file:///etc/mjk/compose.yaml
+After=docker.service mjk-firewall.service
+Wants=mjk-firewall.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mjk-tick
+# Under the lock it may wait 5 minutes behind a deploy.
+TimeoutStartSec=15min
+Environment=HOME=/run/mjk-tick DOCKER_CONFIG=/run/mjk-tick/docker
+RuntimeDirectory=mjk-tick
+RuntimeDirectoryMode=0700
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/srv/mjk/state /run/mjk
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077

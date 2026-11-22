@@ -2,13 +2,16 @@ import { once } from 'node:events';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { sql } from 'kysely';
 import { createDb, type Db } from '../db/kysely.ts';
 import { EXIT_CONFIG } from '../db/migrate.ts';
 import { API_POOL_MAX, API_STATEMENT_TIMEOUT_MS, createPool } from '../db/pool.ts';
 import { HEARTBEAT_EVERY_MS, touch } from '../heartbeat.ts';
 import type { Logger } from '../lib/log.ts';
-import { createApp } from './app.ts';
+import { type ApiDeps, createApp } from './app.ts';
+import { type ApiConfig, readApiConfig } from './config.ts';
+import { certsUrlOf, createJwksCache, issuerOf } from './middleware/access-jwt.ts';
 
 // The `api` role (A§5): Hono on :8080 as mjk_api. The heartbeat is touched while the database
 // answers, so `healthcheck` turns unhealthy when it does not; SIGTERM drains, then exits 0.
@@ -88,8 +91,27 @@ export type ApiRunOpts = {
   onListening?: (port: number) => void;
 };
 
+/** The production wiring of the client-address rule and the Access JWT check (A§9, ADR-0004). */
+export function edgeDeps(config: ApiConfig, logger: Logger): Pick<ApiDeps, 'clientAddress' | 'access'> {
+  return {
+    // The TCP peer of @hono/node-server's socket; the trusted peer is caddy's CADDY_PEER.
+    clientAddress: { peer: (c) => getConnInfo(c).remote.address },
+    access: {
+      adminHost: config.adminHost,
+      issuer: issuerOf(config.accessTeam),
+      audience: config.accessAud,
+      keys: createJwksCache({ url: certsUrlOf(config.accessTeam), logger }),
+    },
+  };
+}
+
 export async function runApi(env: Env, opts: ApiRunOpts): Promise<number> {
   const { logger } = opts;
+  const config = readApiConfig(env);
+  if (typeof config === 'string') {
+    opts.log(`api: ${config}`);
+    return EXIT_CONFIG;
+  }
   const pool = createPool('mjk_api', env, { max: API_POOL_MAX, statementTimeoutMs: API_STATEMENT_TIMEOUT_MS });
   if (typeof pool === 'string') {
     opts.log(`api: ${pool}`);
@@ -99,7 +121,11 @@ export async function runApi(env: Env, opts: ApiRunOpts): Promise<number> {
   const ping = pinger(db);
   let server: Server;
   try {
-    server = await listen(createApp({ db, logger, ping }), opts.port ?? API_PORT, opts.hostname ?? '0.0.0.0');
+    server = await listen(
+      createApp({ db, logger, ping, ...edgeDeps(config, logger) }),
+      opts.port ?? API_PORT,
+      opts.hostname ?? '0.0.0.0',
+    );
   } catch {
     logger.error({}, 'listen_failed');
     await db.destroy();

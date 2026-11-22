@@ -1,12 +1,59 @@
+import { useConfig } from '../lib/config.ts';
 import type { Route } from '../lib/routes.ts';
 import { m } from '../paraglide/messages.js';
 
-// Placeholders (P1e writes the interim privacy and contact texts).
+// The interim privacy and contact texts of the pre-launch catalogue (P1e); the terms and the review
+// rules stay placeholders until P3. The controller and the email come from the config as plain text:
+// React escapes them, and the address is only ever a `mailto:` link.
+
+function Mail() {
+  const { contactEmail } = useConfig();
+  return <a href={`mailto:${contactEmail}`}>{contactEmail}</a>;
+}
+
+function Privacy() {
+  const { controller } = useConfig();
+  return (
+    <>
+      <h1>{m.page_privacy()}</h1>
+      <p>{m.privacy_intro()}</p>
+      <h2>{m.privacy_h_collect()}</h2>
+      <p>{m.privacy_collect()}</p>
+      <h2>{m.privacy_h_logs()}</h2>
+      <p>{m.privacy_logs()}</p>
+      <h2>{m.privacy_h_cloudflare()}</h2>
+      <p>{m.privacy_cloudflare()}</p>
+      <h2>{m.privacy_h_backups()}</h2>
+      <p>{m.privacy_backups()}</p>
+      <h2>{m.privacy_h_rights()}</h2>
+      <p>{m.privacy_rights()}</p>
+      <h2>{m.privacy_h_controller()}</h2>
+      <p>{m.privacy_controller({ controller })}</p>
+      <p>
+        {m.privacy_controller_mail()} <Mail />
+      </p>
+    </>
+  );
+}
+
+function Contact() {
+  const { controller } = useConfig();
+  return (
+    <>
+      <h1>{m.page_contact()}</h1>
+      <p>
+        {m.contact_lead()} <Mail />
+      </p>
+      <p>{m.contact_operator({ controller })}</p>
+      <p>{m.footer_not_affiliated()}</p>
+    </>
+  );
+}
 
 export function Legal({ route }: { route: Extract<Route, { page: 'legal' }> }) {
-  const title = { privacy: m.page_privacy, terms: m.page_terms, contact: m.page_contact, reviews: m.page_reviews }[
-    route.doc
-  ];
+  if (route.doc === 'privacy') return <Privacy />;
+  if (route.doc === 'contact') return <Contact />;
+  const title = { terms: m.page_terms, reviews: m.page_reviews }[route.doc];
   return (
     <>
       <h1>{title()}</h1>

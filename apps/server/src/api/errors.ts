@@ -8,10 +8,11 @@ import { CACHE_PRIVATE } from './cache.ts';
 // message (invariant 8).
 
 /** The codes this api answers today (a subset of @mjk/contracts' ERROR_CODES). */
-export type ApiErrorCode = 'bad_request' | 'not_found' | 'too_large' | 'internal' | 'unavailable';
+export type ApiErrorCode = 'bad_request' | 'unauthorized' | 'not_found' | 'too_large' | 'internal' | 'unavailable';
 
 const STATUS: Readonly<Record<ApiErrorCode, ContentfulStatusCode>> = {
   bad_request: 400,
+  unauthorized: 401,
   not_found: 404,
   too_large: 413,
   internal: 500,

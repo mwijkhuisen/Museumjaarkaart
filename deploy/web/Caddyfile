@@ -1,19 +1,44 @@
-# The public host (A§5, A§14, A§15.6, A§17.2). One plain :80 server: TLS ends at Cloudflare's edge.
-# P1e adds: the admin host, the client IP (trusted_proxies_strict, X-Mjk-Client), the
-# X-Forwarded-Proto 308 and the 421 for any other Host, the prelaunch X-Robots-Tag, the upstream
-# keep-alive and lb_try_duration. The CI e2e stack (deploy/e2e) mounts this file as it is.
+# The web image's Caddy (A§5, A§9, A§14, A§15.6, A§17.2). One plain :80 server for `<domain>` and
+# `admin.<domain>` (TLS ends at Cloudflare's edge; cloudflared is the only trusted peer), any other Host a
+# 421, and a loopback-only health site on 127.0.0.1:8089. Environment: MJK_DOMAIN and MJK_PROFILE
+# (`prelaunch` until P5b): `profile-{$MJK_PROFILE}.caddy` must exist next to this file and define the
+# `robots` snippet, so an unknown or empty profile fails at start. The CI e2e stack (deploy/e2e) mounts
+# this file as it is.
 {
 	admin off
 	auto_https off
+
+	# A§17.7, invariant 8: the access log stays off (no `log` in a site). The default log carries Caddy's
+	# own errors (a 502's dial error and the like) without the request: no client address, Host, URI,
+	# query or headers.
+	log {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request delete
+			}
+		}
+	}
+
+	# A§9, Waterheight ADR-0021: only cloudflared's fixed /32 (never the /24, which holds the bridge
+	# gateway, the host) may name the client. Strict: the right-most X-Forwarded-For address that is not a
+	# trusted proxy, so a value the visitor put in front of Cloudflare's is never taken.
+	servers {
+		trusted_proxies static 10.63.6.10/32
+		trusted_proxies_strict
+		client_ip_headers X-Forwarded-For
+	}
 }
 
-# A§15.6, on every response: routes, proxied answers and (below) handle_errors.
-(headers) {
+import profile-{$MJK_PROFILE}.caddy
+
+# A§15.6 on every response of both hosts. Deferred, so the fields also replace an upstream's.
+(common_headers) {
 	header {
-		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://media.{$MJK_DOMAIN}; media-src https://media.{$MJK_DOMAIN}; connect-src 'self' https://media.{$MJK_DOMAIN}; worker-src 'self'; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		defer
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
-		Referrer-Policy strict-origin-when-cross-origin
 		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), browsing-topics=()"
 		Cross-Origin-Opener-Policy same-origin
 		Cross-Origin-Resource-Policy same-origin
@@ -21,51 +46,108 @@
 	}
 }
 
+# The public host's A§15.6 headers; the profile's `robots` adds X-Robots-Tag.
+(public_headers) {
+	import common_headers
+	import robots
+	header {
+		defer
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://media.{$MJK_DOMAIN}; media-src https://media.{$MJK_DOMAIN}; connect-src 'self' https://media.{$MJK_DOMAIN}; worker-src 'self'; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
+# The admin host's (A§15.6): its own CSP, never cached, never indexed, whatever the profile.
+(admin_headers) {
+	import common_headers
+	header {
+		defer
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://media.{$MJK_DOMAIN}; connect-src 'self'; worker-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		Referrer-Policy no-referrer
+		Cache-Control "private, no-store"
+		X-Robots-Tag "noindex, nofollow"
+	}
+}
+
+# Both upstreams: Node keeps an idle connection for 65 s (apps/server/src/api/server.ts), so Caddy closes
+# first at 30 s (its default, 2 min, races Node's close: 502s that no api log shows). A restart during a
+# deploy is a pause of up to 5 s, not a 502.
+(upstream) {
+	lb_try_duration 5s
+	transport http {
+		keepalive 30s
+	}
+}
+
+# Towards the api (A§9, A§17.2): the client address only as X-Mjk-Client, which the api reads only from
+# caddy's 10.63.2.10. Caddy's own X-Forwarded-For and the edge's address headers never reach it.
+(client_address) {
+	header_up X-Mjk-Client {client_ip}
+	header_up -X-Forwarded-For
+	header_up -Cf-Connecting-Ip
+	header_up -True-Client-Ip
+}
+
+# Files under /srv/web/assets only (not a directory). Headers set before file_server would stay on its own
+# 404s (Caddy 2.11), so the asset route has a `file` matcher and a missing one is our own 404.
+(assets) {
+	@asset {
+		path /assets/*
+		not path */
+		file {
+			root /srv/web
+			try_files {path}
+		}
+	}
+	handle @asset {
+		header Cache-Control "{args[0]}"
+		root * /srv/web
+		file_server
+	}
+	handle /assets/* {
+		header Cache-Control no-store
+		respond 404
+	}
+}
+
 :80 {
 	@site host {$MJK_DOMAIN}
-	handle @site {
-		import headers
+	@admin_host host admin.{$MJK_DOMAIN}
+	# Cloudflare names the visitor's scheme (A§17.2): plain http is a 308 to https on the same host.
+	@http header X-Forwarded-Proto http
 
-		# A file under /srv/web only (not a directory): headers set before file_server would stay on
-		# its own 404s (Caddy 2.11), so the immutable one sits behind this `file` matcher.
-		@asset {
-			path /assets/*
-			not path */
-			file {
-				root /srv/web
-				try_files {path}
-			}
-		}
-		handle @asset {
-			header Cache-Control "public, max-age=31536000, immutable"
-			root * /srv/web
-			file_server
-		}
-		handle /assets/* {
-			header Cache-Control no-store
-			respond 404
-		}
+	handle @site {
+		import public_headers
+		header @http Cache-Control no-store
+		redir @http https://{$MJK_DOMAIN}{uri} 308
+
+		import assets "public, max-age=31536000, immutable"
 
 		# Invariant 3: admin exists only on admin.<domain>. The bare path too: an inline matcher takes
 		# one path (Caddy 2.11), and these paths overlap no other route, so a re-sort cannot reorder them.
-		@admin path /api/admin /api/admin/*
-		handle @admin {
+		@public_admin path /api/admin /api/admin/*
+		handle @public_admin {
 			header Cache-Control no-store
 			respond 404
 		}
 
 		# A§14: 64 KB here (the api caps at 64 * 1024 too); its own Cache-Control stays. The bare
 		# /api/v1 is the api's too, so it answers its own JSON 404, not an HTML page from `ssr`.
+		# No Access JWT on this host: the api looks for one only on the admin host.
 		@api path /api/v1 /api/v1/*
 		handle @api {
 			request_body {
 				max_size 64KiB
 			}
-			reverse_proxy api:8080
+			reverse_proxy api:8080 {
+				import client_address
+				header_up -Cf-Access-Jwt-Assertion
+				import upstream
+			}
 		}
 
-		# `ssr` never sees a session (invariant 8): one header_up line per header. It answers GET and
-		# HEAD only (405 otherwise) and never reads a body, so the cap is the api's.
+		# `ssr` never sees a session (invariant 8) nor the client: one header_up line per header. It
+		# answers GET and HEAD only (405 otherwise) and never reads a body, so the cap is the api's.
 		handle {
 			request_body {
 				max_size 64KiB
@@ -73,15 +155,82 @@
 			reverse_proxy ssr:8081 {
 				header_up -Cookie
 				header_up -Authorization
+				header_up -Cf-Access-Jwt-Assertion
+				header_up -X-Mjk-Client
+				header_up -X-Forwarded-For
+				header_up -Cf-Connecting-Ip
+				header_up -True-Client-Ip
+				import upstream
 			}
 		}
 	}
 
-	# 413, 502, file_server's 404 and every other error Caddy builds itself carry none of the site
-	# headers (Caddy 2.11): repeat them, and never let a CDN keep the answer.
-	handle_errors {
-		import headers
+	# Behind Cloudflare Access (ADR-0004). Until P2a: the assets, /api/admin/* to the api (which checks the
+	# Access JWT in Cf-Access-Jwt-Assertion on every admin-host request), any other /api path a 404, and a
+	# placeholder page where P2a puts the admin SPA entry.
+	handle @admin_host {
+		import admin_headers
+		redir @http https://admin.{$MJK_DOMAIN}{uri} 308
+		request_body {
+			max_size 64KiB
+		}
+
+		import assets "private, no-store"
+
+		@admin_api path /api/admin /api/admin/*
+		handle @admin_api {
+			reverse_proxy api:8080 {
+				import client_address
+				import upstream
+			}
+		}
+
+		@other_api path /api /api/*
+		handle @other_api {
+			respond 404
+		}
+
+		handle {
+			header Content-Type "text/html; charset=utf-8"
+			respond `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>admin</title>
+<p>The admin interface arrives with sign-in (P2a).</p>
+</html>
+` 200
+		}
+	}
+
+	# Waterheight ADR-0021 §4: no other Host.
+	handle {
+		import public_headers
 		header Cache-Control no-store
-		respond "{err.status_code} {err.status_text}" {err.status_code}
+		respond 421
+	}
+
+	# 413, 502 and every other error Caddy builds itself carry none of the site headers (Caddy 2.11):
+	# repeat the host's, and never let a CDN keep the answer.
+	handle_errors {
+		handle @admin_host {
+			import admin_headers
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
+		handle {
+			import public_headers
+			header Cache-Control no-store
+			respond "{err.status_code} {err.status_text}" {err.status_code}
+		}
+	}
+}
+
+# The compose healthcheck (busybox wget inside the container); loopback only, never published.
+:8089 {
+	bind 127.0.0.1
+	handle /healthz {
+		respond "ok" 200
+	}
+	handle {
+		respond 404
 	}
 }

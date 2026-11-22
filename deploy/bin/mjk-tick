@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# mjk-tick: the ten-minute housekeeping of the mjk stack (A§17.7). Run by mjk-tick.timer (at :07, :17, ...,
+# :57, and once, a minute after boot) from the root-owned copy /usr/local/bin/mjk-tick.
+#   1. table inet mjk missing (for example nftables.service stopped and emptied it) -> load it again from
+#      /etc/mjk/mjk.nft. When that fails the stack fails closed: every mjk container is stopped and
+#      /srv/mjk/state/firewall-stopped is written (an mjk stack without its table has open egress).
+#   2. refill resolvers4 (a table load empties it): mjk-resolvers runs on every tick.
+#   3. with the table loaded and the marker present: start current.env again and remove the marker.
+#   4. restart unhealthy mjk containers (Docker restarts only exited ones).
+#   5. write the disk check to /srv/mjk/state/disk (free_pct, free_bytes, total_bytes, checked): the api's
+#      disk guard reads it, and a file older than 30 minutes counts as full.
+# The lock /run/mjk/deploy.lock: mjk-update takes it exclusive, mjk-backup.service and mjk-tick shared.
+# The firewall never waits for it: steps 1 and 2 (and the fail-closed stop) run first, whether the lock is
+# free, held or cannot even be opened (that is exit 1). Only the compose actions (3, 4) need it: the tick waits up to 5
+# minutes for a deploy, runs in full during a backup (which can take hours), and with a deploy still
+# holding the lock it only writes the disk file. mjk-update re-checks the table and the marker before each
+# compose step, so a fail-closed stop during a deploy also ends that deploy. State files are atomic.
+# Log lines are fixed messages and service names. Exit 0 all well · 1 something needed attention and failed.
+# MJK_ROOT and MJK_NFT: as in mjk-update (deploy/tests/e2e.sh only); with MJK_ROOT, MJK_TICK_LOCK_WAIT
+# replaces the 300 s wait for the lock.
+set -uo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+umask 0022
+
+ROOT=${MJK_ROOT:-}
+if [[ -n $ROOT ]]; then
+  [[ $ROOT == /* && $ROOT != */ ]] || { echo "mjk-tick: MJK_ROOT must be an absolute path without a trailing slash" >&2; exit 78; }
+fi
+ETC=$ROOT/etc/mjk
+STATE=$ROOT/srv/mjk/state
+LOCKDIR=$ROOT/run/mjk
+LOCKFILE=$LOCKDIR/deploy.lock
+COMPOSE=$ETC/compose.yaml
+CURRENT=$STATE/current.env
+MARKER=$STATE/firewall-stopped
+NFT_FILE=$ETC/mjk.nft
+RESOLVERS=$ROOT/usr/local/bin/mjk-resolvers
+RESOLVER_ARGS=()
+NFT=nft
+OVERRIDE=
+LOCK_WAIT=300
+if [[ -n $ROOT ]]; then
+  NFT=${MJK_NFT:-nft}
+  LOCK_WAIT=${MJK_TICK_LOCK_WAIT:-300}
+  [[ $LOCK_WAIT =~ ^[0-9]{1,3}$ ]] || { echo "mjk-tick: MJK_TICK_LOCK_WAIT must be 0-999 seconds" >&2; exit 78; }
+  [[ ! -f $ETC/compose.override.yaml ]] || OVERRIDE=$ETC/compose.override.yaml
+  # The test's own resolv.conf, so the check does not depend on the host's.
+  [[ ! -f $ROOT/etc/resolv.conf ]] || RESOLVER_ARGS=("$ROOT/etc/resolv.conf")
+fi
+
+rc=0
+log() { printf 'mjk-tick: %s\n' "$*"; }
+problem() {
+  log "$*"
+  rc=1
+}
+
+[[ -d $STATE ]] || { echo "mjk-tick: config_missing: $STATE (run mjk-install)" >&2; exit 78; }
+
+# The lock lives in /run/mjk, root:root 0700 (created at boot by /etc/tmpfiles.d/mjk.conf), never in
+# the world-writable /run/lock, where any local user could create and hold the file first.
+lockdir_ok() {
+  if [[ ! -e $LOCKDIR ]]; then
+    mkdir -m 0700 -- "$LOCKDIR" 2>/dev/null || return 1
+  fi
+  [[ -d $LOCKDIR && ! -L $LOCKDIR && $(stat -c '%u:%a' "$LOCKDIR") == 0:700 ]]
+}
+
+write_state() { # file content...
+  local file=$1
+  shift
+  printf '%s\n' "$@" >"$file.tmp" && chmod 0644 "$file.tmp" && mv -f "$file.tmp" "$file"
+}
+
+table_loaded() { "$NFT" list table inet mjk >/dev/null 2>&1; }
+
+# Stops every container of the mjk project and records why. Containers of other projects are not ours.
+fail_closed() {
+  local -a ids
+  mapfile -t ids < <(docker ps -q --filter label=com.docker.compose.project=mjk)
+  if ((${#ids[@]} > 0)); then
+    docker stop "${ids[@]}" >/dev/null 2>&1 || true
+  fi
+  write_state "$MARKER" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "FAIL CLOSED: table inet mjk cannot be loaded; ${#ids[@]} container(s) stopped, firewall-stopped written"
+}
+
+# The disk check: also while a deploy holds the lock, so the file never goes stale (stale counts as full).
+write_disk() {
+  local total avail
+  if read -r total avail < <(df -P -B1 "$STATE" 2>/dev/null | awk 'NR == 2 {print $2, $4}') && [[ ${total:-0} =~ ^[0-9]+$ && ${avail:-} =~ ^[0-9]+$ ]] && ((total > 0)); then
+    write_state "$STATE/disk" \
+      "free_pct=$((avail * 100 / total))" "free_bytes=$avail" "total_bytes=$total" "checked=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  else
+    problem "the disk check failed"
+  fi
+}
+
+# --- 1. the table ------------------------------------------------------------------------------------
+if ! table_loaded; then
+  log "table inet mjk is missing: loading it from mjk.nft"
+  if "$NFT" -c -f "$NFT_FILE" >/dev/null 2>&1 && "$NFT" -f "$NFT_FILE" >/dev/null 2>&1 && table_loaded; then
+    log "table inet mjk loaded"
+  else
+    fail_closed
+    exit 1
+  fi
+fi
+
+# --- 2. resolvers4 -----------------------------------------------------------------------------------
+if ! "$RESOLVERS" "${RESOLVER_ARGS[@]}" >/dev/null 2>&1; then
+  problem "resolvers4 was not refreshed (no usable resolver); DNS stays blocked until it is"
+fi
+
+# --- the lock, only now: the firewall steps above never wait for it ---------------------------------
+locked=0
+if lockdir_ok && { exec 9>"$LOCKFILE"; } 2>/dev/null; then
+  if flock -s -w "$LOCK_WAIT" 9; then locked=1; fi
+else
+  problem "the deploy lock $LOCKFILE cannot be opened (its directory must be root:root 0700); compose actions skipped"
+fi
+if ((!locked)); then
+  write_disk
+  log "busy: the deploy lock is held or cannot be opened; only the table, resolvers4 and the disk file were checked"
+  exit "$rc"
+fi
+
+# --- 3. back from a fail-closed stop -----------------------------------------------------------------
+if [[ -e $MARKER ]]; then
+  if [[ -f $CURRENT ]]; then
+    if timeout 600 docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$CURRENT" up -d --remove-orphans >/dev/null 2>&1; then
+      rm -f "$MARKER"
+      log "the table is loaded again: current.env started, firewall-stopped removed"
+    else
+      problem "could not start current.env after the firewall came back"
+    fi
+  else
+    rm -f "$MARKER"
+    log "the table is loaded again (no current.env to start)"
+  fi
+fi
+
+# --- 4. unhealthy containers -------------------------------------------------------------------------
+while read -r id service; do
+  [[ -n $id ]] || continue
+  if docker restart "$id" >/dev/null 2>&1; then
+    log "restarted the unhealthy container of ${service:-unknown}"
+  else
+    problem "could not restart the unhealthy container of ${service:-unknown}"
+  fi
+done < <(docker ps --no-trunc --filter label=com.docker.compose.project=mjk --filter health=unhealthy \
+  --format '{{.ID}} {{.Label "com.docker.compose.service"}}' 2>/dev/null || true)
+
+# --- 5. disk -----------------------------------------------------------------------------------------
+write_disk
+
+exit "$rc"

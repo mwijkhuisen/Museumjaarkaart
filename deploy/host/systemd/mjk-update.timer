@@ -1,0 +1,15 @@
+# mjk-update.timer: every 10 minutes (A§17.5). mjk-install enables it once the secrets and mjk.env are
+# filled. A run that finds the lock held, the digests unchanged or the revision labels differing
+# exits 0 and does nothing.
+
+[Unit]
+Description=mjk deploy, every 10 minutes
+
+[Timer]
+OnBootSec=3min
+OnCalendar=*:0/10
+AccuracySec=30s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

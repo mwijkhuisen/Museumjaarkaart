@@ -1,14 +1,18 @@
-# CI only: stands in for Cloudflare's edge (TLS for mjk.test, X-Forwarded-Proto https).
+# CI only: stands in for Cloudflare's edge and cloudflared (TLS for mjk.test and admin.mjk.test,
+# X-Forwarded-Proto), at cloudflared's fixed 10.63.6.10. Like Cloudflare, it appends the address it saw to
+# any X-Forwarded-For the visitor sent (every peer here is in a private range), so the Caddy cases can
+# prove that caddy takes the right-most entry, never a forged one.
 {
 	admin off
 	skip_install_trust
 	auto_https disable_redirects
 	servers {
 		protocols h1 h2
+		trusted_proxies static private_ranges
 	}
 }
 
-mjk.test {
+mjk.test, admin.mjk.test {
 	tls internal
 	header -Server
 	# CI only (cookie.spec.ts): proves both engines keep a __Host- Secure HttpOnly cookie on https.
@@ -23,5 +27,12 @@ mjk.test {
 		reverse_proxy caddy:80 {
 			header_up X-Forwarded-Proto https
 		}
+	}
+}
+
+# A visitor on plain http, as Cloudflare forwards it without "Always Use HTTPS": caddy answers with the 308.
+http://mjk.test, http://admin.mjk.test {
+	reverse_proxy caddy:80 {
+		header_up X-Forwarded-Proto http
 	}
 }

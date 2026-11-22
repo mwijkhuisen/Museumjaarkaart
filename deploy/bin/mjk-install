@@ -1,0 +1,358 @@
+#!/usr/bin/env bash
+# mjk-install: install or update the host side of the mjk stack (A§17.1, A§17.3, A§17.5). The owner runs it
+# as root from a checkout on the VM, then again after every change to compose, nftables, the units or
+# the scripts; the timers run root-owned copies, never a file of the checkout (F1 A§12.5).
+#   sudo deploy/bin/mjk-install
+# It is idempotent: a second run changes nothing (a file is rewritten only when its content, owner or
+# mode differs, so even the modification times stay).
+#
+# What it does:
+#   1. Refuses (before it changes anything) when a path, group name or GID it would create collides
+#      with rws or f1, when a mjk-* Docker network belongs to another compose project, or when one of
+#      the eight A§17.3 subnets overlaps a host route or a Docker network that is not the stack's own,
+#      or when /etc/mjk/mjk.env is not root:root 0644/0640 or holds a key outside the allowlist.
+#   2. Creates the groups of A§17.3 (63001-63013; 63014 and up stay reserved for P7), /etc/mjk/{secrets,
+#      postgres} and /srv/mjk/{state,originals,quarantine,exports,tiles-build,backup-staging} with exact
+#      owners and modes.
+#   3. Installs the compose file, roles.sql, the nftables file, the units, /etc/tmpfiles.d/mjk.conf (the
+#      lock directory /run/mjk, root 0700; /run/lock is never touched), and mjk-update, mjk-tick,
+#      mjk-resolvers and mjk-ping into /usr/local/bin (root-owned copies).
+#   4. Checks the ten secrets of P1e and mjk.env, by name only: it never writes a secret and never reads
+#      one (only whether the file exists, is root:<gid> 0440 and is not empty). Names and GIDs of the
+#      others (lettermint_api_token, r2_media_rw, app_keys) come back with P2a and P3b.
+#   5. Enables mjk-firewall.service (and starts it), and, only when every secret and mjk.env are in
+#      place, mjk-update.timer, mjk-tick.timer and mjk-backup.timer. Until then it lists what is missing
+#      and leaves the timers off.
+# It never touches /etc/rws, /srv/rws, /etc/f1, /srv/f1 or any file of those stacks.
+# Exit 0 installed (see the NOT ENABLED notice when secrets are missing) · 1 refused or failed · 78 not root.
+# MJK_ROOT (a directory) moves every path below it, skips systemctl and rewrites the compose copy's host
+# paths: deploy/tests/e2e.sh only.
+set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+umask 0022
+
+say() { printf 'mjk-install: %s\n' "$*"; }
+die() {
+  printf 'mjk-install: REFUSED: %s\n' "$1" >&2
+  exit 1
+}
+
+[[ $EUID -eq 0 ]] || {
+  echo "mjk-install: run as root (sudo deploy/bin/mjk-install)" >&2
+  exit 78
+}
+(($# == 0)) || {
+  echo "usage: mjk-install" >&2
+  exit 64
+}
+
+SRC=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)
+[[ -f $SRC/deploy/compose.yaml && -f $SRC/deploy/host/nftables/mjk.nft ]] || die "not a checkout of the repository: $SRC"
+
+ROOT=${MJK_ROOT:-}
+if [[ -n $ROOT ]]; then
+  [[ $ROOT =~ ^/[A-Za-z0-9._/-]+$ && $ROOT != */ && $ROOT != *..* ]] || die "MJK_ROOT must be a plain absolute path without a trailing slash"
+fi
+ETC=$ROOT/etc/mjk
+SRV=$ROOT/srv/mjk
+BIN=$ROOT/usr/local/bin
+UNITS=$ROOT/etc/systemd/system
+# The deploy lock's directory (S2/S3 of the P1e review): our own, never the shared /run/lock.
+LOCKDIR=$ROOT/run/mjk
+TMPFILES=$ROOT/etc/tmpfiles.d
+
+# What mjk-install itself needs, then what the installed scripts and units need (mjk-update without curl
+# would fail every smoke test and roll back forever; without jq it would skip the museum page).
+for cmd in docker getent groupadd stat cmp install realpath sed awk curl jq flock timeout sha256sum mktemp df; do
+  command -v "$cmd" >/dev/null || die "$cmd is required"
+done
+if [[ -z $ROOT ]]; then
+  # The units load the table and run the timers (a test root runs neither).
+  for cmd in nft systemctl systemd-tmpfiles; do
+    command -v "$cmd" >/dev/null || die "$cmd is required"
+  done
+fi
+docker info >/dev/null 2>&1 || die "the Docker daemon does not answer"
+
+# --- the tables of A§17.3 ----------------------------------------------------------------------------
+# secret name : GID. All thirteen groups exist after the install; P1e's compose uses the first ten
+# listed under CHECKED (hc_ping_key is read by root's backup unit and by the worker).
+GROUPS_GID=(
+  db_postgres:63001 db_mjk_migrator:63002 db_mjk_api:63003 db_mjk_ssr:63004 db_mjk_worker:63005
+  db_mjk_backup:63006 cf_tunnel_token:63007 lettermint_api_token:63008 r2_media_rw:63009
+  r2_backup_put:63010 restic_password:63011 app_keys:63012 hc_ping_key:63013
+)
+CHECKED=(db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token
+  r2_backup_put restic_password hc_ping_key)
+declare -A GID_OF=()
+for pair in "${GROUPS_GID[@]}"; do GID_OF[${pair%%:*}]=${pair##*:}; done
+
+# network name : subnet (A§17.3, in order). The bridge of mjk-backup-egress is mjk-bkp-egress.
+NETWORKS=(mjk-db:10.63.1.0/24 mjk-edge:10.63.2.0/24 mjk-egress:10.63.3.0/24 mjk-api-egress:10.63.4.0/24
+  mjk-tunnel:10.63.5.0/24 mjk-tunnel-edge:10.63.6.0/24 mjk-publish:10.63.7.0/24 mjk-backup-egress:10.63.8.0/24)
+
+# Config the P1e roles need (names only; mjk.env holds no secret). MJK_R2_BUCKET_MEDIA comes with P3b.
+ENV_KEYS=(MJK_BRAND_NAME MJK_DOMAIN MJK_PROFILE MJK_SYNC_CONTACT CF_ACCESS_TEAM CF_ACCESS_AUD
+  MJK_CONTROLLER_NAME MJK_CONTACT_EMAIL MJK_R2_ENDPOINT MJK_R2_BUCKET_BACKUP)
+
+# --- 1. refusals, before anything changes ------------------------------------------------------------
+# A path of ours that resolves into another stack's tree (a symlink, a typo) is refused.
+refuse_foreign() {
+  local real
+  real=$(realpath -m -- "$1")
+  case $real in
+    /etc/rws | /etc/rws/* | /srv/rws | /srv/rws/* | /etc/f1 | /etc/f1/* | /srv/f1 | /srv/f1/*)
+      die "$1 resolves to $real, which belongs to rws or f1"
+      ;;
+  esac
+}
+
+for pair in "${GROUPS_GID[@]}"; do
+  name=mjk_${pair%%:*}
+  gid=${pair##*:}
+  case $name in *rws* | *f1*) die "the group name $name holds rws or f1" ;; esac
+  holder=$(getent group "$gid" | cut -d: -f1 || true)
+  [[ -z $holder || $holder == "$name" ]] || die "GID $gid is taken by another group"
+  owned=$(getent group "$name" | cut -d: -f3 || true)
+  [[ -z $owned || $owned == "$gid" ]] || die "the group $name exists with another GID"
+done
+holder=$(getent group 63532 | cut -d: -f1 || true)
+[[ $holder != *rws* && $holder != *f1* ]] || die "GID 63532 belongs to a group named for rws or f1"
+
+for dir in "$ETC" "$ETC/secrets" "$ETC/postgres" "$SRV" "$SRV/state" "$SRV/originals" "$SRV/quarantine" \
+  "$SRV/exports" "$SRV/tiles-build" "$SRV/backup-staging" "$BIN" "$UNITS" "$LOCKDIR" "$TMPFILES"; do
+  refuse_foreign "$dir"
+  [[ ! -L $dir ]] || die "$dir is a symlink"
+  [[ ! -e $dir || -d $dir ]] || die "$dir exists and is not a directory"
+done
+
+# mjk.env: a plain root:root file, 0644 or 0640, of KEY=value lines with allowed keys only. The one
+# implementation is deploy/bin/mjk-envcheck (mjk-update runs its installed copy before every deploy); a
+# refusal names the key or the line number, never a value.
+ENV_FILE=$ETC/mjk.env
+if [[ -e $ENV_FILE || -L $ENV_FILE ]]; then
+  "$SRC/deploy/bin/mjk-envcheck" "$ENV_FILE" || die "mjk.env is not acceptable (the line above names why)"
+fi
+
+ip_int() { # 10.63.1.0 -> an integer
+  local IFS=. a b c d
+  read -r a b c d <<<"$1"
+  echo $(((a << 24) | (b << 16) | (c << 8) | d))
+}
+# Prints "<start> <end>" of an IPv4 CIDR.
+cidr_range() {
+  local base len size start
+  base=$(ip_int "${1%/*}")
+  len=${1#*/}
+  size=$((1 << (32 - len)))
+  start=$((base & ~(size - 1) & 0xFFFFFFFF))
+  echo "$start $((start + size - 1))"
+}
+overlaps() { # <cidr> <cidr>
+  local a_start a_end b_start b_end
+  read -r a_start a_end < <(cidr_range "$1")
+  read -r b_start b_end < <(cidr_range "$2")
+  ((a_start <= b_end && b_start <= a_end))
+}
+valid_cidr() { [[ $1 =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$ ]]; }
+
+declare -A OWN_NET=()
+for pair in "${NETWORKS[@]}"; do OWN_NET[${pair%%:*}]=${pair##*:}; done
+
+# A mjk-* network that exists must belong to the compose project mjk.
+for name in "${!OWN_NET[@]}"; do
+  if docker network inspect "$name" >/dev/null 2>&1; then
+    project=$(docker network inspect -f '{{index .Labels "com.docker.compose.project"}}' "$name")
+    [[ $project == mjk ]] || die "the Docker network $name exists and does not belong to the compose project mjk"
+  fi
+done
+
+# No other Docker network and no host route may overlap one of our subnets.
+while read -r netname; do
+  [[ -n $netname && -z ${OWN_NET[$netname]:-} ]] || continue
+  for subnet in $(docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' "$netname"); do
+    valid_cidr "$subnet" || continue
+    for pair in "${NETWORKS[@]}"; do
+      if overlaps "${pair##*:}" "$subnet"; then
+        die "the subnet ${pair##*:} (${pair%%:*}) overlaps the Docker network $netname ($subnet)"
+      fi
+    done
+  done
+done < <(docker network ls --format '{{.Name}}')
+
+while read -r iface dest _ _ _ _ _ mask _; do
+  [[ $iface != Iface && $iface != mjk-* && $dest =~ ^[0-9A-Fa-f]{8}$ && $mask =~ ^[0-9A-Fa-f]{8}$ ]] || continue
+  [[ $mask != 00000000 ]] || continue
+  d=$((16#$dest))
+  m=$((16#$mask))
+  # /proc/net/route prints little-endian hex.
+  ip=$((((d & 0xFF) << 24) | ((d & 0xFF00) << 8) | ((d & 0xFF0000) >> 8) | ((d >> 24) & 0xFF)))
+  mk=$((((m & 0xFF) << 24) | ((m & 0xFF00) << 8) | ((m & 0xFF0000) >> 8) | ((m >> 24) & 0xFF)))
+  len=0
+  for ((bit = 31; bit >= 0; bit--)); do
+    ((mk >> bit & 1)) || break
+    len=$((len + 1))
+  done
+  route="$((ip >> 24 & 255)).$((ip >> 16 & 255)).$((ip >> 8 & 255)).$((ip & 255))/$len"
+  for pair in "${NETWORKS[@]}"; do
+    if overlaps "${pair##*:}" "$route"; then
+      die "the subnet ${pair##*:} (${pair%%:*}) overlaps the host route $route on $iface"
+    fi
+  done
+done </proc/net/route
+
+# --- 2. groups, directories --------------------------------------------------------------------------
+CHANGES=()
+note() { CHANGES+=("$1"); }
+
+for pair in "${GROUPS_GID[@]}"; do
+  name=mjk_${pair%%:*}
+  gid=${pair##*:}
+  if [[ -z $(getent group "$name" || true) ]]; then
+    groupadd --gid "$gid" "$name"
+    note "group $name ($gid)"
+  fi
+done
+
+ensure_dir() { # <path> <uid:gid> <mode>
+  local path=$1 owner=$2 mode=$3
+  if [[ ! -d $path ]]; then
+    mkdir -p -- "$path"
+    note "directory $path"
+  fi
+  if [[ $(stat -c '%u:%g' "$path") != "$owner" ]]; then
+    chown "$owner" -- "$path"
+    note "owner of $path"
+  fi
+  if [[ $(stat -c '%a' "$path") != "$mode" ]]; then
+    chmod "$mode" -- "$path"
+    note "mode of $path"
+  fi
+}
+
+if [[ -n $ROOT ]]; then
+  ensure_dir "$ROOT" 0:0 755
+  ensure_dir "$ROOT/etc" 0:0 755
+  ensure_dir "$ROOT/srv" 0:0 755
+  ensure_dir "$ROOT/usr" 0:0 755
+  ensure_dir "$ROOT/usr/local" 0:0 755
+  ensure_dir "$ROOT/etc/systemd" 0:0 755
+  ensure_dir "$ROOT/run" 0:0 755
+fi
+ensure_dir "$ETC" 0:0 755
+ensure_dir "$ETC/secrets" 0:0 700
+ensure_dir "$ETC/postgres" 0:0 755
+ensure_dir "$SRV" 0:0 755
+ensure_dir "$SRV/state" 0:0 755
+for dir in originals quarantine exports tiles-build backup-staging; do
+  ensure_dir "$SRV/$dir" 63532:63532 700
+done
+ensure_dir "$BIN" 0:0 755
+ensure_dir "$UNITS" 0:0 755
+ensure_dir "$TMPFILES" 0:0 755
+# /run is a tmpfs: on the host the tmpfiles entry (below) makes /run/mjk at every boot; a test root makes
+# its own. Nothing here ever touches /run/lock.
+if [[ -n $ROOT ]]; then
+  ensure_dir "$LOCKDIR" 0:0 700
+fi
+
+# --- 3. files ----------------------------------------------------------------------------------------
+put() { # <source> <destination> <mode>: root-owned, replaced atomically, only when different
+  local src=$1 dst=$2 mode=$3 tmp
+  PUT_CHANGED=0
+  [[ -f $src ]] || die "the source $src is missing"
+  refuse_foreign "$dst"
+  [[ ! -L $dst ]] || die "$dst is a symlink"
+  if [[ -f $dst && $(stat -c '%u:%g:%a' "$dst") == "0:0:$mode" ]] && cmp -s -- "$src" "$dst"; then
+    return 0
+  fi
+  tmp=$(mktemp "$dst.XXXXXX")
+  install -m "$mode" -o 0 -g 0 -- "$src" "$tmp"
+  mv -f -- "$tmp" "$dst"
+  PUT_CHANGED=1
+  note "file $dst"
+}
+
+scratch=$(mktemp -d)
+trap 'rm -rf "$scratch"' EXIT
+
+# The compose file keeps /etc/mjk and /srv/mjk literal (hardening.sh asserts them). A test root moves
+# the host side of every bind mount and secret file below MJK_ROOT; container paths stay as they are.
+if [[ -n $ROOT ]]; then
+  sed -E "s#^([[:space:]]*(- )?(source|file|path):[[:space:]]*)/(etc|srv)/mjk#\\1$ROOT/\\4/mjk#" \
+    "$SRC/deploy/compose.yaml" >"$scratch/compose.yaml"
+  put "$scratch/compose.yaml" "$ETC/compose.yaml" 644
+else
+  put "$SRC/deploy/compose.yaml" "$ETC/compose.yaml" 644
+fi
+put "$SRC/deploy/postgres/roles.sql" "$ETC/postgres/roles.sql" 644
+put "$SRC/deploy/host/nftables/mjk.nft" "$ETC/mjk.nft" 644
+nft_changed=$PUT_CHANGED
+for script in mjk-update mjk-tick mjk-resolvers mjk-ping mjk-envcheck; do
+  put "$SRC/deploy/bin/$script" "$BIN/$script" 755
+done
+units_before=${#CHANGES[@]}
+for unit in "$SRC"/deploy/host/systemd/*.service "$SRC"/deploy/host/systemd/*.timer; do
+  put "$unit" "$UNITS/$(basename "$unit")" 644
+done
+units_changed=$((${#CHANGES[@]} - units_before))
+put "$SRC/deploy/host/tmpfiles/mjk.conf" "$TMPFILES/mjk.conf" 644
+if [[ -z $ROOT ]]; then
+  systemd-tmpfiles --create "$TMPFILES/mjk.conf" || die "systemd-tmpfiles could not create /run/mjk"
+  [[ -d $LOCKDIR && ! -L $LOCKDIR && $(stat -c '%u:%g:%a' "$LOCKDIR") == 0:0:700 ]] || die "$LOCKDIR is not a root:root 0700 directory"
+fi
+
+# --- 4. secrets and config, by name only -------------------------------------------------------------
+MISSING=()
+for name in "${CHECKED[@]}"; do
+  file=$ETC/secrets/$name
+  gid=${GID_OF[$name]}
+  if [[ ! -e $file || -L $file || ! -f $file ]]; then
+    MISSING+=("secret $name: missing")
+  elif [[ $(stat -c '%u:%g:%a' "$file") != "0:$gid:440" ]]; then
+    MISSING+=("secret $name: must be root:$gid 0440")
+  elif [[ ! -s $file ]]; then
+    MISSING+=("secret $name: empty")
+  fi
+done
+if [[ ! -f $ETC/mjk.env ]]; then
+  MISSING+=("mjk.env: missing")
+else
+  for key in "${ENV_KEYS[@]}"; do
+    grep -Eq "^$key=.+" "$ETC/mjk.env" || MISSING+=("mjk.env: $key not set")
+  done
+fi
+
+# --- 5. systemd --------------------------------------------------------------------------------------
+if [[ -z $ROOT ]]; then
+  ((units_changed == 0)) || systemctl daemon-reload
+  systemctl enable mjk-firewall.service >/dev/null 2>&1 || die "systemctl enable mjk-firewall.service failed"
+  if systemctl is-active --quiet mjk-firewall.service; then
+    ((nft_changed == 0)) || systemctl reload mjk-firewall.service
+  else
+    systemctl start mjk-firewall.service
+  fi
+  if ((${#MISSING[@]} == 0)); then
+    systemctl enable --now mjk-update.timer mjk-tick.timer mjk-backup.timer >/dev/null 2>&1 ||
+      die "systemctl enable --now of the three timers failed"
+  fi
+else
+  say "test root $ROOT: systemctl skipped (units installed, nothing enabled)"
+fi
+
+# --- report ------------------------------------------------------------------------------------------
+if ((${#CHANGES[@]} == 0)); then
+  say "no changes: everything was in place"
+else
+  for change in "${CHANGES[@]}"; do say "changed: $change"; done
+fi
+if ((${#MISSING[@]} > 0)); then
+  say "NOT ENABLED: mjk-update.timer, mjk-tick.timer and mjk-backup.timer stay off until this is filled:"
+  for line in "${MISSING[@]}"; do say "  $line"; done
+  say "fill it (docs/runbooks/install.md), then run mjk-install again"
+elif [[ -n $ROOT ]]; then
+  say "secrets and mjk.env are in place (test root: no timer enabled)"
+else
+  say "secrets and mjk.env are in place; the three timers are enabled"
+fi

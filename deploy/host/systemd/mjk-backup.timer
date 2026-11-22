@@ -1,0 +1,14 @@
+# mjk-backup.timer: 01:43 Europe/Amsterdam every night (Q3: clear of the Tuesday 03:17 museum sync and
+# of the 10-minute timers). Persistent=true runs a missed night at the next boot. mjk-install enables it
+# once the secrets and mjk.env are filled.
+
+[Unit]
+Description=mjk nightly backup at 01:43 Europe/Amsterdam
+
+[Timer]
+OnCalendar=*-*-* 01:43:00 Europe/Amsterdam
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

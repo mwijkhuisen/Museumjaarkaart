@@ -92,7 +92,13 @@ function render(path: string, museum: MuseumDetail = detail()): string {
   setLocale(resolved.route.locale, { reload: false });
   const queryClient = createQueryClient();
   for (const [key, value] of seed(resolved.route, museum)) queryClient.setQueryData([key], value);
-  return renderToStaticMarkup(<App path={path} queryClient={queryClient} config={{ brand: 'Testmerk' }} />);
+  return renderToStaticMarkup(
+    <App
+      path={path}
+      queryClient={queryClient}
+      config={{ brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' }}
+    />,
+  );
 }
 
 const PATHS = [
@@ -264,7 +270,13 @@ describe('the list page', () => {
     queryClient.setQueryData([apiPath.provinces], provinces);
     setLocale('nl', { reload: false });
     expect(
-      renderToStaticMarkup(<App path="/musea" queryClient={queryClient} config={{ brand: 'Testmerk' }} />),
+      renderToStaticMarkup(
+        <App
+          path="/musea"
+          queryClient={queryClient}
+          config={{ brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' }}
+        />,
+      ),
     ).toContain('Geen musea gevonden');
   });
 

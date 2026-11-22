@@ -75,7 +75,7 @@ async function document(
     <App
       path={path}
       queryClient={queryClient}
-      config={{ brand: config.brand }}
+      config={{ brand: config.brand, controller: config.controller, contactEmail: config.contactEmail }}
       {...(page.fallback === null ? {} : { fallback: page.fallback })}
     />,
   );

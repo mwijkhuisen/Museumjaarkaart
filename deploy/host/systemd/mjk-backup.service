@@ -1,0 +1,58 @@
+# mjk-backup.service: the nightly backup (A§17.6, ADR-0011). Started by mjk-backup.timer.
+#
+# Installed by mjk-install as /etc/systemd/system/mjk-backup.service. It takes the deploy lock shared
+# (blocking, up to an hour, so a backup never runs against a half-deployed stack and mjk-update, which
+# takes it exclusive, never swaps images under it; mjk-tick takes it shared too, so the firewall, restart
+# and disk checks keep running during a long backup), then runs the `backup` role as a one-shot container:
+#   docker compose -p mjk ... --profile backup run --rm backup
+# with the images of current.env. The ping follows from the host (the container has no hc_ping_key,
+# interfaces.md): ExecStopPost runs mjk-ping, which reads $SERVICE_RESULT and pings healthchecks.io
+# with /fail unless the run succeeded. The key goes to curl on stdin only (mjk-ping), never into an
+# argument list or the journal. A failed ping does not fail the unit (the leading `-`).
+#
+# Hardening as far as a unit that calls Docker allows: no new privileges, no home directories, a
+# read-only system except the lock directory, no kernel tuning, no namespaces of its own.
+
+[Unit]
+Description=mjk nightly backup (pg_dump and restic to R2)
+Documentation=file:///etc/mjk/compose.yaml
+After=docker.service mjk-firewall.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+# A backup before the first deploy has no images to run: fail visibly (the missing ping alarms too).
+AssertPathExists=/srv/mjk/state/current.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flock -s -w 3600 /run/mjk/deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup
+# A run that systemd stopped (the timeout below, a manual stop) can leave the one-off container running
+# outside the lock: remove it, by the compose project and service labels only, before the ping.
+ExecStopPost=-/bin/sh -c 'docker ps -aq --filter label=com.docker.compose.project=mjk --filter label=com.docker.compose.service=backup --filter label=com.docker.compose.oneoff=True | xargs -r docker rm -f'
+ExecStopPost=-/usr/local/bin/mjk-ping result
+# Above the worst case: the lock wait (1 h) plus the role's own bounds (pg_dump 1 h, the repository probe
+# 5 min, restic backup 6 h; apps/server/src/backup/run.ts) = 8 h 5 min.
+TimeoutStartSec=9h
+Environment=HOME=/run/mjk-backup DOCKER_CONFIG=/run/mjk-backup/docker
+RuntimeDirectory=mjk-backup
+RuntimeDirectoryMode=0700
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/mjk
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077

@@ -182,7 +182,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
 - **Depends on:** P1c (P1d follows) · **Owner actions:** A1 (domain), A2, A3, A8 · **Labels:** `tag:CI` `tag:box` `tag:owner` `review:security`
 - **Goal:** the catalogue running at `<domain>` on the shared VM, isolated from Waterheight and F1, not yet indexed (D11, ADR-0003, ADR-0004).
 - **Scope in:**
-  - Dockerfiles: distroless server (all Node roles, sha256-pinned dbmate, go-pmtiles), Caddy web (file capability stripped)
+  - Dockerfiles: distroless server (all Node roles, sha256-pinned dbmate, go-pmtiles), its `backup` target (the `mjk-backup` image: pg_dump 18.6 and restic 0.19.1; owner, P1e Q2), Caddy web (file capability stripped)
   - `deploy/compose.yaml`: project `mjk`, A§17.2 limits [U], the hardening anchor per service, UID 63532, file secrets `root:<gid> 0440` from GID 63001, the `10.63.x` subnets in A§17.3 order, caddy at the fixed `10.63.2.10` on `mjk-edge`, only `127.0.0.1:8280` published
   - `deploy/host/`: `mjk-firewall.service` loading `table inet mjk` (A§17.4), `deploy/bin/mjk-install`, `mjk-update.timer`, `mjk-tick.timer`, `mjk-backup.timer`
   - the `backup` role (ADR-0011, A§17.6): nightly `pg_dump -Fc` without the data of `session`, `email_code`, `auth_challenge`, `rate_limit` and `job`, + restic 0.19.1 to the private R2 EU bucket `mjk-backup`; its lock rule covers the restic prefixes, not `locks/` (A2); the VM's key is an Object R/W token on `mjk-backup` only; `restic forget --keep-daily 28 --prune --max-unused 0` from the owner's workstation; the monthly restore drill. The curation (A6) is the first data that cannot be re-fetched
@@ -206,7 +206,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
   - [box] with the VM's backup key, deleting or overwriting an object under `data/` or `snapshots/` younger than 28 days fails, and any read or write on `mjk-media` fails; two consecutive backups leave no file under `locks/`; `restic forget --prune` with the workstation key succeeds against the locked repository [U].
   - [box] every response from `<domain>` carries `X-Robots-Tag: noindex`; a day of `docker stats` goes into A§17.2 and confirms or revises A3.
   - [owner] `admin.<domain>` without login → the Access page; with the owner's email one-time PIN → through; another email → denied; the Access application's path, policies and session duration match A2.
-  - [owner] before the first deploy from `main`, the agent runs on a fine-grained token without the Administration and Workflows permissions, or P0's security review recorded why not (A§16.3).
+  - [owner] before the first `release` push to GHCR, A§16.3's condition (2) holds (owner, P1e Q7): the GHCR packages give this repository's Actions read access only, and `release` pushes with a `write:packages` credential held only as a `production` environment secret; the owner records that in the PR. Condition (1), an agent credential without the Workflows permission, is added if the Claude GitHub App can drop it.
   - [owner] the Waterheight and F1 sites still work.
 - **Models and effort:** build Opus 5.5 `xhigh` · code review Sonnet 5.5 `high` (recommended) · security review Opus 5.5 `xhigh` (required).
 

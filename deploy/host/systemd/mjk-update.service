@@ -1,0 +1,49 @@
+# mjk-update.service: one deploy attempt (A§17.5). Started by mjk-update.timer every 10 minutes.
+#
+# Installed by mjk-install as /etc/systemd/system/mjk-update.service; it runs the root-owned copy
+# /usr/local/bin/mjk-update, never a file of the checkout (F1 A§12.5). mjk-update takes the flock
+# /run/mjk/deploy.lock itself (exclusive; mjk-tick and the backup take it shared) and exits 0 when
+# it is held.
+#
+# Hardening: the unit is root and talks to the Docker daemon, which is root-equivalent by itself, so
+# this limits what a bug in the script (not a container) can reach: no new privileges, no home
+# directories, a read-only system except the state directory and the lock, no kernel tuning, no
+# namespaces of its own. Docker's client writes nothing outside the unit's runtime directory.
+
+[Unit]
+Description=mjk deploy: pull the desired images, migrate, update, roll back on failure
+Documentation=file:///etc/mjk/compose.yaml
+After=docker.service mjk-firewall.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+AssertPathExists=/etc/mjk/mjk.env
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mjk-update
+# Every docker step of mjk-update is bounded; the bounds add up to about 57 minutes (mjk-update header).
+TimeoutStartSec=65min
+Environment=HOME=/run/mjk-update DOCKER_CONFIG=/run/mjk-update/docker
+RuntimeDirectory=mjk-update
+RuntimeDirectoryMode=0700
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/srv/mjk/state /run/mjk
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077

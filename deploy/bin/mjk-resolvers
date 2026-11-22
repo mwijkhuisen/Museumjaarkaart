@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# mjk-resolvers: fill the set resolvers4 of table inet mjk with the host's IPv4 DNS resolvers (A§17.4).
+#
+# Run by mjk-firewall.service right after the table loads (a load leaves the set empty) and by mjk-tick
+# on every run. Root-owned copy in /usr/local/bin.
+#   mjk-resolvers                 read /etc/resolv.conf; when that lists only loopback resolvers (the
+#                                 systemd-resolved stub), read /run/systemd/resolve/resolv.conf, the file
+#                                 Docker itself uses then
+#   mjk-resolvers <file>...       read these files instead (the tests)
+# The set is replaced in one nft transaction, so it is never half-filled. Loopback addresses are left
+# out (Docker's embedded DNS forwards to them from the host's own namespace, not over a bridge), and so
+# is IPv6 (the mjk networks are IPv4 only). With no usable address the set is left as it was.
+# Exit 0 the set holds the resolvers · 1 table inet mjk is not loaded, no usable resolver, or nft failed
+# · 64 usage. It logs counts, never the addresses.
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+
+die() {
+  echo "mjk-resolvers: $1" >&2
+  exit "${2:-1}"
+}
+
+# Prints the non-loopback IPv4 nameservers of a resolv.conf, one per line, in file order.
+nameservers() {
+  local file=$1 key addr
+  [[ -r $file ]] || return 0
+  while read -r key addr _ || [[ -n $key ]]; do
+    [[ $key == nameserver ]] || continue
+    valid_ipv4 "$addr" || continue
+    [[ $addr == 127.* || $addr == 0.* ]] && continue
+    printf '%s\n' "$addr"
+  done <"$file"
+}
+
+# A dotted quad with four decimal octets of 0-255 and no leading zeros (nft would read 010 as octal).
+valid_ipv4() {
+  local IFS=. octet
+  local -a parts
+  [[ $1 =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+  read -r -a parts <<<"$1"
+  for octet in "${parts[@]}"; do
+    [[ $octet == 0 || $octet =~ ^[1-9][0-9]*$ ]] || return 1
+    ((10#$octet <= 255)) || return 1
+  done
+}
+
+for arg in "$@"; do
+  [[ $arg == -* ]] && die "usage: mjk-resolvers [resolv.conf ...]" 64
+done
+
+if (($# > 0)); then
+  files=("$@")
+else
+  files=(/etc/resolv.conf)
+fi
+
+declare -A seen=()
+addrs=()
+collect() {
+  local addr
+  while read -r addr; do
+    [[ -n $addr && -z ${seen[$addr]:-} ]] || continue
+    seen[$addr]=1
+    addrs+=("$addr")
+  done < <(nameservers "$1")
+}
+for file in "${files[@]}"; do collect "$file"; done
+if ((${#addrs[@]} == 0 && $# == 0)); then
+  collect /run/systemd/resolve/resolv.conf
+fi
+
+nft list set inet mjk resolvers4 >/dev/null 2>&1 || die "table inet mjk is not loaded"
+((${#addrs[@]} > 0)) || die "no IPv4 resolver outside loopback in ${files[*]}; resolvers4 left as it was"
+
+elements=$(IFS=,; printf '%s' "${addrs[*]}")
+printf 'flush set inet mjk resolvers4\nadd element inet mjk resolvers4 { %s }\n' "$elements" |
+  nft -f - || die "nft refused the update; resolvers4 left as it was"
+echo "mjk-resolvers: resolvers4 holds ${#addrs[@]} address(es)"

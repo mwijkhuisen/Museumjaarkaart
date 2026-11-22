@@ -1,0 +1,146 @@
+# Release (P1e, A§16.3, A§17.5): build the three images from `main` and push them to GHCR.
+# `mjk-update` on the VM pulls `ghcr.io/mwijkhuisen/mjk-{server,web,backup}:main`, waits while the three
+# `org.opencontainers.image.revision` labels differ, and records the digests it deploys itself. So this
+# workflow publishes the desired state by pushing `:sha-<git>` first and moving `:main` last, for all three.
+#
+# A§16.3 condition (2): GHCR write never comes from a GITHUB_TOKEN that a branch's workflow can request.
+#   - The GITHUB_TOKEN of this workflow is `contents: read` only; the packages grant this repository's
+#     Actions read access only (owner setting, docs/runbooks/install.md).
+#   - The push uses GHCR_PUSH_TOKEN, a classic personal access token with `write:packages`, stored only as a
+#     secret of the environment `production` (required reviewer: the owner; deployment branches: `main`).
+#     No other workflow and no branch can read it.
+# `:main` moves only when the `ci` workflow has succeeded on the run's commit (read with this job's
+# GITHUB_TOKEN, `actions: read` only, before the push secret appears) and the commit is still the head of
+# `main` (an anonymous `git ls-remote` right before the move), so an untested merge result never ships
+# and a re-run of an old run never rolls the VM back (P1e review S9).
+# Same hardening as ci.yml: top-level permissions {}, SHA-pinned actions, no caches, no expressions in run:,
+# persist-credentials: false. No third-party action: plain `docker build`, `docker login` and `docker push`.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  # Queue, never cancel: a run that is pushing must finish (a half-moved :main would split the revision
+  # labels, which mjk-update then waits on). GitHub keeps one pending run and replaces older pending ones,
+  # which is right: `:main` should end on the newest commit.
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    name: release
+    # A workflow_dispatch from another branch stops here (and at the environment's branch rule).
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: production
+    permissions:
+      contents: read
+      actions: read # only to read the ci workflow's runs on this commit (the green-ci gate below)
+    env:
+      REVISION: ${{ github.sha }}
+      GHCR_USER: mwijkhuisen
+      REGISTRY_PREFIX: ghcr.io/mwijkhuisen/mjk
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Built without the push secret in the environment. The same three `docker build` lines as ci.yml's
+      # `deploy` job; the image names are the ones compose reads (MJK_*_IMAGE).
+      - name: Build the three images with the commit as org.opencontainers.image.revision
+        run: |
+          docker build -f deploy/server/Dockerfile --target server --build-arg "REVISION=$REVISION" -t "$REGISTRY_PREFIX-server:sha-$REVISION" .
+          docker build -f deploy/server/Dockerfile --target backup --build-arg "REVISION=$REVISION" -t "$REGISTRY_PREFIX-backup:sha-$REVISION" .
+          docker build -f deploy/web/Dockerfile --build-arg "REVISION=$REVISION" -t "$REGISTRY_PREFIX-web:sha-$REVISION" .
+          for name in server web backup; do
+            label=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$REGISTRY_PREFIX-$name:sha-$REVISION")
+            test "$label" = "$REVISION"
+          done
+      # The green-ci gate (P1e review S9): the `ci` workflow's push run on this very commit must have
+      # concluded `success`. A push to main starts ci and this workflow together, so it waits up to 30
+      # minutes for ci to finish; a failed, cancelled or missing run is no release. GITHUB_TOKEN reaches
+      # curl on stdin as a config, never in an argument.
+      - name: Require a green ci run on this commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          url="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$REVISION&event=push&branch=main&per_page=20"
+          for _ in $(seq 1 60); do
+            runs=$(printf 'header = "Authorization: Bearer %s"\n' "$GITHUB_TOKEN" |
+              curl --proto '=https' -fsS -m 30 -K - -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "$url") || runs='{}'
+            state=$(jq -r '[(.workflow_runs // [])[] | select(.head_sha == env.REVISION)]
+              | if any(.[]; .conclusion == "success") then "success"
+                elif any(.[]; .status != "completed") or length == 0 then "pending"
+                else "failed" end' <<<"$runs")
+            case $state in
+              success) echo "ci succeeded on $REVISION"; exit 0 ;;
+              failed) echo "::error::ci did not succeed on $REVISION: no release" >&2; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "::error::no green ci run on $REVISION within 30 minutes: no release" >&2
+          exit 1
+      # The only step that sees the secret. The registry login lives in a throw-away directory that is
+      # removed on exit, and the token goes to docker on stdin, never in an argument.
+      - name: Push :sha-<git> for all three, then move :main for all three
+        env:
+          GHCR_PUSH_TOKEN: ${{ secrets.GHCR_PUSH_TOKEN }}
+        run: |
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/docker-login.XXXXXX")
+          export DOCKER_CONFIG
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"' EXIT
+          test -n "$GHCR_PUSH_TOKEN" || { echo "GHCR_PUSH_TOKEN is not set in the environment production" >&2; exit 1; }
+          printf '%s' "$GHCR_PUSH_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          for name in server web backup; do
+            docker push "$REGISTRY_PREFIX-$name:sha-$REVISION"
+          done
+          # :main moves only while this commit is still the head of main (P1e review S9): a re-run of an
+          # older run, or a run that a newer push has overtaken, must never move :main backwards. The
+          # check reads the public repository anonymously, right before the move.
+          head=$(git ls-remote --exit-code "https://github.com/$GITHUB_REPOSITORY.git" refs/heads/main | cut -f 1)
+          if [ "$head" != "$REVISION" ]; then
+            echo "::error::main is at $head, not $REVISION: :main stays where it is (only :sha-$REVISION was pushed)" >&2
+            exit 1
+          fi
+          for name in server web backup; do
+            docker tag "$REGISTRY_PREFIX-$name:sha-$REVISION" "$REGISTRY_PREFIX-$name:main"
+          done
+          for name in server web backup; do
+            docker push "$REGISTRY_PREFIX-$name:main"
+          done
+      # Records the digests, and checks what the VM will see: an anonymous pull (the packages must be public,
+      # A§17.5) of the digest just pushed, carrying this revision. A failure is a warning, not a red run: the
+      # push itself succeeded, and the first release happens before the owner can make the packages public.
+      - name: Record the digests and check the anonymous pull
+        run: |
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/docker-anon.XXXXXX")
+          export DOCKER_CONFIG
+          {
+            echo "### Released $REVISION"
+            echo
+            echo '| image | digest |'
+            echo '|---|---|'
+          } >>"$GITHUB_STEP_SUMMARY"
+          for name in server web backup; do
+            repo="$REGISTRY_PREFIX-$name"
+            digest=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$repo:main" | grep -F -m 1 "$repo@sha256:")
+            echo "| mjk-$name | \`$digest\` |" >>"$GITHUB_STEP_SUMMARY"
+            echo "$name $digest"
+            docker image rm "$repo:main" "$repo:sha-$REVISION" >/dev/null
+            if docker pull -q "$digest" >/dev/null 2>&1; then
+              label=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$digest")
+              test "$label" = "$REVISION"
+            else
+              echo "::warning::anonymous pull of mjk-$name failed: make the package public (docs/runbooks/install.md)"
+            fi
+          done
+          rm -rf "$DOCKER_CONFIG"

@@ -28,7 +28,14 @@ it('serves healthz as mjk_api, touches the heartbeat, and exits 0 after the stop
   const ready = new Promise<void>((resolve) => {
     listening = resolve;
   });
-  const exited = run(['api'], { DATABASE_URL: db.urls.mjk_api, PATH: process.env.PATH }, () => {}, hb, {
+  const env = {
+    DATABASE_URL: db.urls.mjk_api,
+    PATH: process.env.PATH,
+    MJK_DOMAIN: 'mjk.test',
+    CF_ACCESS_TEAM: 'test-team',
+    CF_ACCESS_AUD: 'a'.repeat(64),
+  };
+  const exited = run(['api'], env, () => {}, hb, {
     signal: stop.signal,
     port: 0,
     hostname: '127.0.0.1',
