@@ -296,6 +296,38 @@ it('without a touch inside the lease another worker takes the job over (the cont
   gate.resolve();
 });
 
+it('a lease touch still in flight when its job ends logs no job_lease_lost', async () => {
+  // A pool whose lease touches wait 300 ms before they reach the database: the job is done by then.
+  const pool = poolFor(testDb.urls.mjk_worker);
+  const connect = pool.connect.bind(pool);
+  const patched = new WeakSet<object>();
+  const slow = new Proxy(pool, {
+    get: (target, key) =>
+      key === 'connect'
+        ? async () => {
+            const client = await connect();
+            if (patched.has(client)) return client;
+            patched.add(client);
+            const query = client.query.bind(client) as (...a: unknown[]) => Promise<unknown>;
+            (client as { query: unknown }).query = async (...a: unknown[]) => {
+              const text = typeof a[0] === 'string' ? a[0] : (a[0] as { text?: string }).text;
+              if (text?.startsWith('update "job" set "locked_at"')) await new Promise((r) => setTimeout(r, 300));
+              return query(...a);
+            };
+            return client;
+          }
+        : Reflect.get(target, key),
+  });
+  const w = start(
+    { museum_sync: () => new Promise((r) => setTimeout(r, 150)) },
+    { db: createDb(slow), heartbeatMs: 50 },
+  );
+  const id = await enqueue(db, 'museum_sync');
+  await vi.waitFor(async () => expect((await row(id)).state).toBe('done'), { timeout: 3_000, interval: 20 });
+  await new Promise((r) => setTimeout(r, 500)); // every touch in flight has answered
+  expect(w.lines().some((l) => l.msg === 'job_lease_lost')).toBe(false);
+});
+
 it('touchLease holds only for the owner of a running job', async () => {
   const id = await enqueue(db, 'museum_sync');
   const job = await claim(db, 'w-a', { leaseSeconds: 60 });

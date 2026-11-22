@@ -150,7 +150,8 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
       await sql`SELECT 1`.execute(db);
       dbOk();
       const job = running;
-      if (job !== undefined && !(await touchLease(db, job, workerId)) && !leaseLost) {
+      // Re-checked after the await: a job that ended meanwhile is not lost, and the next job is not marked.
+      if (job !== undefined && !(await touchLease(db, job, workerId)) && running === job && !leaseLost) {
         leaseLost = true;
         logger.warn({ kind: job.kind, id: job.id }, 'job_lease_lost');
       }
