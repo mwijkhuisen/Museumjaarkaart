@@ -104,7 +104,7 @@ Expected: every line `root:<gid> 440`. Put each value (not the file) into your p
 
 ### mjk.env
 
-`/etc/mjk/mjk.env` is config, not secrets (root 0644, one `KEY=value` per line, no quotes, no spaces). Compose gives it to the containers as `env_file`; no `DATABASE_URL` and no password ever goes in it.
+`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_R2_BUCKET_MEDIA`, `MJK_MAIL_CAP` and `MJK_SIGNUP` (later phases) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value.
 
 ```bash
 cat > /etc/mjk/mjk.env <<'EOF'
@@ -133,7 +133,7 @@ chmod 0644 /etc/mjk/mjk.env
 cd /root/mjk-checkout && deploy/bin/mjk-install
 ```
 
-With every secret and every `mjk.env` key in place, the output ends with `secrets and mjk.env are in place; the three timers are enabled` and `mjk-update.timer`, `mjk-tick.timer` and `mjk-backup.timer` are on. If a line `NOT ENABLED` remains, it names what is wrong (a missing file, a wrong owner or mode, an empty file, a key not set); fix it and run again.
+With every secret and every `mjk.env` key in place, the output ends with `secrets and mjk.env are in place; the three timers are enabled` and `mjk-update.timer`, `mjk-tick.timer` and `mjk-backup.timer` are on. If a line `NOT ENABLED` remains, it names what is wrong (a missing file, a wrong owner or mode, an empty file, a key not set); fix it and run again. A `REFUSED` line about `mjk.env` (its mode, a key that is not allowed) stops the installer before it changes anything.
 
 Run it a third time: it must print `no changes: everything was in place` (a file is rewritten only when its content, owner or mode differs). That is criterion 6 (idempotent).
 
@@ -248,6 +248,38 @@ probe mjk-caddy-1 nc -w 3 -z 9.9.9.9 443               # fails: caddy has no ext
 ```
 
 If a container name differs (`docker ps --format '{{.Names}}'` lists them), use that name. Paste the output of all probes into the PR. If `104.16.0.1` is refused by Cloudflare with no drop counter moved, the rule still passed: the counters are the proof. `cf4` was written from the agent's knowledge, not fetched; compare it with the live list now (`docs/runbooks/cloudflare.md` §6).
+
+**[U box] DNS from the containers (P1e review S13, A§17.4).** When the host's resolver is the systemd-resolved stub on loopback, Docker's embedded DNS (`127.0.0.11` in each container) may forward from the host's namespace, past `resolvers4` and the DNS rule, so it is not known yet whether a container without egress (`ssr`, `caddy`) can still resolve outside names, or whether `api` and `backup` resolve outside the table. That would be a DNS channel out of the stack. Check it from each service's namespace:
+
+```bash
+resolvectl status | head -5; grep nameserver /etc/resolv.conf         # is the host on the 127.0.0.53 stub?
+for c in mjk-ssr-1 mjk-caddy-1 mjk-api-1 mjk-worker-1; do probe "$c" nslookup example.org 127.0.0.11; done
+mjkc --profile backup run -d --rm --name mjk-probe-backup --entrypoint /usr/local/bin/node backup -e 'setTimeout(()=>{},120000)'
+probe mjk-probe-backup nslookup example.org 127.0.0.11; docker rm -f mjk-probe-backup
+```
+
+Write the answer into A§17.4: for each service, whether `example.org` resolved and whether a counter moved. If `ssr` or `caddy` resolve, record the channel in A§16.2 and give the internal services a `dns:` that cannot answer, through a PR.
+
+**[U box] cloudflared's log (P1e review S14, invariant 8, A§17.7).** `--loglevel error` drops the info and warning lines, but cloudflared's origin errors are error lines and may carry the request URL (`dest=`), query string included. Check while nobody uses the site:
+
+```bash
+mjkc stop caddy
+curl -s -o /dev/null "https://<domain>/musea?e2e-marker-$(date +%s)=1"
+mjkc start caddy
+mjkc logs --since 5m cloudflared | grep -c 'e2e-marker' || true       # 0 is the hoped-for answer
+```
+
+If the marker appears, record that in A§17.7 (the line, without the marker's value) and decide in a PR: accept it (the Docker log rotates, and only the owner reads it) or move cloudflared's log to `--logfile` on a tmpfs.
+
+**[U box] `systemctl reload nftables` (P1e review S3).** Debian's reload re-applies `/etc/nftables.conf`, which empties the ruleset; `ReloadPropagatedFrom=nftables.service` in `mjk-firewall.service` must load `table inet mjk` again right after:
+
+```bash
+systemctl reload nftables; sleep 2
+nft list table inet mjk >/dev/null && echo 'table inet mjk is back'; nft list set inet mjk resolvers4 | grep -c elements
+journalctl -u mjk-firewall.service -n 5 --no-pager
+```
+
+Write the answer into A§17.4. If the table is missing, `mjk-tick` reloads it within 10 minutes, and the unit's ordering is the thing to fix.
 
 ## 9. A day of `docker stats` (criterion 11)
 

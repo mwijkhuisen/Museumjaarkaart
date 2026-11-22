@@ -14,16 +14,33 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 - It starts `mjk-backup.service` (a oneshot on the host). The unit takes the deploy lock shared (waits up to an hour for a running `mjk-update`, which takes it exclusive and skips while the backup holds it; `mjk-tick` takes it shared too, so the firewall, restart and disk checks keep running during a long backup) and runs `docker compose … --profile backup run --rm -T backup`.
 - The `backup` role (image `mjk-backup`, login `mjk_backup`, which can read everything and nothing else):
   1. `pg_dump --format=custom --lock-wait-timeout=60s` into `/srv/mjk/backup-staging/mjk.dump`, leaving out the data of `session`, `email_code`, `auth_challenge`, `rate_limit` and `job` (a restore signs everyone out; tables that do not exist yet are tolerated);
-  2. `restic --no-cache backup --host mjk --tag nightly` of the dump and `/srv/mjk/originals` to `mjk-backup` on R2 (the first run does `restic cat config`, exit 10, then `restic init`);
-  3. deletes the dump and its 0600 password file, whatever happened. It never runs `forget` or `prune`.
-- Exit codes: 0 done · 69 the database or the repository is unavailable (restic retries for minutes first) · 70 failed, aborted or incomplete · 78 config (a missing secret file, a bad endpoint, a wrong restic password). The log holds fixed codes and numbers only.
+  2. `restic cat config` (the repository must exist), then `restic --no-cache backup --host mjk --tag nightly` of the dump and `/srv/mjk/originals` to `mjk-backup` on R2;
+  3. deletes the dump and its 0600 password file, whatever happened. It never runs `init`, `forget` or `prune`: you create the repository once from the workstation (§3).
+- Exit codes: 0 done · 69 the database or the repository is unavailable (restic retries for minutes first) · 70 failed, aborted or incomplete · 78 config (a missing secret file, a bad endpoint, a wrong restic password, or `repo_missing`: no repository at that endpoint and bucket, which a wrong bucket, a lost `config` or a run before §3 gives).
+- The unit's `TimeoutStartSec=9h` is above the lock wait (1 h) plus the role's own bounds (pg_dump 1 h, the probe 5 min, restic 6 h). A run that systemd stops has its one-off container removed by `ExecStopPost` (by the compose labels), so it never runs on outside the lock. The log holds fixed codes and numbers only.
 - After the run the unit's `ExecStopPost` runs `mjk-ping result`: `…/mjk-backup` after a success, `…/mjk-backup/fail` otherwise. The key is read from `/etc/mjk/secrets/hc_ping_key` as root and goes to `curl -K -` on stdin, so it is never in an argument list, the process table or the journal. The container never has the key.
 
 ## 1. The bucket and its lock rule (A2)
 
 In the Cloudflare dashboard, R2 → Create bucket: name `mjk-backup`, location jurisdiction European Union, private (no custom domain, no public `r2.dev` URL). The jurisdiction cannot change later; the S3 endpoint is the `.eu.` form and goes in `MJK_R2_ENDPOINT` (`docs/runbooks/install.md` §4).
 
-Bucket settings → Object lock rules: add one rule per prefix, each retaining for 28 days (age 2,419,200 s): `data/`, `index/`, `snapshots/`, `keys/` and `config`. Do not add `locks/`: restic must be able to delete its own lock files [U box, §5]. R2 has no put-only permission and no object versioning [U box], so this rule is the only thing that stops the VM's key from deleting recent history.
+Bucket settings → Object lock rules: add one rule per prefix.
+- `data/`, `index/` and `snapshots/`: retain for 28 days (age 2,419,200 s).
+- `keys/` and `config`: retain **indefinitely** (no expiry). restic writes them once, at `init` (and `key add`), and never prunes them. With a 28-day age lock the VM's key could delete them from day 29, and without `config` and a key file every snapshot is undecryptable, the locked ones included (P1e security review S1).
+- Do not add `locks/`: restic must be able to delete its own lock files [U box, §5].
+
+R2 has no put-only permission and no object versioning [U box], so these rules are the only thing that stops the VM's key from deleting history.
+
+**Offline copy of `config` and `keys/`.** Right after §3's `restic init`, and again after every `restic key add`, copy the repository's `config` and every object under `keys/` (a few hundred bytes each, already encrypted with the password) into your password manager, from the workstation:
+
+```bash
+restic cat config --json > /dev/null && echo 'repository reachable'
+aws s3 cp --endpoint-url "https://<account id>.eu.r2.cloudflarestorage.com" s3://mjk-backup/config ./mjk-restic-config     # or rclone; workstation key
+aws s3 cp --recursive --endpoint-url "https://<account id>.eu.r2.cloudflarestorage.com" s3://mjk-backup/keys/ ./mjk-restic-keys/
+# attach both to the password manager entry of the restic password, then: rm -r ./mjk-restic-config ./mjk-restic-keys
+```
+
+With the password, these files are enough to read the data objects again even if `config` or `keys/` were ever lost.
 
 Changing or removing a lock rule needs an Admin token. That token lives in your password manager only, never on the VM and never in a file there.
 
@@ -34,7 +51,17 @@ R2 → Manage API tokens, Object Read & Write, scoped to the one bucket `mjk-bac
 - **The workstation key**: a second token with the same scope, kept off the VM. It runs `forget --prune` (§6) and the restore drill.
 - **`restic_password`**: a long random password, generated on the VM into `/etc/mjk/secrets/restic_password` (`docs/runbooks/install.md` §4) and copied into your password manager at once. Losing it makes every backup unreadable.
 
-## 3. The first run (proves the endpoint and `cf4`)
+## 3. The repository, then the first run (proves the endpoint and `cf4`)
+
+The nightly job never creates a repository (a missing one is exit 78 `repo_missing`, and the ping fails). Create it once, from the workstation with §4's environment and the same password as `/etc/mjk/secrets/restic_password`:
+
+```bash
+restic snapshots 2>&1 | tail -1        # "Is there a repository at the following location?": none yet
+restic init                            # once; it writes config and keys/<id>
+restic cat config --json | head -c 80; echo
+```
+
+Then make the offline copy of `config` and `keys/` (§1). Then, on the VM:
 
 ```bash
 systemctl start mjk-backup.service           # on the VM; waits for the lock, then runs
@@ -42,10 +69,10 @@ journalctl -u mjk-backup.service -n 60 --no-pager
 systemctl status mjk-backup.service --no-pager | head -12
 ```
 
-Expected: the unit ends `Succeeded`; the journal shows the role's fixed codes (the init and the snapshot), no command output with a secret; the healthchecks check `mjk-backup` is green (§7); `/srv/mjk/backup-staging` is empty again (`ls -A /srv/mjk/backup-staging`).
+Expected: the unit ends `Succeeded`; the journal shows the role's fixed codes (`dump_done`, `backup_done` with the snapshot id), no command output with a secret; the healthchecks check `mjk-backup` is green (§7); `/srv/mjk/backup-staging` is empty again (`ls -A /srv/mjk/backup-staging`).
 
 - A run that fails with the repository unreachable, a TLS timeout or exit 69 means R2's S3 endpoint is not inside the `cf4` set of `table inet mjk` [U box: A§17.4], or `cf4` is stale. Check with `docs/runbooks/cloudflare.md` §6 and write the answer into A§17.4. Also read `nft list table inet mjk | grep -B1 -A1 'drop'` for a moved counter.
-- Exit 78: a missing or unreadable secret file, a bad `MJK_R2_ENDPOINT` (it must be https and have no path), or a wrong restic password. The fixed code names which.
+- Exit 78: a missing or unreadable secret file, a bad `MJK_R2_ENDPOINT` (it must be https and have no path), a wrong restic password, or `repo_missing` (no `restic init` yet, a wrong bucket, or a lost `config`: restore it from the offline copy, never init again over a bucket that has data). The fixed code names which.
 - If the unit itself fails before the container starts (`Operation not permitted`, a systemd sandbox message), the unit's hardening (ProtectSystem=strict, MemoryDenyWriteExecute, RestrictAddressFamilies) is [U box] with the Go docker CLI: `systemd-analyze security mjk-backup.service` and relax the one setting that the journal names, in `deploy/host/systemd/mjk-backup.service` through a PR, then `deploy/bin/mjk-install`.
 
 Run it a second time (two consecutive backups) before the lock tests in §5.
@@ -71,7 +98,7 @@ Expected: the snapshots of the nightly runs, host `mjk`, tag `nightly`.
 
 ## 5. The lock tests (criterion 10, [box] and [U box])
 
-Goal: with the VM's key, deleting or overwriting an object under `data/`, `snapshots/`, `index/`, `keys/` or `config` younger than 28 days fails; `locks/` stays free; the key cannot touch `mjk-media`; two consecutive backups leave no lock file; and `restic forget --prune` with the workstation key works.
+Goal: with the VM's key, deleting or overwriting an object under `data/`, `snapshots/` or `index/` younger than 28 days fails, and under `keys/` or `config` at any age; `locks/` stays free; the key cannot touch `mjk-media`; two consecutive backups leave no lock file; and `restic forget --prune` with the workstation key works.
 
 The checks on objects use `curl` with the VM key read from its file by the shell and given to curl as a config on stdin, never as an argument (`printf` is a builtin; the key is not in `ps`). On the VM:
 
@@ -97,7 +124,11 @@ r2 PUT "$B" "data/00/lock-test-$S"  --data-binary changed    # expect a 4xx (403
 r2 DELETE "$B" "data/00/lock-test-$S"                        # expect a 4xx: delete refused
 r2 PUT "$B" "config-lock-test-$S"   --data-binary canary     # 200
 r2 DELETE "$B" "config-lock-test-$S"                         # expect a 4xx
+r2 PUT "$B" "keys/lock-test-$S"     --data-binary canary     # 200
+r2 DELETE "$B" "keys/lock-test-$S"                           # expect a 4xx: keys/ is locked for good
 ```
+
+[U box] **After day 28:** repeat the `config-lock-test-$S` and `keys/lock-test-$S` DELETE once both canaries are older than 28 days (note `$S` in the PR). Both must still be refused; that is what the indefinite rule adds over the 28-day one. Also try the real files once the repository is older than 28 days: `r2 DELETE "$B" config` must be refused (a 4xx). If it ever succeeds, stop the backups, restore `config` from the offline copy, fix the rule and record it in A§17.6.
 
 b. **A real snapshot under `snapshots/` cannot be deleted.** After two backups there are two snapshots. Try to forget the older one with the VM's own credentials (through the `backup` service, so the key stays in its container):
 
@@ -108,7 +139,7 @@ mjkc --profile backup run --rm -T --entrypoint /usr/local/bin/restic $RO backup 
 mjkc --profile backup run --rm -T --entrypoint /usr/local/bin/restic $RO backup --no-cache snapshots                          # both snapshots are still listed
 ```
 
-The `index/` and `keys/` rules are checked by the prune in §6, which must write and delete there.
+The `index/` rule is checked by the prune in §6, which must write and delete there; prune never touches `keys/` or `config`.
 
 c. **`locks/` stays free, and no file is left under it** after two consecutive backups:
 

@@ -58,7 +58,26 @@ du -xsh /srv/mjk/* /var/lib/docker/containers 2>/dev/null | sort -h | tail
 journalctl --disk-usage
 ```
 
-What may go, in this order: `docker image prune -f` (unused images; a rollback image stays as long as it is in `current.env`, because it is in use); `journalctl --vacuum-size=200M`; the Docker `local` log driver keeps rotated logs per container (`docker system df`); `/srv/mjk/exports` (bundles are deleted after 7 days by the worker); `/srv/mjk/tiles-build` (emptied after the upload, P1d); `/srv/mjk/backup-staging` (a stale `mjk.dump` after a failed backup: `rm /srv/mjk/backup-staging/mjk.dump`). Never delete `/srv/mjk/originals` (the only copy besides the backup), `/srv/mjk/state` or the `mjk_pgdata` volume. The disk is shared with Waterheight and F1: do not delete anything of theirs.
+The disk is shared with Waterheight and F1: every step below touches only mjk's own images, containers and directories, never theirs. Never run a host-wide `docker image prune`, `docker system prune` or `docker container prune`: they delete rws and f1 images (a rollback image pulled by digest counts as dangling) and containers too.
+
+What may go, in this order:
+
+```bash
+# 1. Old mjk images. mjk-update already removes them after each deploy; by hand, only references of
+#    ghcr.io/mwijkhuisen/mjk-* that current.env does not name (docker refuses an image that is in use).
+cat /srv/mjk/state/current.env
+docker image ls --digests --filter 'reference=ghcr.io/mwijkhuisen/mjk-*'
+docker rmi ghcr.io/mwijkhuisen/mjk-server@sha256:<an old digest>      # one by one, never a current one
+# 2. Stopped one-off mjk containers (a killed backup or sync), by the compose project label only.
+docker ps -a -q --filter label=com.docker.compose.project=mjk --filter status=exited --filter label=com.docker.compose.oneoff=True | xargs -r docker rm
+# 3. Our own directories.
+ls -la /srv/mjk/exports /srv/mjk/tiles-build /srv/mjk/backup-staging
+rm -f /srv/mjk/backup-staging/mjk.dump                                 # a stale dump after a failed backup
+```
+
+`/srv/mjk/exports` (bundles are deleted after 7 days by the worker); `/srv/mjk/tiles-build` (emptied after the upload, P1d). The Docker `local` log driver keeps rotated logs per container, within the per-container limits of the compose file (`docker system df -v` shows them). Never delete `/srv/mjk/originals` (the only copy besides the backup), `/srv/mjk/state` or the `mjk_pgdata` volume.
+
+**Not a step: the systemd journal.** `journalctl --vacuum-size=…` deletes the journal of the whole host, Waterheight's and F1's history included. That affects rws and f1 too, so it is the owner's call as the host's administrator, outside this runbook.
 
 ## 5. The firewall
 

@@ -34,12 +34,23 @@ mjkc up -d --force-recreate api                             # the daemon of the 
 
 Restart the daemons that use the login (`db_mjk_api`: `api`; `db_mjk_ssr`: `ssr`; `db_mjk_worker`: `worker`); the job logins (`migrate`, `backup`, `sync-museums`, `admin`) read their file at each run. New connections with the old password fail from the moment `roles.sql` ends until the recreate (seconds). The password format is 24 or more characters of `A-Za-z0-9_-`; `openssl rand -hex 32` fits.
 
-`db_postgres` is used only at the very first start of the volume (the superuser reaches the database over the container's local socket, which is `trust`, never over TCP). To rotate it, change the file and the role together:
+`db_postgres` is used only at the very first start of the volume (the superuser reaches the database over the container's local socket, which is `trust`, never over TCP). To rotate it, change the file and the role together. As with `roles.sql`, the server reads the new password from the secret file itself (`pg_read_file`), so it is never in an argument list, in the SQL text that `pg_stat_activity` or a statement log would show, or in a psql history (`-X`, and the statement comes on stdin, not from an interactive session); an error is replaced by a fixed text, because its context could quote the statement:
 
 ```bash
 openssl rand -hex 32 | newsecret db_postgres 63001
-{ printf "ALTER ROLE postgres PASSWORD '%s';\n" "$(cat /etc/mjk/secrets/db_postgres)"; } | mjkc exec -T db psql -X -U postgres -d mjk
+mjkc exec -T db psql -X -v ON_ERROR_STOP=1 -U postgres -d mjk <<'SQL'
+DO $$
+DECLARE pw text := btrim(pg_read_file('/run/secrets/db_postgres'), E' \t\r\n');
+BEGIN
+  IF pw !~ '^[A-Za-z0-9_-]{24,}$' THEN RAISE EXCEPTION USING ERRCODE = '22023'; END IF;
+  EXECUTE format('ALTER ROLE postgres PASSWORD %L', pw);
+EXCEPTION WHEN OTHERS THEN
+  RAISE EXCEPTION 'rotation of postgres failed (SQLSTATE %)', SQLSTATE;
+END $$;
+SQL
 ```
+
+Never type the password into `ALTER ROLE … PASSWORD '…'` or psql's command line. If you prefer to type it, `mjkc exec db psql -X -U postgres -d mjk` and then `\password postgres` sends only the SCRAM verifier (psql computes it); with `PSQL_HISTORY=/dev/null` set inside the container (`mjkc exec -e PSQL_HISTORY=/dev/null db …`) nothing is kept.
 
 Check: `mjkc ps` all healthy; `curl -s -H 'Host: <domain>' http://127.0.0.1:8280/api/v1/healthz`; `mjkc logs --tail 20 api` shows no `db_` error codes.
 
@@ -76,7 +87,9 @@ restic key list
 restic key add                    # prompts for the new password (type it, or use the password manager's prompt)
 ```
 
-Then write the new password into `/etc/mjk/secrets/restic_password` on the VM (`newsecret restic_password 63011`), run a backup (`systemctl start mjk-backup.service`) and check it works with the new key. Only then remove the old key: `restic key remove <old id>`. Deleting a key object under `keys/` inside its 28-day lock is refused [U box, `docs/runbooks/backup.md` §5]; if it is, leave both keys and remove the old one once the old key file is 28 days old. Record the new password in your password manager before anything else.
+Then write the new password into `/etc/mjk/secrets/restic_password` on the VM (`newsecret restic_password 63011`), run a backup (`systemctl start mjk-backup.service`) and check it works with the new key. Record the new password in your password manager before anything else, and refresh the offline copy of `keys/` (`docs/runbooks/backup.md` §1).
+
+The old key stays: `keys/` is locked indefinitely (ADR-0011), so `restic key remove <old id>` is refused, and that is the point (a VM key must never be able to delete a key file). The old password therefore still opens the repository. After a **leaked** restic password a key rotation is not enough, because restic's master key does not change: create a new repository in a new bucket from the workstation (`docs/runbooks/backup.md` §1 and §3, with a new password), point `MJK_R2_BUCKET_BACKUP` at it, and keep the old bucket until its 28-day history has aged out of use.
 
 ## 5. The healthchecks ping key (`hc_ping_key`, 63013)
 

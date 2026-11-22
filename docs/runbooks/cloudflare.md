@@ -24,11 +24,11 @@ Rules (CLAUDE.md invariants 2 and 3): mjk has its own zone, its own tunnel, its 
 ```bash
 mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env "$@"; }
 mjkc ps cloudflared                       # healthy: its check is `tunnel --metrics 127.0.0.1:20241 ready`
-mjkc logs --tail 20 cloudflared           # "Registered tunnel connection" lines
+mjkc logs --tail 20 cloudflared           # empty while all is well (--loglevel error); ERR lines name a connection problem
 curl -sI https://<domain>/ | head -5      # 200 from the site, through Cloudflare
 ```
 
-`cloudflared` runs with `--no-autoupdate` and `--management-diagnostics=false`. Update it by changing its pin in `deploy/compose.yaml` through a PR (a digest at least 7 days old), running `deploy/bin/mjk-install`, then `systemctl start mjk-update.service`: it deploys the changed compose file with the same images (`docs/runbooks/install.md` §11).
+`cloudflared` runs with `--no-autoupdate`, `--management-diagnostics=false` and `--loglevel error` (the least verbose level that still logs tunnel connection errors; the "Registered tunnel connection" info lines and the retry warnings are dropped, so health is read from `mjkc ps` and the metrics `ready` check, not from the log). Update it by changing its pin in `deploy/compose.yaml` through a PR (a digest at least 7 days old), running `deploy/bin/mjk-install`, then `systemctl start mjk-update.service`: it deploys the changed compose file with the same images (`docs/runbooks/install.md` §11).
 
 ## 3. The Access application on `admin.<domain>` (A§16.2, ADR-0004)
 
