@@ -183,7 +183,16 @@ services:
     secrets:
       - db_mjk_worker
       - hc_ping_key
-    group_add: ["63005", "63013"]
+      # The Object R/W token of mjk-media, for the quarterly tiles_refresh job (P1d); the job reads it when it runs.
+      - r2_media_rw
+    group_add: ["63005", "63009", "63013"]
+    # No file the worker writes may pass 4.4 GB, a little above the tiles job's size ceiling (4 GiB,
+    # apps/server/src/tiles/header.ts), so a runaway go-pmtiles extract cannot fill the disk before the job's own
+    # checks run. RLIMIT_FSIZE is in bytes; go-pmtiles then fails its write at once (the job: tiles_extract_failed).
+    ulimits:
+      fsize:
+        soft: 4400000000
+        hard: 4400000000
     mem_limit: 768m
     cpus: 1.0
     networks:
@@ -431,9 +440,10 @@ volumes:
   pgdata:
     name: mjk_pgdata
 
-# root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3). Only the secrets a P1e role
-# uses are here (least privilege): lettermint_api_token (63008), r2_media_rw (63009) and app_keys
+# root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3). Only the secrets a role of
+# the phases built so far uses are here (least privilege): lettermint_api_token (63008) and app_keys
 # (63012) come back with P2a and P3b; their GIDs stay reserved and mjk-install creates the groups.
+# r2_media_rw (63009) arrived with P1d, in the worker only.
 secrets:
   db_postgres:
     file: /etc/mjk/secrets/db_postgres
@@ -455,3 +465,5 @@ secrets:
     file: /etc/mjk/secrets/restic_password
   hc_ping_key:
     file: /etc/mjk/secrets/hc_ping_key
+  r2_media_rw:
+    file: /etc/mjk/secrets/r2_media_rw

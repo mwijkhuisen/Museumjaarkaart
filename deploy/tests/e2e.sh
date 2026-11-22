@@ -222,7 +222,7 @@ step "1. mjk-install"
 RUNLOCK_BEFORE=$(stat -c '%u:%g:%a' /run/lock 2>/dev/null || echo absent)
 install_out=$("$REPO/deploy/bin/mjk-install") || fail "the first mjk-install failed"
 grep -q 'NOT ENABLED' <<<"$install_out" || fail "mjk-install did not say that the timers stay off without secrets"
-for name in db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token r2_backup_put restic_password hc_ping_key; do
+for name in db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token r2_backup_put restic_password hc_ping_key r2_media_rw; do
   grep -q "secret $name: missing" <<<"$install_out" || fail "mjk-install did not name the missing secret $name"
 done
 grep -q 'mjk.env: missing' <<<"$install_out" || fail "mjk-install did not name the missing mjk.env"
@@ -232,6 +232,7 @@ ok "without secrets mjk-install installs, names each missing secret and mjk.env,
 declare -A SECRET_GID=(
   [db_postgres]=63001 [db_mjk_migrator]=63002 [db_mjk_api]=63003 [db_mjk_ssr]=63004 [db_mjk_worker]=63005
   [db_mjk_backup]=63006 [cf_tunnel_token]=63007 [r2_backup_put]=63010 [restic_password]=63011 [hc_ping_key]=63013
+  [r2_media_rw]=63009
 )
 for name in "${!SECRET_GID[@]}"; do
   case $name in
@@ -253,6 +254,7 @@ MJK_CONTROLLER_NAME=E2EController
 MJK_CONTACT_EMAIL=privacy@$DOMAIN
 MJK_R2_ENDPOINT=https://backup.invalid
 MJK_R2_BUCKET_BACKUP=mjk-backup
+MJK_R2_BUCKET_MEDIA=mjk-media
 EOF
 chmod 0644 "$ETC/mjk.env"
 # The test's own resolv.conf for mjk-tick (a documentation address: never contacted).
@@ -290,7 +292,7 @@ done
 [[ $(stat -c '%u:%g:%a' "$TESTROOT/run/mjk") == 0:0:700 ]] || fail "the lock directory run/mjk is not root:root 0700"
 grep -qx 'd /run/mjk 0700 root root -' "$TESTROOT/etc/tmpfiles.d/mjk.conf" || fail "the tmpfiles entry for /run/mjk is not installed"
 [[ ! -e $TESTROOT/run/lock ]] || fail "mjk-install made a run/lock in the test root"
-ok "with the ten secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
+ok "with the eleven secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
 
 snapshot "$TESTROOT" >"$SCRATCH/before.txt"
 groups_before=$(getent group | sort)
