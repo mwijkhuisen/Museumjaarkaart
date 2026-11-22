@@ -62,7 +62,11 @@ export function MuseumMap({
   /** The map once it is ready (for near me to centre it), null when it goes away. */
   onView: (view: MapView | null) => void;
 }) {
-  const { locale, query } = route;
+  const { locale } = route;
+  // The effect keys on the points path, which ignores the pager's cursor.
+  // ponytail: App's Boundary is keyed on the whole path, so a pager step still remounts the page and
+  // the map returns to the national view; key the Boundary without `cursor` on the map page if that annoys.
+  const pointsPath = apiPath.points(route.query);
   const container = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<State>({ status: 'loading' });
@@ -84,7 +88,7 @@ export function MuseumMap({
       if (!hasWebGL2()) throw new MapError('no_webgl');
       const colours = readColours(document.documentElement);
       // The points are fetched with the chunk: never from `mjk-state`, always for this query.
-      const points = getJson(apiPath.points(query), MuseumPoints, (input, init) => fetch(input, { ...init, signal }));
+      const points = getJson(pointsPath, MuseumPoints, (input, init) => fetch(input, { ...init, signal }));
       points.catch(() => undefined);
       const { createMap } = await import('../../lib/map/createMap.ts');
       const made = await createMap(el, { lang: locale, labels: mapLabels(), signal });
@@ -111,7 +115,7 @@ export function MuseumMap({
       onView(null);
       created?.dispose();
     };
-  }, [locale, query]);
+  }, [locale, pointsPath]);
 
   // The card takes focus when it opens, and the map gets it back when it closes.
   useEffect(() => {

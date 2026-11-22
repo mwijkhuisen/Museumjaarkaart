@@ -27,9 +27,11 @@ const NL_BOUNDS: [[number, number], [number, number]] = [
   [NL_BOX.lonMin, NL_BOX.latMin],
   [NL_BOX.lonMax, NL_BOX.latMax],
 ];
+// Wide enough that the whole country still fits a wide desktop canvas (about 2.6:1, where 1° of lat at
+// 52° N takes the width of 1.6° of lon) and a tall phone; outside the extract there is only background.
 const MAX_BOUNDS: [[number, number], [number, number]] = [
-  [NL_BOX.lonMin - 1, NL_BOX.latMin - 0.5],
-  [NL_BOX.lonMax + 1, NL_BOX.latMax + 0.5],
+  [NL_BOX.lonMin - 5, NL_BOX.latMin - 1.5],
+  [NL_BOX.lonMax + 5, NL_BOX.latMax + 1.5],
 ];
 
 export interface CreatedMap {

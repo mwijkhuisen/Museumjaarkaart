@@ -200,7 +200,9 @@ export function wireMuseums(map: MapLibreMap, onSelect: (museum: SelectedMuseum)
       if (source !== undefined && 'getClusterExpansionZoom' in source) {
         void (source as unknown as { getClusterExpansionZoom(id: number): Promise<number> })
           .getClusterExpansionZoom(clusterId)
-          .then((zoom) => moveTo(map, [lon, lat], zoom))
+          // At a fractional zoom the expansion zoom of a cluster can be at or below the current one
+          // (clusters are made per integer zoom): a tap on a cluster always zooms in at least one level.
+          .then((zoom) => moveTo(map, [lon, lat], Math.max(zoom, map.getZoom() + 1)))
           .catch(() => undefined);
       }
       return;

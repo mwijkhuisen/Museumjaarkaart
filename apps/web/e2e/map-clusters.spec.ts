@@ -42,6 +42,17 @@ test('the national view shows clusters, far fewer than the museums, and a tap on
   await openMap(page, mapPath('nl'));
   // The clustered layer is drawn once the source has loaded its tiles.
   await expect.poll(async () => (await rendered(page)).length, { timeout: 15_000 }).toBeGreaterThan(0);
+  // The whole country is in view (the NL_BOX of @mjk/contracts): maxBounds must leave room for a wide canvas.
+  const view = await page.evaluate(() => {
+    const b = (
+      document.getElementById('museum-map') as unknown as { mjkMap: import('maplibre-gl').Map }
+    ).mjkMap.getBounds();
+    return { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() };
+  });
+  expect(view.west, 'the national view reaches Zeeland').toBeLessThanOrEqual(3.2);
+  expect(view.east, 'the national view reaches Twente').toBeGreaterThanOrEqual(7.3);
+  expect(view.south, 'the national view reaches Limburg').toBeLessThanOrEqual(50.7);
+  expect(view.north, 'the national view reaches Groningen').toBeGreaterThanOrEqual(53.7);
   const features = await rendered(page);
   const clusters = features.filter((f) => f.cluster);
   expect(clusters.length, 'clusters at the national view').toBeGreaterThan(0);
