@@ -3,6 +3,8 @@
 
 /** A public GET: the same bytes for everyone, briefly at the edge. */
 export const CACHE_PUBLIC = 'public, max-age=0, s-maxage=60';
+/** The map's points (A§15.3): the whole filtered catalogue, five minutes at the edge. */
+export const CACHE_POINTS = 'public, max-age=0, s-maxage=300';
 /** A 301 from an old slug: longer at the edge, never in the browser (a slug can be taken back). */
 export const CACHE_REDIRECT = 'public, max-age=0, s-maxage=3600';
 /** Anything personal or positional (near-me), and every 4xx and 5xx. */

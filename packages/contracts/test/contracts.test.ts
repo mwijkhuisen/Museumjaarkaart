@@ -13,8 +13,10 @@ import {
   MuseumList,
   MuseumListItem,
   MuseumListQuery,
+  MuseumPoints,
   NearList,
   NearQuery,
+  PointsQuery,
   PROVINCE_CODES,
   Provinces,
   Q,
@@ -67,6 +69,23 @@ const samples: [string, { safeParse: (v: unknown) => { success: boolean } }, unk
   ['MuseumList', MuseumList, { items: [item], next_cursor: 'abc_-1', total: 1 }],
   ['MuseumDetail', MuseumDetail, detail],
   ['Suggest', Suggest, { items: [{ slug: 'a', name: 'A', place: null, municipality_name: null }] }],
+  [
+    'MuseumPoints',
+    MuseumPoints,
+    {
+      items: [
+        {
+          id: item.id,
+          slug: 'a',
+          name: 'A',
+          lat: 52.1,
+          lon: 4.5,
+          museumkaart_status: item.museumkaart_status,
+          categories: ['art'],
+        },
+      ],
+    },
+  ],
   ['NearList', NearList, { items: [near] }],
   ['Provinces', Provinces, { items: provinces }],
   ['MkList', MkList, { list: { published_on: '2026-11-01', n: 3 } }],
@@ -231,6 +250,15 @@ describe('queries', () => {
   it('accepts a cursor of up to 4096 characters (the worst 250-character key encodes to about 2,100)', () => {
     expect(MuseumListQuery.safeParse({ cursor: 'a'.repeat(4096) }).success).toBe(true);
     expect(MuseumListQuery.safeParse({ cursor: 'a'.repeat(4097) }).success).toBe(false);
+  });
+  it('PointsQuery takes the list filters only', () => {
+    expect(PointsQuery.parse({ province: 'NL-NH', mk: 'participating' })).toEqual({
+      province: 'NL-NH',
+      mk: 'participating',
+    });
+    for (const bad of [{ limit: '5' }, { cursor: 'abc' }, { sort: 'name' }, { x: '1' }, { q: '' }]) {
+      expect(PointsQuery.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
   });
   it('SuggestQuery, NearQuery, EmptyQuery', () => {
     expect(SuggestQuery.safeParse({}).success).toBe(false);

@@ -45,6 +45,15 @@ export const MuseumListQuery = z.strictObject({
 export type MuseumListQuery = z.infer<typeof MuseumListQuery>;
 export type MuseumListQueryInput = z.input<typeof MuseumListQuery>;
 
+export const PointsQuery = MuseumListQuery.pick({
+  q: true,
+  province: true,
+  municipality: true,
+  category: true,
+  mk: true,
+});
+export type PointsQuery = z.infer<typeof PointsQuery>;
+
 export const SuggestQuery = z.strictObject({ q: Q });
 export type SuggestQuery = z.infer<typeof SuggestQuery>;
 

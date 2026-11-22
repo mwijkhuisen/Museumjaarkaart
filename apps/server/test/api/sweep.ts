@@ -1,7 +1,17 @@
-import { ErrorBody, Healthz, MkList, MuseumDetail, MuseumList, NearList, Provinces, Suggest } from '@mjk/contracts';
+import {
+  ErrorBody,
+  Healthz,
+  MkList,
+  MuseumDetail,
+  MuseumList,
+  MuseumPoints,
+  NearList,
+  Provinces,
+  Suggest,
+} from '@mjk/contracts';
 import type { z } from 'zod';
 import { type ApiApp, createApp } from '../../src/api/app.ts';
-import { CACHE_NONE, CACHE_PRIVATE, CACHE_PUBLIC, CACHE_REDIRECT } from '../../src/api/cache.ts';
+import { CACHE_NONE, CACHE_POINTS, CACHE_PRIVATE, CACHE_PUBLIC, CACHE_REDIRECT } from '../../src/api/cache.ts';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger } from '../../src/lib/log.ts';
@@ -72,6 +82,12 @@ export function routeRows(cat: SeededCatalogue): RouteRow[] {
       known: ['q', 'province', 'municipality', 'category', 'mk', 'sort', 'limit', 'cursor'],
     },
     { name: 'suggest', path: `${V1}/museums/suggest`, valid: 'q=kunst', known: ['q'] },
+    {
+      name: 'points',
+      path: `${V1}/museums/points`,
+      valid: '',
+      known: ['q', 'province', 'municipality', 'category', 'mk'],
+    },
     { name: 'near', path: `${V1}/museums/near`, valid: 'lat=52.100&lon=5.100', known: ['lat', 'lon', 'limit'] },
     { name: 'detail', path: `${V1}/museums/${cat.named.kroller.slug}`, valid: '', known: [] },
     { name: 'provinces', path: `${V1}/provinces`, valid: '', known: [] },
@@ -126,6 +142,16 @@ export async function cases(s: Sweep): Promise<Case[]> {
     c('list cursor page', `${museums}?limit=5&cursor=${cursor}`, 200, MuseumList, CACHE_PUBLIC, museums),
     c('suggest', `${museums}/suggest?q=kunst`, 200, Suggest, CACHE_PUBLIC, `${museums}/suggest`),
     c('near', `${museums}/near?lat=52.100&lon=5.100&limit=10`, 200, NearList, CACHE_PRIVATE, `${museums}/near`),
+    c('points', `${museums}/points`, 200, MuseumPoints, CACHE_POINTS, `${museums}/points`),
+    c(
+      'points filters',
+      `${museums}/points?province=NL-NH&mk=participating`,
+      200,
+      MuseumPoints,
+      CACHE_POINTS,
+      `${museums}/points`,
+    ),
+    c('points bad limit', `${museums}/points?limit=5`, 400, ErrorBody, CACHE_PRIVATE, `${museums}/points`),
     c('detail current', `${museums}/${named.kroller.slug}`, 200, MuseumDetail, CACHE_PUBLIC, detail),
     c('detail old slug', `${museums}/${named.renamed.oldSlugs[0]}`, 301, null, CACHE_REDIRECT, detail),
     c('detail unknown', `${museums}/no-such-museum`, 404, ErrorBody, CACHE_PRIVATE, detail),

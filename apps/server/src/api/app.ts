@@ -14,6 +14,7 @@ import { mountMkList } from './routes/mk-list.ts';
 import { mountMuseumDetail } from './routes/museum-detail.ts';
 import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
+import { mountMuseumsPoints } from './routes/museums-points.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2): request id and
@@ -126,6 +127,7 @@ export const mountCatalogue: Mount = (v1, d) => {
   mountMkList(v1, d);
   mountMuseumsList(v1, d);
   mountMuseumsNear(v1, d);
+  mountMuseumsPoints(v1, d);
   mountMuseumDetail(v1, d);
 };
 
