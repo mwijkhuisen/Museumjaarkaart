@@ -30,6 +30,52 @@ mjk.test, admin.mjk.test {
 	}
 }
 
+# R2's custom domain for the media bucket (A§12, A§15.3), in front of the MinIO stand-in: the bucket's objects at the
+# root (/tiles/x is mjk-media/tiles/x), GET and HEAD only, Range passed through (206). R2's CORS rule replaces MinIO's
+# own (A2: allowed origin https://mjk.test only, GET and HEAD, header `range`, exposed `ETag`), and the Transform
+# Rule's headers sit on every answer. The same rule goes into the bucket by hand (docs/runbooks/tiles-refresh.md).
+media.mjk.test {
+	tls internal
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Content-Security-Policy "default-src 'none'; sandbox"
+		Vary Origin
+	}
+	@preflight {
+		method OPTIONS
+		header Origin https://mjk.test
+	}
+	handle @preflight {
+		header {
+			Access-Control-Allow-Origin https://mjk.test
+			Access-Control-Allow-Methods "GET, HEAD"
+			Access-Control-Allow-Headers range
+			Access-Control-Max-Age 3600
+		}
+		respond 204
+	}
+	@read method GET HEAD
+	handle @read {
+		@cors header Origin https://mjk.test
+		header @cors {
+			Access-Control-Allow-Origin https://mjk.test
+			Access-Control-Expose-Headers ETag
+		}
+		rewrite * /mjk-media{uri}
+		reverse_proxy minio:9000 {
+			# MinIO answers CORS and Vary itself when it sees an Origin: it never does here.
+			header_up -Origin
+			header_up Host {upstream_hostport}
+			header_down -Access-Control-*
+			header_down -Vary
+		}
+	}
+	handle {
+		respond 403
+	}
+}
+
 # A visitor on plain http, as Cloudflare forwards it without "Always Use HTTPS": caddy answers with the 308.
 http://mjk.test, http://admin.mjk.test {
 	reverse_proxy caddy:80 {

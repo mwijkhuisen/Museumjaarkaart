@@ -79,6 +79,38 @@ services:
       db:
         condition: service_healthy
 
+  # Stands in for R2's media bucket (A§12, A§15.3): `tiles` fills it, the edge's media.mjk.test site serves it.
+  # Chainguard's MinIO by digest (the integration job's image). Internal network only: nothing leaves the stack.
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:634c989a2f1029162fc2676c263caa181213b9410449968532f750a6fb77532d
+    command: ["server", "/data", "--address", ":9000", "--console-address", ":9001", "--config-dir", "/tmp/minio"]
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+      MINIO_BROWSER: "off"
+    user: "63532:63532"
+    read_only: true
+    tmpfs:
+      - /data:uid=63532,gid=63532,mode=0700
+      - /tmp:uid=63532,gid=63532,mode=0700
+    secrets:
+      - minio_root_user
+      - minio_root_password
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+
+  # One-shot, after minio: the bucket, its anonymous-read policy for tiles/* and the fixture tiles.
+  tiles:
+    <<: *node
+    command: ["node", "apps/server/scripts/seed-e2e-tiles.ts"]
+    secrets:
+      - r2_media_rw
+    depends_on:
+      - minio
+
   api:
     <<: *node
     command: ["node", "apps/server/src/main.ts", "api"]
@@ -145,8 +177,9 @@ services:
       ssr:
         condition: service_healthy
 
-  # Stands in for Cloudflare's edge and cloudflared: TLS for mjk.test and admin.mjk.test, X-Forwarded-Proto,
-  # the visitor's address appended to X-Forwarded-For, from cloudflared's fixed 10.63.6.10.
+  # Stands in for Cloudflare's edge and cloudflared: TLS for mjk.test, admin.mjk.test and media.mjk.test (R2's custom
+  # domain, in front of minio), X-Forwarded-Proto, the visitor's address appended to X-Forwarded-For, from
+  # cloudflared's fixed 10.63.6.10.
   edge:
     <<: *caddy
     volumes:
@@ -155,6 +188,7 @@ services:
       default:
         aliases:
           - mjk.test
+          - media.mjk.test
       tunnel-edge:
         ipv4_address: 10.63.6.10
     depends_on:
@@ -203,3 +237,10 @@ secrets:
     file: ${E2E_SECRETS:?}/db_mjk_worker
   db_mjk_backup:
     file: ${E2E_SECRETS:?}/db_mjk_backup
+  minio_root_user:
+    file: ${E2E_SECRETS:?}/minio_root_user
+  minio_root_password:
+    file: ${E2E_SECRETS:?}/minio_root_password
+  # The AWS credentials format of the real secret (A§17.3), with the same two values.
+  r2_media_rw:
+    file: ${E2E_SECRETS:?}/r2_media_rw

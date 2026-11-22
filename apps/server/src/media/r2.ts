@@ -97,7 +97,7 @@ const hidden = (accessKeyId: string, secretAccessKey: string): Credentials =>
   ) as Credentials;
 
 /** An AWS shared-credentials file (as `r2_backup_put`): the `[default]` section's key id and secret. */
-function parseCredentials(text: string): Credentials | undefined {
+export function parseCredentials(text: string): Credentials | undefined {
   let section = '';
   const values = new Map<string, string>();
   for (const raw of text.split('\n')) {
