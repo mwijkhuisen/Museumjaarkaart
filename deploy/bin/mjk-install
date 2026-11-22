@@ -9,11 +9,13 @@
 # What it does:
 #   1. Refuses (before it changes anything) when a path, group name or GID it would create collides
 #      with rws or f1, when a mjk-* Docker network belongs to another compose project, or when one of
-#      the eight A§17.3 subnets overlaps a host route or a Docker network that is not the stack's own.
+#      the eight A§17.3 subnets overlaps a host route or a Docker network that is not the stack's own,
+#      or when /etc/mjk/mjk.env is not root:root 0644/0640 or holds a key outside the allowlist.
 #   2. Creates the groups of A§17.3 (63001-63013; 63014 and up stay reserved for P7), /etc/mjk/{secrets,
 #      postgres} and /srv/mjk/{state,originals,quarantine,exports,tiles-build,backup-staging} with exact
 #      owners and modes.
-#   3. Installs the compose file, roles.sql, the nftables file, the units, and mjk-update, mjk-tick,
+#   3. Installs the compose file, roles.sql, the nftables file, the units, /etc/tmpfiles.d/mjk.conf (the
+#      lock directory /run/mjk, root 0700; /run/lock is never touched), and mjk-update, mjk-tick,
 #      mjk-resolvers and mjk-ping into /usr/local/bin (root-owned copies).
 #   4. Checks the ten secrets of P1e and mjk.env, by name only: it never writes a secret and never reads
 #      one (only whether the file exists, is root:<gid> 0440 and is not empty). Names and GIDs of the
@@ -56,7 +58,9 @@ ETC=$ROOT/etc/mjk
 SRV=$ROOT/srv/mjk
 BIN=$ROOT/usr/local/bin
 UNITS=$ROOT/etc/systemd/system
-LOCKDIR=$ROOT/run/lock
+# The deploy lock's directory (S2/S3 of the P1e review): our own, never the shared /run/lock.
+LOCKDIR=$ROOT/run/mjk
+TMPFILES=$ROOT/etc/tmpfiles.d
 
 # What mjk-install itself needs, then what the installed scripts and units need (mjk-update without curl
 # would fail every smoke test and roll back forever; without jq it would skip the museum page).
@@ -65,7 +69,7 @@ for cmd in docker getent groupadd stat cmp install realpath sed awk curl jq floc
 done
 if [[ -z $ROOT ]]; then
   # The units load the table and run the timers (a test root runs neither).
-  for cmd in nft systemctl; do
+  for cmd in nft systemctl systemd-tmpfiles; do
     command -v "$cmd" >/dev/null || die "$cmd is required"
   done
 fi
@@ -91,6 +95,11 @@ NETWORKS=(mjk-db:10.63.1.0/24 mjk-edge:10.63.2.0/24 mjk-egress:10.63.3.0/24 mjk-
 # Config the P1e roles need (names only; mjk.env holds no secret). MJK_R2_BUCKET_MEDIA comes with P3b.
 ENV_KEYS=(MJK_BRAND_NAME MJK_DOMAIN MJK_PROFILE MJK_SYNC_CONTACT CF_ACCESS_TEAM CF_ACCESS_AUD
   MJK_CONTROLLER_NAME MJK_CONTACT_EMAIL MJK_R2_ENDPOINT MJK_R2_BUCKET_BACKUP)
+# Every key mjk.env may hold: A§17.3's config list (the required ones above, the later phases' named
+# ones) and the optional MJK_R2_REGION. Every key reaches every Node container (env_file), so nothing
+# else may: never DATABASE_URL (it would replace every login's file secret), NODE_OPTIONS, a *_FILE
+# path or a secret (P1e review S7).
+ENV_ALLOWED=("${ENV_KEYS[@]}" MJK_R2_BUCKET_MEDIA MJK_MAIL_CAP MJK_SIGNUP MJK_R2_REGION)
 
 # --- 1. refusals, before anything changes ------------------------------------------------------------
 # A path of ours that resolves into another stack's tree (a symlink, a typo) is refused.
@@ -117,11 +126,30 @@ holder=$(getent group 63532 | cut -d: -f1 || true)
 [[ $holder != *rws* && $holder != *f1* ]] || die "GID 63532 belongs to a group named for rws or f1"
 
 for dir in "$ETC" "$ETC/secrets" "$ETC/postgres" "$SRV" "$SRV/state" "$SRV/originals" "$SRV/quarantine" \
-  "$SRV/exports" "$SRV/tiles-build" "$SRV/backup-staging" "$BIN" "$UNITS" "$LOCKDIR"; do
+  "$SRV/exports" "$SRV/tiles-build" "$SRV/backup-staging" "$BIN" "$UNITS" "$LOCKDIR" "$TMPFILES"; do
   refuse_foreign "$dir"
   [[ ! -L $dir ]] || die "$dir is a symlink"
   [[ ! -e $dir || -d $dir ]] || die "$dir exists and is not a directory"
 done
+
+# mjk.env: a plain root:root file, 0644 or 0640, of KEY=value lines with allowed keys only. A refusal
+# names the key or the line number, never a value.
+ENV_FILE=$ETC/mjk.env
+if [[ -e $ENV_FILE || -L $ENV_FILE ]]; then
+  [[ -f $ENV_FILE && ! -L $ENV_FILE ]] || die "$ENV_FILE is not a regular file"
+  case $(stat -c '%u:%g:%a' "$ENV_FILE") in
+    0:0:644 | 0:0:640) ;;
+    *) die "$ENV_FILE must be root:root 0644 or 0640" ;;
+  esac
+  lineno=0
+  while IFS= read -r line || [[ -n $line ]]; do
+    lineno=$((lineno + 1))
+    [[ -z $line || $line == \#* ]] && continue
+    [[ $line =~ ^([A-Z][A-Z0-9_]*)= ]] || die "mjk.env line $lineno is not KEY=value"
+    key=${BASH_REMATCH[1]}
+    [[ " ${ENV_ALLOWED[*]} " == *" $key "* ]] || die "mjk.env: the key $key is not allowed (allowed: ${ENV_ALLOWED[*]})"
+  done <"$ENV_FILE"
+fi
 
 ip_int() { # 10.63.1.0 -> an integer
   local IFS=. a b c d
@@ -238,7 +266,12 @@ for dir in originals quarantine exports tiles-build backup-staging; do
 done
 ensure_dir "$BIN" 0:0 755
 ensure_dir "$UNITS" 0:0 755
-ensure_dir "$LOCKDIR" 0:0 755
+ensure_dir "$TMPFILES" 0:0 755
+# /run is a tmpfs: on the host the tmpfiles entry (below) makes /run/mjk at every boot; a test root makes
+# its own. Nothing here ever touches /run/lock.
+if [[ -n $ROOT ]]; then
+  ensure_dir "$LOCKDIR" 0:0 700
+fi
 
 # --- 3. files ----------------------------------------------------------------------------------------
 put() { # <source> <destination> <mode>: root-owned, replaced atomically, only when different
@@ -280,6 +313,11 @@ for unit in "$SRC"/deploy/host/systemd/*.service "$SRC"/deploy/host/systemd/*.ti
   put "$unit" "$UNITS/$(basename "$unit")" 644
 done
 units_changed=$((${#CHANGES[@]} - units_before))
+put "$SRC/deploy/host/tmpfiles/mjk.conf" "$TMPFILES/mjk.conf" 644
+if [[ -z $ROOT ]]; then
+  systemd-tmpfiles --create "$TMPFILES/mjk.conf" || die "systemd-tmpfiles could not create /run/mjk"
+  [[ -d $LOCKDIR && ! -L $LOCKDIR && $(stat -c '%u:%g:%a' "$LOCKDIR") == 0:0:700 ]] || die "$LOCKDIR is not a root:root 0700 directory"
+fi
 
 # --- 4. secrets and config, by name only -------------------------------------------------------------
 MISSING=()

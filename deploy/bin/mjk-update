@@ -12,7 +12,7 @@
 #   failed.env    the same four values of the last failed deploy; the automatic run refuses that same set
 #                 until `rm /srv/mjk/state/failed.env` (a new image or a changed compose file is a new set)
 # Steps (A§17.5):
-#   1. flock /run/lock/mjk-deploy.lock exclusive, non-blocking (mjk-tick and mjk-backup.service take it
+#   1. flock /run/mjk/deploy.lock exclusive, non-blocking (mjk-tick and mjk-backup.service take it
 #      shared): held -> exit 0; table inet mjk not loaded -> exit 1 (checked again before each compose step). A leftover firewall-stopped marker (mjk-tick
 #      stopped the stack because the table could not load) is cleared by starting current.env again.
 #   2. pull; record each ref by digest (a ref with a registry host is recorded as repo@sha256:..., never
@@ -48,7 +48,8 @@ if [[ -n $ROOT ]]; then
 fi
 ETC=$ROOT/etc/mjk
 STATE=$ROOT/srv/mjk/state
-LOCKFILE=$ROOT/run/lock/mjk-deploy.lock
+LOCKDIR=$ROOT/run/mjk
+LOCKFILE=$LOCKDIR/deploy.lock
 COMPOSE=$ETC/compose.yaml
 MJK_ENV=$ETC/mjk.env
 CURRENT=$STATE/current.env
@@ -139,7 +140,16 @@ dc() { # <env file> <compose arguments...>
   docker compose -p mjk -f "$COMPOSE" ${OVERRIDE:+-f "$OVERRIDE"} --env-file "$envfile" "$@"
 }
 
-exec 9>"$LOCKFILE"
+# The lock lives in /run/mjk, root:root 0700 (created at boot by /etc/tmpfiles.d/mjk.conf), never in
+# the world-writable /run/lock, where any local user could create and hold the file first.
+lockdir_ok() {
+  if [[ ! -e $LOCKDIR ]]; then
+    mkdir -m 0700 -- "$LOCKDIR" 2>/dev/null || return 1
+  fi
+  [[ -d $LOCKDIR && ! -L $LOCKDIR && $(stat -c '%u:%a' "$LOCKDIR") == 0:700 ]]
+}
+lockdir_ok || die "lock_unusable: $LOCKDIR must be a root:root 0700 directory"
+{ exec 9>"$LOCKFILE"; } 2>/dev/null || die "lock_unusable: cannot open $LOCKFILE"
 if ! flock -x -n 9; then
   log "busy: another deploy, tick or backup holds the lock; nothing done"
   exit 0

@@ -236,11 +236,16 @@ services:
     <<: *hardening
     image: cloudflare/cloudflared:2026.11.0@sha256:b94b96edf2c9c4360f8879c8580cfaa99077f19c849ec595ca2f711b27d4f344
     # The token from a file, never argv or env. Metrics on loopback (the default binds 0.0.0.0).
-    # The diagnostics routes (pprof) stay off the management service.
+    # The diagnostics routes (pprof) stay off the management service. --loglevel error: the least
+    # verbose level that still logs tunnel connection errors (fatal would not); it drops the info
+    # lines (connection registered, config updates) and the warnings (retries). Origin errors stay
+    # at error level and may still carry the request URL (invariant 8: [U box], install.md §8).
     command:
       - tunnel
       - --no-autoupdate
       - --management-diagnostics=false
+      - --loglevel
+      - error
       - --metrics
       - 127.0.0.1:20241
       - run

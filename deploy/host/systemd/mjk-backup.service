@@ -24,16 +24,21 @@ AssertPathExists=/srv/mjk/state/current.env
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flock -s -w 3600 /run/lock/mjk-deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup
+ExecStart=/usr/bin/flock -s -w 3600 /run/mjk/deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup
+# A run that systemd stopped (the timeout below, a manual stop) can leave the one-off container running
+# outside the lock: remove it, by the compose project and service labels only, before the ping.
+ExecStopPost=-/bin/sh -c 'docker ps -aq --filter label=com.docker.compose.project=mjk --filter label=com.docker.compose.service=backup --filter label=com.docker.compose.oneoff=True | xargs -r docker rm -f'
 ExecStopPost=-/usr/local/bin/mjk-ping result
-TimeoutStartSec=3h
+# Above the worst case: the lock wait (1 h) plus the role's own bounds (pg_dump 1 h, the repository probe
+# 5 min, restic backup 6 h; apps/server/src/backup/run.ts) = 8 h 5 min.
+TimeoutStartSec=9h
 Environment=HOME=/run/mjk-backup DOCKER_CONFIG=/run/mjk-backup/docker
 RuntimeDirectory=mjk-backup
 RuntimeDirectoryMode=0700
 
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/run/lock
+ReadWritePaths=/run/mjk
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

@@ -2,7 +2,7 @@
 #
 # Installed by mjk-install as /etc/systemd/system/mjk-update.service; it runs the root-owned copy
 # /usr/local/bin/mjk-update, never a file of the checkout (F1 A§12.5). mjk-update takes the flock
-# /run/lock/mjk-deploy.lock itself (exclusive; mjk-tick and the backup take it shared) and exits 0 when
+# /run/mjk/deploy.lock itself (exclusive; mjk-tick and the backup take it shared) and exits 0 when
 # it is held.
 #
 # Hardening: the unit is root and talks to the Docker daemon, which is root-equivalent by itself, so
@@ -29,7 +29,7 @@ RuntimeDirectoryMode=0700
 
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/srv/mjk/state /run/lock
+ReadWritePaths=/srv/mjk/state /run/mjk
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

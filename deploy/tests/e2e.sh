@@ -5,7 +5,7 @@
 # It builds nothing unless an image is missing: it uses the local images mjk-server:e2e, mjk-web:e2e and
 # mjk-backup:e2e (override with MJK_E2E_SERVER_IMAGE, MJK_E2E_WEB_IMAGE, MJK_E2E_BACKUP_IMAGE) and builds
 # any that is absent from deploy/{server,web}/Dockerfile (MJK_E2E_BUILD_ARGS adds `docker build` options,
-# for example build-arg mirrors in a sandbox).
+# for example `--build-context <a FROM ref>=docker-image://<a mirror of the same digest>` in a sandbox).
 #
 # Everything lives under a throw-away root (MJK_ROOT, a mktemp directory): the scripts keep their
 # production paths as defaults and only this test sets MJK_ROOT, which moves every host path below it
@@ -16,6 +16,8 @@
 #
 # Steps (each prints "e2e: ok: ..." or fails the run):
 #   1. mjk-install: refuses to enable anything while the secrets are missing and names them (names only);
+#      makes the root-only lock directory run/mjk and its tmpfiles entry, never touches the host's /run/lock;
+#      refuses an mjk.env with a key outside the allowlist or a loose mode;
 #      with the secrets and mjk.env made by the test it installs; a second run changes nothing (a listing
 #      with owners, modes and checksums before and after); it refuses an overlapping subnet and a path that
 #      resolves into /srv/f1.
@@ -40,7 +42,7 @@
 #      images are healthy again and the site answers.
 #   6. mjk-tick: reloads a deleted table and refills resolvers4, writes the disk file, restarts an
 #      unhealthy container while a backup holds the lock shared, writes the disk file while a deploy holds
-#      it, and fails closed (stack stopped, firewall-stopped written) when the table cannot be loaded, then
+#      it or when the lock directory is unusable (then exit 1, and mjk-update refuses), and fails closed (stack stopped, firewall-stopped written) when the table cannot be loaded, then
 #      starts the stack again once it can.
 #   7. the backup unit's command line runs under the shared lock against an R2 endpoint that cannot
 #      resolve (https://backup.invalid), and mjk-ping sends the key on stdin only (never in the process
@@ -216,6 +218,8 @@ probe() { # <network> <private|final|none> <command...>: runs it, compares the d
 
 # --- 1. mjk-install ----------------------------------------------------------------------------------
 step "1. mjk-install"
+# The host's /run/lock is shared (1777 on Debian): no run of mjk-install may change it (P1e review S2).
+RUNLOCK_BEFORE=$(stat -c '%u:%g:%a' /run/lock 2>/dev/null || echo absent)
 install_out=$("$REPO/deploy/bin/mjk-install") || fail "the first mjk-install failed"
 grep -q 'NOT ENABLED' <<<"$install_out" || fail "mjk-install did not say that the timers stay off without secrets"
 for name in db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token r2_backup_put restic_password hc_ping_key; do
@@ -283,7 +287,10 @@ done
 for dir in originals quarantine exports tiles-build backup-staging; do
   [[ $(stat -c '%u:%g:%a' "$SRVD/$dir") == 63532:63532:700 ]] || fail "$SRVD/$dir is not 63532:63532 0700"
 done
-ok "with the ten secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700"
+[[ $(stat -c '%u:%g:%a' "$TESTROOT/run/mjk") == 0:0:700 ]] || fail "the lock directory run/mjk is not root:root 0700"
+grep -qx 'd /run/mjk 0700 root root -' "$TESTROOT/etc/tmpfiles.d/mjk.conf" || fail "the tmpfiles entry for /run/mjk is not installed"
+[[ ! -e $TESTROOT/run/lock ]] || fail "mjk-install made a run/lock in the test root"
+ok "with the ten secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
 
 snapshot "$TESTROOT" >"$SCRATCH/before.txt"
 groups_before=$(getent group | sort)
@@ -305,6 +312,22 @@ if foreign_out=$(MJK_ROOT=$TESTROOT2 "$REPO/deploy/bin/mjk-install" 2>&1); then 
 grep -q 'REFUSED' <<<"$foreign_out" || fail "the f1 refusal is not a REFUSED line: $foreign_out"
 [[ ! -e /srv/f1 ]] || [[ -z $(find /srv/f1 -newer "$SCRATCH/before.txt" -print -quit 2>/dev/null) ]] || fail "something was written under /srv/f1"
 ok "mjk-install refuses a subnet that overlaps a foreign Docker network and a /srv/mjk that resolves into /srv/f1, before any change"
+# mjk.env: an unknown key (DATABASE_URL, NODE_OPTIONS) or a loose mode is refused, without the value.
+cp -p "$ETC/mjk.env" "$SCRATCH/mjk.env.good"
+for extra in 'DATABASE_URL=postgres://e2e-not-a-real-login@db/mjk' 'NODE_OPTIONS=--require=/tmp/e2e.js' 'MJK_SECRET_FILE=/tmp/x'; do
+  printf '%s\n' "$extra" >>"$ETC/mjk.env"
+  if env_out=$("$REPO/deploy/bin/mjk-install" 2>&1); then fail "mjk-install accepted mjk.env with ${extra%%=*}"; fi
+  grep -q "the key ${extra%%=*} is not allowed" <<<"$env_out" || fail "the mjk.env refusal does not name ${extra%%=*}: $env_out"
+  if grep -qF -- "${extra#*=}" <<<"$env_out"; then fail "the mjk.env refusal printed a value"; fi
+  cp -p "$SCRATCH/mjk.env.good" "$ETC/mjk.env"
+done
+chmod 0664 "$ETC/mjk.env"
+if env_out=$("$REPO/deploy/bin/mjk-install" 2>&1); then fail "mjk-install accepted a group-writable mjk.env"; fi
+grep -q 'must be root:root 0644 or 0640' <<<"$env_out" || fail "the mjk.env mode refusal: $env_out"
+chmod 0644 "$ETC/mjk.env"
+ok "mjk-install refuses an mjk.env with a key outside the allowlist (naming the key, never the value) or a loose mode"
+[[ $(stat -c '%u:%g:%a' /run/lock 2>/dev/null || echo absent) == "$RUNLOCK_BEFORE" ]] || fail "the host's /run/lock changed ($RUNLOCK_BEFORE)"
+ok "the host's /run/lock is unchanged ($RUNLOCK_BEFORE) after every mjk-install run"
 
 # --- 2. the firewall ---------------------------------------------------------------------------------
 step "2. table inet mjk"
@@ -384,12 +407,12 @@ cur_before=$(sha256sum "$STATE/current.env")
 up_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1) || fail "the second mjk-update failed"
 grep -q 'up to date' <<<"$up_out" || fail "the second mjk-update did not say up to date: $up_out"
 [[ $cur_before == "$(sha256sum "$STATE/current.env")" ]] || fail "an up-to-date run changed current.env"
-exec 8>"$TESTROOT/run/lock/mjk-deploy.lock"
+exec 8>"$TESTROOT/run/mjk/deploy.lock"
 flock -n 8 || fail "could not take the deploy lock in the test"
 busy_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1) || fail "mjk-update with the lock held did not exit 0"
 grep -q 'busy' <<<"$busy_out" || fail "mjk-update with the lock held did not say busy: $busy_out"
 exec 8>&-
-exec 8>"$TESTROOT/run/lock/mjk-deploy.lock"
+exec 8>"$TESTROOT/run/mjk/deploy.lock"
 flock -s -n 8 || fail "could not take the deploy lock shared in the test"
 busy_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1) || fail "mjk-update with a shared lock held did not exit 0"
 grep -q 'busy' <<<"$busy_out" || fail "mjk-update with a shared lock held (a backup) did not say busy: $busy_out"
@@ -504,7 +527,7 @@ done
 [[ $(docker inspect -f '{{.State.Health.Status}}' mjk-e2e-stray) == unhealthy ]] || fail "the stray container did not become unhealthy"
 started_before=$(docker inspect -f '{{.State.StartedAt}}' mjk-e2e-stray)
 # As during a nightly backup: the lock is held shared.
-exec 8>"$TESTROOT/run/lock/mjk-deploy.lock"
+exec 8>"$TESTROOT/run/mjk/deploy.lock"
 flock -s -n 8 || fail "could not take the deploy lock shared in the test"
 "$BIN/mjk-tick" >/dev/null || fail "mjk-tick failed"
 exec 8>&-
@@ -514,13 +537,25 @@ ok "an unhealthy container of the project is restarted, also while a backup hold
 
 # As during a deploy: the lock is held exclusive. The tick only checks the table, resolvers4 and the disk.
 rm -f "$STATE/disk"
-exec 8>"$TESTROOT/run/lock/mjk-deploy.lock"
+exec 8>"$TESTROOT/run/mjk/deploy.lock"
 flock -x -n 8 || fail "could not take the deploy lock in the test"
 tick_out=$(MJK_TICK_LOCK_WAIT=1 "$BIN/mjk-tick" 2>&1) || fail "mjk-tick with a deploy holding the lock did not exit 0: $tick_out"
 exec 8>&-
 grep -q 'busy' <<<"$tick_out" || fail "mjk-tick with a deploy holding the lock did not say busy: $tick_out"
 grep -Eq '^free_pct=[0-9]+$' "$STATE/disk" || fail "mjk-tick did not write the disk file while a deploy held the lock"
 ok "while a deploy holds the lock mjk-tick still writes the disk file and says busy"
+
+# A lock directory that is not root 0700 (as if someone else had made it): the tick still does the
+# firewall and disk steps and exits 1; mjk-update refuses.
+chmod 0755 "$TESTROOT/run/mjk"
+rm -f "$STATE/disk"
+if tick_out=$("$BIN/mjk-tick" 2>&1); then fail "mjk-tick exited 0 with an unusable lock directory: $tick_out"; fi
+grep -q 'cannot be opened' <<<"$tick_out" || fail "mjk-tick did not name the unusable lock: $tick_out"
+grep -Eq '^free_pct=[0-9]+$' "$STATE/disk" || fail "mjk-tick did not write the disk file with an unusable lock"
+if upd_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1); then fail "mjk-update ran with an unusable lock directory"; fi
+grep -q 'lock_unusable' <<<"$upd_out" || fail "mjk-update did not say lock_unusable: $upd_out"
+chmod 0700 "$TESTROOT/run/mjk"
+ok "with an unusable lock directory mjk-tick still checks the firewall and the disk and exits 1; mjk-update refuses"
 
 if ((HAVE_NFT)); then
   # Fail closed: the table cannot be loaded.
@@ -557,13 +592,13 @@ fi
 # --- 7. the backup unit's command and the ping -------------------------------------------------------
 step "7. mjk-backup.service command line and mjk-ping"
 exec_line=$(sed -n 's/^ExecStart=//p' "$REPO/deploy/host/systemd/mjk-backup.service")
-[[ $exec_line == "/usr/bin/flock -s -w 3600 /run/lock/mjk-deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup" ]] ||
+[[ $exec_line == "/usr/bin/flock -s -w 3600 /run/mjk/deploy.lock /usr/bin/docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env --profile backup run --rm -T backup" ]] ||
   fail "the ExecStart of mjk-backup.service is not the expected command line"
 # The same command line in the test root, plus the override: the role itself belongs to WP7 (it may still
 # answer "not built yet"); what matters here is that the one-shot starts on the backup image under the lock.
 read -r -a backup_cmd <<<"${exec_line//\/etc\/mjk/$ETC}"
 backup_cmd=("${backup_cmd[@]//\/srv\/mjk/$SRVD}")
-backup_cmd=("${backup_cmd[@]//\/run\/lock\/mjk-deploy.lock/$TESTROOT/run/lock/mjk-deploy.lock}")
+backup_cmd=("${backup_cmd[@]//\/run\/mjk\/deploy.lock/$TESTROOT/run/mjk/deploy.lock}")
 backup_cmd=("${backup_cmd[@]/\/usr\/bin\/docker/docker}")
 set +e
 "${backup_cmd[@]}" >"$SCRATCH/backup.out" 2>&1

@@ -9,9 +9,9 @@
 #   4. restart unhealthy mjk containers (Docker restarts only exited ones).
 #   5. write the disk check to /srv/mjk/state/disk (free_pct, free_bytes, total_bytes, checked): the api's
 #      disk guard reads it, and a file older than 30 minutes counts as full.
-# The lock /run/lock/mjk-deploy.lock: mjk-update takes it exclusive, mjk-backup.service and mjk-tick shared.
+# The lock /run/mjk/deploy.lock: mjk-update takes it exclusive, mjk-backup.service and mjk-tick shared.
 # The firewall never waits for it: steps 1 and 2 (and the fail-closed stop) run first, whether the lock is
-# free, held or cannot even be opened. Only the compose actions (3, 4) need it: the tick waits up to 5
+# free, held or cannot even be opened (that is exit 1). Only the compose actions (3, 4) need it: the tick waits up to 5
 # minutes for a deploy, runs in full during a backup (which can take hours), and with a deploy still
 # holding the lock it only writes the disk file. mjk-update re-checks the table and the marker before each
 # compose step, so a fail-closed stop during a deploy also ends that deploy. State files are atomic.
@@ -29,7 +29,8 @@ if [[ -n $ROOT ]]; then
 fi
 ETC=$ROOT/etc/mjk
 STATE=$ROOT/srv/mjk/state
-LOCKFILE=$ROOT/run/lock/mjk-deploy.lock
+LOCKDIR=$ROOT/run/mjk
+LOCKFILE=$LOCKDIR/deploy.lock
 COMPOSE=$ETC/compose.yaml
 CURRENT=$STATE/current.env
 MARKER=$STATE/firewall-stopped
@@ -57,8 +58,14 @@ problem() {
 
 [[ -d $STATE ]] || { echo "mjk-tick: config_missing: $STATE (run mjk-install)" >&2; exit 78; }
 
-locked=0
-if { exec 9>"$LOCKFILE"; } 2>/dev/null && flock -s -w "$LOCK_WAIT" 9; then locked=1; fi
+# The lock lives in /run/mjk, root:root 0700 (created at boot by /etc/tmpfiles.d/mjk.conf), never in
+# the world-writable /run/lock, where any local user could create and hold the file first.
+lockdir_ok() {
+  if [[ ! -e $LOCKDIR ]]; then
+    mkdir -m 0700 -- "$LOCKDIR" 2>/dev/null || return 1
+  fi
+  [[ -d $LOCKDIR && ! -L $LOCKDIR && $(stat -c '%u:%a' "$LOCKDIR") == 0:700 ]]
+}
 
 write_state() { # file content...
   local file=$1
@@ -106,6 +113,13 @@ if ! "$RESOLVERS" "${RESOLVER_ARGS[@]}" >/dev/null 2>&1; then
   problem "resolvers4 was not refreshed (no usable resolver); DNS stays blocked until it is"
 fi
 
+# --- the lock, only now: the firewall steps above never wait for it ---------------------------------
+locked=0
+if lockdir_ok && { exec 9>"$LOCKFILE"; } 2>/dev/null; then
+  if flock -s -w "$LOCK_WAIT" 9; then locked=1; fi
+else
+  problem "the deploy lock $LOCKFILE cannot be opened (its directory must be root:root 0700); compose actions skipped"
+fi
 if ((!locked)); then
   write_disk
   log "busy: the deploy lock is held or cannot be opened; only the table, resolvers4 and the disk file were checked"

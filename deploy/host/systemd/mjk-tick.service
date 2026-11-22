@@ -23,7 +23,7 @@ RuntimeDirectoryMode=0700
 
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/srv/mjk/state /run/lock
+ReadWritePaths=/srv/mjk/state /run/mjk
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
