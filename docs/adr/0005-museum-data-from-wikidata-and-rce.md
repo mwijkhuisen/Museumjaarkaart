@@ -32,7 +32,7 @@
 
 - Everything stored is CC0, public domain or our own, so the museum table carries no share-alike.
 - The owner curates ~500 flags and prices by hand before P2c and P4 (A6), from each museum's own website and members' reports, never from museum.nl's list or filter. They go stale, so pages show `mk_last_verified_at` and members report changes.
-- Whether this hand curation is fine under the Databankenwet is [U A9]: that question goes to the lawyer (by email if the paid hour is not booked yet), and A6 starts only after the answer; the rest of A9 before P3d's sign-off of the legal texts. A5's answer may replace it with a feed or a permission.
+- Whether this hand curation is fine under the Databankenwet is [U A9]. There is no paid advice (owner, 2026-11-22): the owner writes that item of the A9 assessment down before A6 starts, and the rest before P3d's sign-off of the legal texts. A6 starts after A5's answer, or three weeks after the A5 mail without one. A5 asks for permission to use the Museumvereniging's public member directory (found 2026-11-22; never copied without that permission, like museum.nl's list) or for a feed; either replaces most of the hand work.
 - ~290 museums without coordinates are listed but not on the map until the owner fixes them in the admin.
 - CI never calls Wikidata or RCE: tests use recorded fixtures, and `record-fixture` refuses to run under `CI`.
 

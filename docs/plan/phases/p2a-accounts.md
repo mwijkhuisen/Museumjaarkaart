@@ -4,6 +4,7 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 
 ## 0. Before the build starts
 
+- **Box first** (owner, 2026-11-22; PHASES §1): P2a starts only once the stack runs on the VM and the [box] and [owner] criteria of P1e and P1d are ticked and written back (A1, A2, A3 and A8 done).
 - **Depends on:** P1e merged (and so P1a–P1c). P2a builds on:
   - P1a: the job queue and the `worker` role, `src/lib/log.ts`, the `admin` CLI, and the plain `uuid` columns it left for `app_user` (`museum_change.reporter_id`, `museum_change.decided_by`, `mk_list_version.published_by`; P1a plan §2.1)
   - P1b: the `api` skeleton (middleware order, the fixed error shape, strict parsing, `Cache-Control` helpers), `@mjk/contracts`
@@ -14,7 +15,7 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 - **During the phase:**
   - **O1:** the owner fills `app_keys` on the VM in the format the plan fixes (OTP pepper, invite pepper, `code_seal`, ALTCHA HMAC key), and adds the steps to `secrets-rotation.md`.
   - **O2:** the argon2 measurement on the VM (Q3), whose `m` the PR commits.
-  - **O3:** the [box] checks: a real code mail through Lettermint, and the Cloudflare rule's 429.
+  - **O3:** the [box] checks: a real code mail through Lettermint; the Cloudflare rule's 429 (on Free the rule matches the path only, counts per IP address over 10 s and blocks for 10 s, so the plan picks only its request count, A§9); and the request lengths through the tunnel (PHASES P2a's second [box] criterion, A§14): a JSON `POST`, a JSON `PUT` and a body-less `POST` from a browser, plus one body sent without a length, with what the `api` saw for each written into A§14.
   - **O4:** after the merge, `admin user role <handle> admin` for the owner's account. Until P3d is merged, invites go only to the owner and test accounts.
 
 ## 1. Questions for the owner (plan mode)

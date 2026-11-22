@@ -9,7 +9,7 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
   - P1a: `museum_change`, `museum_sync_run`, `museum_source_row`, `pinned_fields`, the curation module and the `admin change|match|list|museum` CLI
   - P1e: the interim `/contact` (replaced here) and the Caddy admin-host routes and headers; P2c: profiles
 - **Three PRs** (PHASES §3 P3c): (1) notices, statements of reasons, appeals, `/melden`, `/contact`, `art18.md` and the audit log; (2) the admin SPA, the photo queue, moderation actions and the trust rule; (3) the curation screens, "Meld een wijziging" and the status panel. PR 3 may follow during P4; the P1a CLI covers A6 until then.
-- **Owner actions:** none block the start. The owner approves the `/contact` text in P3d's [owner] criterion, after A9's legal hour.
+- **Owner actions:** none block the start. The owner approves the `/contact` text in P3d's [owner] criterion, after the owner's own A9 assessment (no paid advice: owner, 2026-11-22).
 - **Workflow:** no change expected; the admin flows run in the existing e2e job against the CI compose stack. If the stack needs another service, the lead hands that diff to the owner.
 - **During the phase:** the owner answers §1 in plan mode, and does the [owner] phone check once PR 2 is deployed.
 
@@ -27,6 +27,9 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 | Q8 | Where does the status panel read the last backup and the last restore drill? `mjk_backup` is read-only, and A§17.1 gives the `api` only `disk` from `/srv/mjk/state` [U] | The `mjk-backup` unit and the drill runbook write `/srv/mjk/state/backup` and `/srv/mjk/state/drill` (a timestamp and an outcome code), mounted read-only in `api` like `disk` |
 | Q9 | `/melden` is "SSR + form", but mutations take JSON only (A§14) | The form posts after hydration (JSON, ALTCHA). Without JavaScript the page says so and gives the `/contact` address |
 | Q10 | The CSAM reporting contacts in `csam.md` [U contacts, A§13.1] | The lead leaves a marked placeholder; the owner fills in the contacts after checking them (A9) |
+| Q11 | The posting pause (A§13.1, A§14 `GET` · `PUT /api/admin/posting`; owner, 2026-11-22): where does the flag live, and how do the screens learn it? | One row in a small settings table, written only by an admin on the admin host and audit-logged, so the owner can switch it from a phone through Access; a value in `mjk.env` would need a root shell and a restart. The `api` reads it with a short in-process cache. The SPA learns it from `/api/v1/me` (`posting`), so public HTML stays byte-identical. PR 2 |
+| Q12 | `backup-erasure.md` (A§17.6; owner, 2026-11-22) and its [box] criterion | The lead writes the runbook from A§17.6 and restic's own documentation of `rewrite` and `prune`; the owner runs it once on a test photo's original with the Admin and workstation tokens, which no agent ever holds, and pastes the output without any key. PR 1, with the other runbooks |
+| Q13 | The legal texts must not call the notice, statement and appeal flows duties under the DSA (A§13.1, checked 2026-11-22: ACM puts a site with no profit motive outside it) | `/melden`, `/contact`, the receipts and the statements describe what the site does ("zo behandelen wij meldingen") and cite no article; the article numbers stay in the plan and the code comments |
 
 ## 2. What the plan settles
 
