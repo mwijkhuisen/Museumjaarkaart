@@ -39,6 +39,7 @@ describe('GET /museums/points', () => {
         id: l?.id,
         slug: l?.slug,
         name: l?.name,
+        name_en: l?.name_en,
         lat: l?.lat,
         lon: l?.lon,
         museumkaart_status: l?.museumkaart_status,

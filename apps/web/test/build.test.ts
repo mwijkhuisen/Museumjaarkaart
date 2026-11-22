@@ -46,9 +46,9 @@ const ALLOWED_URLS = [
   'https://github.com/maplibre/maplibre-gl-js/blob/',
   'https://github.com/mapbox/mapbox-gl-js/issues/',
   'https://github.com/protomaps/PMTiles/',
-  // The message of MapLibre's GPUInitializationError (no WebGL2): text. Joined, because the
-  // forbidden-hosts scan counts every literal mention of that host in a tracked file.
-  ['https://wiki.', 'openstreetmap', '.org/wiki/This_map_requires_WebGL'].join(''),
+  // The message of MapLibre's GPUInitializationError (no WebGL2): text, never fetched (allowed by
+  // name in test/forbidden-hosts.test.ts).
+  'https://wiki.openstreetmap.org/wiki/This_map_requires_WebGL',
   // Our own media origin, `https://media.${hostname}` (the tiles; the CSP's connect-src): built at
   // run time from the page's own hostname, in the lazy map chunk only.
   'https://media.${',

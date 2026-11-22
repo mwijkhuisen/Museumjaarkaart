@@ -78,6 +78,7 @@ const samples: [string, { safeParse: (v: unknown) => { success: boolean } }, unk
           id: item.id,
           slug: 'a',
           name: 'A',
+          name_en: null,
           lat: 52.1,
           lon: 4.5,
           museumkaart_status: item.museumkaart_status,

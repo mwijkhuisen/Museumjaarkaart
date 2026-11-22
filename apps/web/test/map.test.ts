@@ -170,6 +170,7 @@ describe('the museum layer helpers', () => {
         id: '7b0d0c3e-5b2e-4f3a-8a53-0c2d5f9d1a11',
         slug: 'a-museum',
         name: '<img src=x onerror=alert(1)>',
+        name_en: null,
         lat: 52.1,
         lon: 5.2,
         museumkaart_status: 'participating',

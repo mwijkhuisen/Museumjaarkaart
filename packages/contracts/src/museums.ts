@@ -99,6 +99,7 @@ export const MuseumPoint = z.strictObject({
   id: MuseumListItem.shape.id,
   slug: MuseumListItem.shape.slug,
   name: MuseumListItem.shape.name,
+  name_en: MuseumListItem.shape.name_en,
   lat: Lat,
   lon: Lon,
   museumkaart_status: MuseumListItem.shape.museumkaart_status,

@@ -80,7 +80,7 @@ const item = (r: Row): MuseumListItem => ({
 export async function listPoints(db: Db, p: Omit<ListParams, 'limit' | 'cursor'>): Promise<MuseumPoints> {
   const where = filters(p);
   const { q } = p;
-  const cols = sql`m.id, m.slug, m.name, m.lat, m.lon, m.museumkaart_status, m.categories`;
+  const cols = sql`m.id, m.slug, m.name, m.name_en, m.lat, m.lon, m.museumkaart_status, m.categories`;
   const { rows } = await db
     .transaction()
     .setAccessMode('read only')

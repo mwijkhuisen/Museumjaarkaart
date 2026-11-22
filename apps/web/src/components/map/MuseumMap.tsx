@@ -11,6 +11,7 @@ import {
   wireMuseums,
 } from '../../lib/map/museumLayer.ts';
 import { hasWebGL2 } from '../../lib/map/webgl.ts';
+import { museumName } from '../../lib/names.ts';
 import { Link } from '../../lib/router.tsx';
 import { apiPath, pathOf, type Route } from '../../lib/routes.ts';
 import { m } from '../../paraglide/messages.js';
@@ -69,6 +70,8 @@ export function MuseumMap({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: onView is the page's stable setState
   useEffect(() => {
+    // Effects never run on the server; the constant lets the SSR build drop the map chunk too.
+    if (import.meta.env.SSR) return;
     const el = container.current as (HTMLDivElement & { mjkMap?: MapLibreMap | undefined }) | null;
     if (el === null) return;
     const abort = new AbortController();
@@ -89,7 +92,8 @@ export function MuseumMap({
       if (signal.aborted) return made.dispose();
       const data = await points;
       if (signal.aborted) return;
-      addMuseumLayers(made.map, data, colours);
+      // The card and the labels show the page language's name, as the list cards do.
+      addMuseumLayers(made.map, { items: data.items.map((p) => ({ ...p, name: museumName(p, locale) })) }, colours);
       unwire = wireMuseums(made.map, setSelected);
       el.mjkMap = made.map;
       onView(made.map);
