@@ -19,8 +19,8 @@ export const TILES_REFRESH_JOB = 'tiles_refresh';
 export const TILES_ROLLBACK_JOB = 'tiles_rollback';
 export const BUILD_DIR = '/srv/mjk/tiles-build';
 export const PMTILES_BIN = '/usr/local/bin/pmtiles';
-/** An extract reads ~1–2 GB in ranges over the network [U]. */
-const EXTRACT_TIMEOUT_MS = 6 * 60 * 60_000;
+/** An extract reads ~1–2 GB in ranges over the network [U]; a stalled source must not hold the one worker for long. */
+const EXTRACT_TIMEOUT_MS = 2 * 60 * 60_000;
 const DEFAULT_GOMEMLIMIT = '300MiB';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -37,7 +37,10 @@ export type TilesDeps = {
   now?: () => Date;
 };
 
-/** Run time, not worker start: a worker without R2 configured still runs its other jobs. */
+/**
+ * Run time, not worker start: a worker without the MJK_R2_* values still runs its other jobs. The secret file
+ * is another matter: Compose does not start the worker without it.
+ */
 const clientOf = (d: TilesDeps) => new R2Client(readR2Config(d.env, d.secretPath ?? MEDIA_SECRET_PATH));
 
 async function emptyDir(dir: string): Promise<void> {
@@ -66,7 +69,7 @@ function extract(bin: string, args: readonly string[], dir: string, d: TilesDeps
     TMPDIR: dir,
     GOMEMLIMIT: /^[0-9]{1,6}(?:B|KiB|MiB|GiB)?$/.test(limit) ? limit : DEFAULT_GOMEMLIMIT,
   };
-  return new Promise<{ ok: boolean; status: number | null }>((resolve) => {
+  return new Promise<{ ok: boolean; status: number | null; signal: string | null }>((resolve) => {
     const kill = () => child.kill('SIGKILL');
     const child = execFile(
       bin,
@@ -74,8 +77,13 @@ function extract(bin: string, args: readonly string[], dir: string, d: TilesDeps
       { env, cwd: dir, timeout: d.extractTimeoutMs ?? EXTRACT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: 64 * 1024 },
       (err) => {
         signal.removeEventListener('abort', kill);
-        const code = (err as { code?: unknown } | null)?.code;
-        resolve({ ok: err === null, status: typeof code === 'number' ? code : null });
+        // A kill (the timeout, an abort, the OOM killer) is `code: null` with the signal's name.
+        const { code, signal: sig } = (err ?? {}) as { code?: unknown; signal?: unknown };
+        resolve({
+          ok: err === null,
+          status: typeof code === 'number' ? code : null,
+          signal: typeof sig === 'string' ? sig : null,
+        });
       },
     );
     if (signal.aborted) kill();
@@ -96,8 +104,10 @@ export function tilesRefreshJob(d: TilesDeps): JobHandler {
     logger.info({ build: build.date }, 'tiles_build_found');
 
     const current = await readCurrent(client, signal);
-    if (current?.file === file || current?.previous === file) {
-      // Also the build that a rollback moved away from: a re-extract would differ byte for byte from an immutable file.
+    // Never older than what is live (fixed-width names, so a string order is the date order): a stale or
+    // hostile builds.json must not roll the map back.
+    // Also the build that a rollback moved away from: a re-extract would differ byte for byte from an immutable file.
+    if (current !== null && (file <= current.file || current.previous === file)) {
       logger.info({ build: build.date }, 'tiles_up_to_date');
       return;
     }
@@ -114,7 +124,7 @@ export function tilesRefreshJob(d: TilesDeps): JobHandler {
       );
       if (!run.ok) {
         if (signal.aborted) throw new JobError('tiles_aborted');
-        logger.error({ status: run.status }, 'tiles_extract_failed');
+        logger.error({ status: run.status, signal: run.signal }, 'tiles_extract_failed');
         throw new JobError('tiles_extract_failed');
       }
       const why = await tilesProblem(out, d.limits ?? TILE_LIMITS);

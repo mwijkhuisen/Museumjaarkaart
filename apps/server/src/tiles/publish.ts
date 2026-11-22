@@ -6,8 +6,9 @@ import { JobError } from '../worker/types.ts';
 // Publishing the tiles to the media bucket (A§12, A§15.3, ADR-0014): `tiles/nl-<build>.pmtiles` is immutable,
 // and `tiles/current.json` (a short cache) names the file the map reads and the one before it, which stays
 // for a rollback until the next refresh has succeeded. The new file is uploaded and checked first, the pointer
-// flips second, and only then is the file two refreshes back deleted. The e2e stack's seed uploads its fixture
-// tiles through publishTiles too.
+// flips second, and only then is the file two refreshes back deleted. The e2e stack's seed
+// (`apps/server/scripts/seed-e2e-tiles.ts`) writes its fixture file and `current.json` with the R2 client directly,
+// so the flip is covered by `publish.int.test.ts`, not by the e2e stack.
 
 export const CURRENT_KEY = 'tiles/current.json';
 /** `nl-<YYYYMMDD>.pmtiles`: the only names that ever reach a key. */

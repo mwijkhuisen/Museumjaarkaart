@@ -28,6 +28,6 @@ it('queues each job once; a second request while one is open says so and queues 
   expect(await h.admin('tiles', 'rollback')).toEqual({ code: 0, out: ['tiles_rollback queued'], err: [] });
   expect(await jobs()).toEqual([
     { kind: 'tiles_refresh', state: 'queued', payload: {}, max_attempts: 3 },
-    { kind: 'tiles_rollback', state: 'queued', payload: {}, max_attempts: 3 },
+    { kind: 'tiles_rollback', state: 'queued', payload: {}, max_attempts: 1 },
   ]);
 });

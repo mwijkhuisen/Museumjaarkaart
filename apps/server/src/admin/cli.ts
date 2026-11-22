@@ -288,18 +288,20 @@ const change: Group = {
 };
 
 /** The jobs of the worker's tiles refresh (A§15.3); the worker, not this role, holds the R2 secret. */
-const queueTiles = (kind: string, done: string): Command => ({
+const queueTiles = (kind: string, done: string, maxAttempts: number): Command => ({
   spec: { min: 0, max: 0 },
   async run(ctx) {
-    const inserted = await enqueueUnique(ctx.db, kind, {}, { maxAttempts: TILES_REFRESH_ATTEMPTS });
+    const inserted = await enqueueUnique(ctx.db, kind, {}, { maxAttempts });
     ctx.io.out(inserted ? done : `${kind} is already queued or running`);
     return 0;
   },
 });
 
 const tiles: Group = {
-  refresh: queueTiles(TILES_REFRESH_JOB, 'tiles_refresh queued'),
-  rollback: queueTiles(TILES_ROLLBACK_JOB, 'tiles_rollback queued'),
+  refresh: queueTiles(TILES_REFRESH_JOB, 'tiles_refresh queued', TILES_REFRESH_ATTEMPTS),
+  // One try: a rollback is a swap, so a retry after a lost answer would swap back. A failed one is checked
+  // against current.json by hand before it runs again (docs/runbooks/tiles-refresh.md §5).
+  rollback: queueTiles(TILES_ROLLBACK_JOB, 'tiles_rollback queued', 1),
 };
 
 /** The groups that are built. */

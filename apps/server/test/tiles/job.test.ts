@@ -146,6 +146,17 @@ describe('tiles_refresh', () => {
     expect(r2.log.every((l) => l === 'GET tiles/current.json')).toBe(true);
   });
 
+  it('never replaces the file in use with an older build (a stale or hostile builds.json)', async () => {
+    const r2 = fakeBucket();
+    r2.put('tiles/current.json', '{"file":"nl-20261120.pmtiles","previous":null}');
+    builds('20261115', '20261118');
+    const { run, lines } = job(fakeBinary(copyFixture));
+    await run();
+    expect(lines().map((l) => l.msg)).toEqual(['tiles_build_found', 'tiles_up_to_date']);
+    expect(existsSync(join(root, 'args'))).toBe(false);
+    expect(r2.current()).toEqual({ file: 'nl-20261120.pmtiles', previous: null });
+  });
+
   it('a failed extract is tiles_extract_failed (retried), uploads nothing and empties the directory', async () => {
     const r2 = fakeBucket();
     builds('20261120');
@@ -156,9 +167,17 @@ describe('tiles_refresh', () => {
     expect(err).toMatchObject({ code: 'tiles_extract_failed', retry: true });
     expect(readdirSync(buildDir)).toEqual([]);
     expect(r2.log).toEqual(['GET tiles/current.json']);
-    expect(lines().find((l) => l.msg === 'tiles_extract_failed')).toMatchObject({ status: 3 });
+    expect(lines().find((l) => l.msg === 'tiles_extract_failed')).toMatchObject({ status: 3, signal: null });
     // The binary's output never reaches the log.
     expect(JSON.stringify(lines())).not.toContain('secret-ish');
+  });
+
+  it('a killed extract logs the signal name (status null)', async () => {
+    fakeBucket();
+    builds('20261120');
+    const { run, lines } = job(fakeBinary('kill -9 $$'));
+    expect(await failure(run())).toMatchObject({ code: 'tiles_extract_failed', retry: true });
+    expect(lines().find((l) => l.msg === 'tiles_extract_failed')).toMatchObject({ status: null, signal: 'SIGKILL' });
   });
 
   it('a missing binary is tiles_extract_failed too', async () => {
