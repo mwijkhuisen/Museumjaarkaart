@@ -43,7 +43,7 @@ const COLUMNS = sql`m.id, m.slug, m.name, m.name_en, m.place, m.municipality_cod
   m.province_code, m.lat, m.lon, m.categories, m.museumkaart_status, m.registered, m.closed_on,
   m.temp_closed, m.sort_name`;
 
-function filters(p: ListParams): RawBuilder<unknown> {
+function filters(p: Omit<ListParams, 'limit' | 'cursor'>): RawBuilder<unknown> {
   const parts: RawBuilder<unknown>[] = [];
   if (p.province !== undefined) parts.push(sql`m.province_code = ${p.province}`);
   if (p.municipality !== undefined) parts.push(sql`m.municipality_code = ${p.municipality}`);
@@ -78,7 +78,7 @@ const item = (r: Row): MuseumListItem => ({
 
 /** Every visible museum with coordinates that the filters match: the map's points, ordered by id. */
 export async function listPoints(db: Db, p: Omit<ListParams, 'limit' | 'cursor'>): Promise<MuseumPoints> {
-  const where = filters(p as ListParams);
+  const where = filters(p);
   const { q } = p;
   const cols = sql`m.id, m.slug, m.name, m.lat, m.lon, m.museumkaart_status, m.categories`;
   const { rows } = await db
