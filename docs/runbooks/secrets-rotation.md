@@ -109,7 +109,15 @@ If the Access application is recreated, its AUD tag changes: put the new 64 hex 
 
 ## 7. GitHub: `GHCR_PUSH_TOKEN`
 
-The `write:packages` token of the `production` environment (`docs/runbooks/cloudflare.md` §8) expires after 90 days. Before it does: create a new classic token with that one scope, replace the environment secret, delete the old token, and watch the next `release` run. If it was ever exposed, rotate it at once and check the packages' recent versions (package → Versions) for any you did not publish.
+The `write:packages` token of the `production` environment (`docs/runbooks/cloudflare.md` §8) expires after at most 90 days. Rotate it **before** the expiry, at the calendar reminder two weeks ahead (a `release` run with an expired token fails at `docker login`, and `:main` then does not move):
+
+1. Create the new token exactly as in `docs/runbooks/cloudflare.md` §8 step 2: `https://github.com/settings/tokens/new?scopes=write:packages`, `repo` unticked, `write:packages` only, an expiry of at most 90 days.
+2. Replace the secret `GHCR_PUSH_TOKEN` of the environment `production` with it (Settings → Environments → `production` → `GHCR_PUSH_TOKEN` → Update).
+3. Delete the old token (Settings → Developer settings → Personal access tokens → Tokens (classic) → the old `mjk release` → Delete).
+4. Set the next calendar reminder, two weeks before the new expiry.
+5. Watch the next `release` run: `docker login` succeeds and `:main` moves.
+
+If the token was ever exposed, rotate it at once, and check the recent versions of every package of your account (package → Versions), F1's and Waterheight's included, for any you did not publish (`docs/runbooks/incident.md` §6).
 
 ## 8. Secrets that arrive later
 
