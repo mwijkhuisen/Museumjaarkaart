@@ -6,29 +6,26 @@
 # The build context is the repository root (.dockerignore keeps .git, node_modules, secrets and
 # docs out of it). Compose runs a role as `command: ["api"]`; the entrypoint is `node main.ts`.
 #
-# Every base is pinned by digest (P1e pins list). The refs are build args only so that a sandbox
-# without Docker Hub access can point them at a mirror of the same digest; a CI build uses these.
-
-ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
-ARG RUNTIME_IMAGE=gcr.io/distroless/cc-debian13:nonroot@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
-ARG POSTGRES_IMAGE=postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
-ARG GOLANG_IMAGE=golang:1.25.14-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73
-
-# Hand-kept sha256 pins of the binaries (ARCHITECTURE.md §16; Dependabot does not bump them).
-# dbmate: the same version and sha256 as .github/workflows/ci.yml.
-ARG DBMATE_VERSION=v2.36.0
-ARG DBMATE_SHA256=47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce
-# restic: built from the release tarball (the sha256 matches the release's SHA256SUMS).
+# Every base is pinned by digest (P1e pins list), as a literal `FROM image:tag@sha256:…` line, so that
+# Dependabot's docker updater sees each one (P1e review S10). A sandbox without Docker Hub access builds
+# with `--build-context <the FROM ref>=docker-image://<a mirror of the same digest>`, never another ref.
+#
+# Hand-kept sha256 pins of the binaries (ARCHITECTURE.md §16; Dependabot does not bump them), fetched by
+# `ADD --checksum`, so no curl or apt is needed for them:
+#   dbmate v2.36.0: the same version and sha256 as .github/workflows/ci.yml;
+#   restic 0.19.1: the release tarball (the sha256 matches the release's SHA256SUMS), built from source.
 ARG RESTIC_VERSION=0.19.1
-ARG RESTIC_SHA256=bb9b1a19040744d26d8a79be029d4e6b189c45ccc9d8831d7fe367d3c33df725
 
 # ---------------------------------------------------------------------------------------------
 # The runtime base on its own, so the library stages can ask which libraries it already has.
-FROM ${RUNTIME_IMAGE} AS runtime
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2 AS runtime
 
 # ---------------------------------------------------------------------------------------------
 # Build stage: the toolchain, pnpm 12.5.1 from the sha512-checked script (no corepack).
-FROM ${NODE_IMAGE} AS toolchain
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS toolchain
+# apt stays here, and only here: scripts/install-pnpm.sh needs curl and the CA bundle to fetch pnpm,
+# which it checks against its pinned sha512 itself. Debian's packages are signed; this is a build stage,
+# and nothing from apt reaches an image (only node_modules and the build output leave it).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
@@ -60,20 +57,8 @@ RUN pnpm --filter @mjk/web build
 # Only apps/web/dist and packages/contracts/dist leave this stage: the web sources, tests and
 # messages stay behind (the ssr bundle is one self-contained file).
 
-# dbmate, sha256-checked (the `migrate` role runs it as mjk_migrator).
-FROM ${NODE_IMAGE} AS dbmate
-ARG DBMATE_VERSION
-ARG DBMATE_SHA256
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
- && rm -rf /var/lib/apt/lists/*
-RUN curl --proto '=https' --tlsv1.2 -fsSL -o /dbmate \
-      "https://github.com/amacneil/dbmate/releases/download/${DBMATE_VERSION}/dbmate-linux-amd64" \
- && echo "${DBMATE_SHA256}  /dbmate" | sha256sum -c - \
- && chmod 0555 /dbmate
-
 # The Node binary and the libraries it links that the runtime base lacks (libatomic).
-FROM ${NODE_IMAGE} AS node-rt
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS node-rt
 COPY --from=runtime / /rt/
 RUN set -eu; \
     mkdir -p /out/usr/local/bin /out/usr/lib/x86_64-linux-gnu; \
@@ -85,7 +70,7 @@ RUN set -eu; \
     ls /out/usr/lib/x86_64-linux-gnu
 
 # The revision gate: a build without a git sha fails here, and the sha is also kept in the image.
-FROM ${NODE_IMAGE} AS gate
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS gate
 ARG REVISION
 RUN test -n "${REVISION}" && printf '%s' "${REVISION}" | grep -Eq '^[0-9a-f]{7,64}$' \
  && printf '%s\n' "${REVISION}" > /REVISION
@@ -97,7 +82,9 @@ LABEL org.opencontainers.image.revision=${REVISION} \
       org.opencontainers.image.source=https://github.com/mwijkhuisen/Museumjaarkaart \
       org.opencontainers.image.title=mjk-server
 COPY --from=node-rt /out/ /
-COPY --from=dbmate /dbmate /usr/local/bin/dbmate
+# dbmate, sha256-checked by BuildKit (the `migrate` role runs it as mjk_migrator).
+ADD --checksum=sha256:47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce --chmod=0555 \
+    https://github.com/amacneil/dbmate/releases/download/v2.36.0/dbmate-linux-amd64 /usr/local/bin/dbmate
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/server/node_modules /app/apps/server/node_modules
 COPY --from=prod-deps /app/packages/contracts/node_modules /app/packages/contracts/node_modules
@@ -123,7 +110,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # ---------------------------------------------------------------------------------------------
 # The backup image's tools. pg_dump 18 comes from the pinned postgres image, with exactly the
 # libraries ldd lists for it that the runtime base does not already have.
-FROM ${POSTGRES_IMAGE} AS pg
+FROM postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42 AS pg
 COPY --from=runtime / /rt/
 RUN set -eu; \
     mkdir -p /out/usr/local/bin /out/usr/lib/x86_64-linux-gnu; \
@@ -135,15 +122,13 @@ RUN set -eu; \
     ls /out/usr/lib/x86_64-linux-gnu
 
 # restic from the release tarball: pinned sha256, a static binary (CGO off), local toolchain only.
-FROM ${GOLANG_IMAGE} AS restic
+FROM golang:1.25.14-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73 AS restic
 ARG RESTIC_VERSION
-ARG RESTIC_SHA256
 ENV GOTOOLCHAIN=local CGO_ENABLED=0
 WORKDIR /src
-RUN curl --proto '=https' --tlsv1.2 -fsSL -o restic.tar.gz \
-      "https://github.com/restic/restic/releases/download/v${RESTIC_VERSION}/restic-${RESTIC_VERSION}.tar.gz" \
- && echo "${RESTIC_SHA256}  restic.tar.gz" | sha256sum -c - \
- && tar -xzf restic.tar.gz --strip-components=1 \
+ADD --checksum=sha256:bb9b1a19040744d26d8a79be029d4e6b189c45ccc9d8831d7fe367d3c33df725 \
+    https://github.com/restic/restic/releases/download/v0.19.1/restic-0.19.1.tar.gz /src/restic.tar.gz
+RUN tar -xzf restic.tar.gz --strip-components=1 \
  && go build -trimpath -ldflags "-s -w -X main.version=${RESTIC_VERSION}" -o /restic ./cmd/restic \
  && /restic version
 

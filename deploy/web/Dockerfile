@@ -7,15 +7,16 @@
 # layout: the client assets are served from /srv/web, and `import profile-{$MJK_PROFILE}.caddy`
 # picks /etc/caddy/profile-<name>.caddy (P1e: `prelaunch`).
 #
-# Every base is pinned by digest (P1e pins list). The refs are build args only so that a sandbox
-# without Docker Hub access can point them at a mirror of the same digest; a CI build uses these.
-
-ARG NODE_IMAGE=node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
-ARG CADDY_IMAGE=caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+# Every base is pinned by digest (P1e pins list), as a literal `FROM image:tag@sha256:…` line, so that
+# Dependabot's docker updater sees each one (P1e review S10). A sandbox without Docker Hub access builds
+# with `--build-context <the FROM ref>=docker-image://<a mirror of the same digest>`, never another ref.
 
 # ---------------------------------------------------------------------------------------------
 # The client assets: Paraglide, then Vite's client bundle (the same build as the server image's).
-FROM ${NODE_IMAGE} AS build
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS build
+# apt stays here, and only here: scripts/install-pnpm.sh needs curl and the CA bundle to fetch pnpm,
+# which it checks against its pinned sha512 itself. Debian's packages are signed; this is a build stage,
+# and nothing from apt reaches an image (only node_modules and the build output leave it).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
@@ -37,13 +38,13 @@ RUN pnpm --filter @mjk/web build \
  && rm -rf apps/web/dist/client/.vite
 
 # The revision gate: a build without a git sha fails here.
-FROM ${NODE_IMAGE} AS gate
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS gate
 ARG REVISION
 RUN test -n "${REVISION}" && printf '%s' "${REVISION}" | grep -Eq '^[0-9a-f]{7,64}$' \
  && printf '%s\n' "${REVISION}" > /REVISION
 
 # ---------------------------------------------------------------------------------------------
-FROM ${CADDY_IMAGE} AS web
+FROM caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0 AS web
 ARG REVISION
 LABEL org.opencontainers.image.revision=${REVISION} \
       org.opencontainers.image.source=https://github.com/mwijkhuisen/Museumjaarkaart \
