@@ -63,7 +63,15 @@ Jurisdiction European Union for both buckets, chosen when they are created (it c
 | `mjk-backup` | private | the lock rule and the tokens of `docs/runbooks/backup.md` §1 and §2 |
 | `mjk-media` | public through `media.<domain>` only | custom domain `media.<domain>`; the `r2.dev` public URL off; CORS for GET only, origin `https://<domain>` (the tiles of P1d); a Transform Rule on `media.<domain>` adding `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` to every object; objects carry their own `Cache-Control` (A§12) |
 
-Tokens, one per bucket, Object Read & Write, none account-wide: one for `mjk-media` (arrives with P3b as `r2_media_rw`), one for `mjk-backup` (`r2_backup_put`, on the VM), one workstation token on `mjk-backup` (never on the VM). The Admin token that can change lock rules stays in your password manager.
+The media bucket, step by step (the tiles of P1d; `docs/runbooks/tiles-refresh.md` §2 has the checks):
+
+1. R2 → Create bucket `mjk-media`, jurisdiction European Union. Settings → Public access: connect the custom domain `media.<domain>` and leave the `r2.dev` URL disabled.
+2. Settings → CORS policy, JSON editor: `[{"AllowedOrigins": ["https://<domain>"], "AllowedMethods": ["GET", "HEAD"], "AllowedHeaders": ["range"], "ExposeHeaders": ["ETag"], "MaxAgeSeconds": 86400}]`. Only `https://<domain>`, only read methods. `range` and `ETag` are [U] until the P1d [box] run shows the map loading.
+3. The Transform Rule of the table above on `media.<domain>`.
+4. A lifecycle rule that aborts incomplete multipart uploads after 7 days (a killed worker leaves one behind).
+5. No Cache Rule on `tiles/*` at first (owner Q7): the [box] run records `cf-cache-status` of a cold and a warm range request, and the result decides.
+
+Tokens, one per bucket, Object Read & Write, none account-wide: one for `mjk-media` (the worker's `r2_media_rw`, P1d), one for `mjk-backup` (`r2_backup_put`, on the VM), one workstation token on `mjk-backup` (never on the VM). The Admin token that can change lock rules stays in your password manager.
 
 ## 5. Rules
 

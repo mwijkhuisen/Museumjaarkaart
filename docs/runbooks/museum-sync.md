@@ -31,7 +31,7 @@ Commands run from the repository root as `node apps/server/src/main.ts <role> �
 - **Final, the job fails at once with its code:** `empty_guard`, `mass_change`, `not_seeded`, `unknown_kind`.
 - **Retried:** `sync_busy`, `wikidata_unavailable`, `rce_unavailable`, `apply_failed` and `internal`. Up to `max_attempts` = 5 tries in all. The wait after attempt n is 15 minutes doubling, capped at 6 hours [U]: 15, 30, 60, 120 minutes.
 - Inside one try the fetcher itself retries 429 and 503 (§10).
-- **Lease:** a running job unfinished after 30 minutes [U] can be taken over by a worker. One with no attempts left becomes `failed` with `lease_expired`.
+- **Lease:** the worker refreshes the lease of the job it runs every 30 seconds, so a running job is only taken over (or, with no attempts left, becomes `failed` with `lease_expired`) 30 minutes [U] after its worker has died. The quarterly tiles job relies on it (`docs/runbooks/tiles-refresh.md` §7).
 - The state is in the tables `job` (`state`, `attempts`, `last_error`) and `museum_sync_run` (`outcome`, `code`, `wikidata_rows`, `rce_rows`, `counts`).
 
 ## 3. The first import (the seed)
