@@ -82,7 +82,7 @@ const ROUTES = (locale: Locale): Route[] => [
   { page: 'museum', locale, slug: 'rijksmuseum' },
   { page: 'province', locale, province: 'noord-holland', query: '' },
   { page: 'search', locale, query: 'q=rijks' },
-  { page: 'map', locale },
+  { page: 'map', locale, query: '' },
   { page: 'legal', locale, doc: 'privacy' },
   { page: 'shell', locale, app: 'passport' },
 ];

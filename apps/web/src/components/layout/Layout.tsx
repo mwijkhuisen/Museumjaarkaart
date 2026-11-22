@@ -40,7 +40,7 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
               <Link href={page({ page: 'search', locale, query: '' })}>{m.page_search()}</Link>
             </li>
             <li>
-              <Link href={page({ page: 'map', locale })}>{m.page_map()}</Link>
+              <Link href={page({ page: 'map', locale, query: '' })}>{m.page_map()}</Link>
             </li>
           </ul>
         </nav>

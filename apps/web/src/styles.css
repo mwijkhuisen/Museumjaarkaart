@@ -4,6 +4,7 @@
  *   layout   .skip-link .site-header .site-nav .site-footer .page .stack .cluster
  *   content  .card .card-list .facts (dl of div > dt + dd) .badge .badge--participating|left|unknown
  *   controls .button .field .filters .pager
+ *   map      .map-region .map-region__canvas .map-card .near-me__list
  *   utility  .muted .visually-hidden .icon .scroll
  * Dark theme: the colour block inside the prefers-color-scheme media query. When the toggle arrives
  * (P3a), repeat that block under `:root[data-theme="dark"]` and give the media block
@@ -25,6 +26,12 @@
   --color-mk-left: #b3261e;
   --color-mk-unknown: #5f5f5f;
   --color-danger: #b3261e;
+  /* Map markers (A§15.3): the basemap is always the light flavour, so these are the same in dark
+     mode. contrast.test.ts: each at 3:1 or more on the basemap's land and water and on the ring. */
+  --color-map-mk: #9a3d00;
+  --color-map-other: #2b4c8c;
+  --color-map-cluster: #1f3a6e;
+  --color-map-outline: #ffffff;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -356,6 +363,38 @@ main:focus {
   gap: var(--space-1);
   min-width: var(--tap);
   padding: 0 var(--space-3);
+}
+
+/* map */
+.map-region {
+  margin-bottom: var(--space-4);
+}
+.map-region__canvas {
+  width: 100%;
+  height: 60vh;
+  min-height: 20rem;
+  max-height: 40rem;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.map-region .maplibregl-ctrl-group button {
+  width: var(--tap);
+  height: var(--tap);
+}
+.map-card {
+  margin-top: var(--space-3);
+}
+.near-me__list {
+  margin: 0 0 var(--space-4);
+}
+.near-me__list li {
+  padding: var(--space-1) 0;
+}
+.near-me__list a {
+  display: inline-block;
+  padding: var(--space-2) 0;
+  min-height: var(--tap);
 }
 
 /* utilities */

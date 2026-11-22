@@ -285,3 +285,52 @@ describe('the list page', () => {
     expect(render('/en/')).toContain('Museumkaart list of November 2026: 512 museums');
   });
 });
+
+describe('the map page (server-rendered: the filters and the list, never the map)', () => {
+  it.each([
+    [
+      'nl',
+      '/kaart?province=NL-NH&mk=participating',
+      '<h1>Kaart</h1>',
+      'Dezelfde musea als lijst',
+      'Aantal musea: 2',
+      '/kaart',
+      'Voorbeeldmuseum',
+    ],
+    [
+      'en',
+      '/en/map?province=NL-NH&mk=participating',
+      '<h1>Map</h1>',
+      'The same museums as a list',
+      'Number of museums: 2',
+      '/en/map',
+      'Example Museum',
+    ],
+  ])(
+    '%s: filters pre-filled, the list and the pager stay on the map page',
+    (_l, path, h1, listHeading, total, action, name) => {
+      const html = render(path);
+      expect(html).toContain(h1);
+      expect(html).toContain(`<form class="filters" action="${action}" method="get">`);
+      expect(html).toContain('<option value="NL-NH" selected="">');
+      expect(html).toContain('<input type="checkbox" name="mk" checked="" value="participating"/>');
+      expect(html).toContain(listHeading);
+      expect(html).toContain(total);
+      expect(html).toContain('class="card-list"');
+      expect(html).toContain(name);
+      expect(html).toContain(`href="${action}?province=NL-NH&amp;mk=participating&amp;cursor=abc123"`);
+    },
+  );
+
+  it('holds no map, no near-me button and no map element before hydration, and a note for no-JavaScript browsers', () => {
+    for (const path of ['/kaart', '/en/map']) {
+      const html = render(path);
+      expect(html).not.toMatch(/maplibre/i);
+      expect(html).not.toContain('museum-map');
+      expect(html).not.toContain('near-me');
+      expect(html).not.toContain('<canvas');
+    }
+    expect(render('/kaart')).toContain('<noscript><p>De kaart heeft JavaScript nodig.');
+    expect(render('/en/map')).toContain('<noscript><p>The map needs JavaScript.');
+  });
+});
