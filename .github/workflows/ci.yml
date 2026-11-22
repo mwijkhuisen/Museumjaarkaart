@@ -3,6 +3,8 @@
 # no caches, no expressions inside run: (values come in through env:), actions
 # pinned to full SHAs and downloaded binaries checked against pinned sha256 sums.
 # CI never calls Wikidata, RCE, Lettermint, R2 or Cloudflare (CLAUDE.md invariant 9).
+# The `deploy` job (P1e) builds the three images locally and runs deploy/tests/{hardening,nft-check,e2e}.sh;
+# it has no secret and pushes nothing. Images reach GHCR only through release.yml.
 name: ci
 
 on:
@@ -63,12 +65,12 @@ jobs:
   integration:
     name: integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
     services:
       postgres:
-        image: postgres:18.6-trixie@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        image: postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           # Throwaway CI-only credential for an ephemeral service container.
           POSTGRES_PASSWORD: postgres
@@ -80,6 +82,12 @@ jobs:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
       DBMATE_VERSION: v2.36.0
       DBMATE_SHA256: 47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce
+      # The backup test's MinIO stand-in (WP7): test-only credentials of a container that lives for this
+      # job, like the postgres service's password above. Not secrets.
+      MINIO_IMAGE: cgr.dev/chainguard/minio@sha256:634c989a2f1029162fc2676c263caa181213b9410449968532f750a6fb77532d
+      MJK_TEST_MINIO_URL: http://127.0.0.1:59000
+      MJK_TEST_MINIO_ACCESS_KEY: mjk-ci-minio
+      MJK_TEST_MINIO_SECRET_KEY: mjk-ci-minio-only
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -101,9 +109,37 @@ jobs:
           scripts/install-pnpm.sh "$RUNNER_TEMP/pnpm"
           echo "$RUNNER_TEMP/pnpm/bin" >>"$GITHUB_PATH"
       - run: pnpm install --frozen-lockfile
-      - name: pnpm test:integration (dbmate up → down → up on a new database)
+      # restic 0.19.1 for the backup test: the backup image's own `restic` stage (the sha256-pinned
+      # release tarball and the pinned Go image), so the test runs the binary that ships, and there
+      # is no second pin to keep in step. Building the whole backup image would cost minutes more.
+      - name: Build restic (stage `restic` of deploy/server/Dockerfile)
+        run: |
+          docker build -f deploy/server/Dockerfile --target restic -t mjk-restic-build .
+          id=$(docker create mjk-restic-build)
+          mkdir -p "$RUNNER_TEMP/restic"
+          docker cp "$id:/restic" "$RUNNER_TEMP/restic/restic"
+          docker rm "$id" >/dev/null
+          version=$("$RUNNER_TEMP/restic/restic" version)
+          echo "$version"
+          [[ $version == "restic 0.19.1 "* ]]
+      # A service container cannot pass arguments (the image's entrypoint is bare `minio`), so a step starts it.
+      - name: Start MinIO (Chainguard, by digest; the restic repository's stand-in for R2)
+        run: |
+          docker run -d --name mjk-ci-minio -p 127.0.0.1:59000:9000 \
+            --tmpfs /data:rw,mode=0777 \
+            -e "MINIO_ROOT_USER=$MJK_TEST_MINIO_ACCESS_KEY" -e "MINIO_ROOT_PASSWORD=$MJK_TEST_MINIO_SECRET_KEY" \
+            "$MINIO_IMAGE" server /data
+          for _ in $(seq 1 60); do
+            curl -fsS -o /dev/null "$MJK_TEST_MINIO_URL/minio/health/ready" && exit 0
+            sleep 1
+          done
+          docker logs mjk-ci-minio >&2
+          echo "MinIO did not become ready" >&2
+          exit 1
+      - name: pnpm test:integration (dbmate up → down → up on a new database; the backup role on restic and MinIO)
         env:
           PG_LOG_CONTAINER: ${{ job.services.postgres.id }}
+          MJK_TEST_RESTIC: ${{ runner.temp }}/restic/restic
         run: pnpm test:integration
 
   shellcheck:
@@ -172,10 +208,43 @@ jobs:
           DBMATE_BIN: ${{ runner.temp }}/bin/dbmate
         run: deploy/e2e/stack.sh
 
+  # P1e (deploy/): the production compose file, the firewall table and the host scripts, on this throw-away
+  # runner. The images are built here from the repository with the commit as REVISION, exactly as release.yml
+  # builds them, and stay local: this job has no secret, pushes nothing and holds `contents: read` only. The
+  # tests need Docker, nft and root (sudo keeps CI so that a skipped step is a failure).
+  deploy:
+    name: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      REVISION: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: nft is available
+        run: |
+          command -v nft >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends nftables; }
+          nft --version
+      # The same three `docker build` lines as release.yml. The tags are the names deploy/tests/e2e.sh looks for.
+      - name: Build the three images (server, web, backup)
+        run: |
+          docker build -f deploy/server/Dockerfile --target server --build-arg "REVISION=$REVISION" -t mjk-server:e2e .
+          docker build -f deploy/server/Dockerfile --target backup --build-arg "REVISION=$REVISION" -t mjk-backup:e2e .
+          docker build -f deploy/web/Dockerfile --build-arg "REVISION=$REVISION" -t mjk-web:e2e .
+      - name: hardening.sh (compose file; A§16.1, A§17.2, A§17.3)
+        run: deploy/tests/hardening.sh
+      - name: nft-check.sh (table inet mjk; nft -c and a load in a throw-away namespace)
+        run: sudo --preserve-env=CI deploy/tests/nft-check.sh
+      - name: e2e.sh (mjk-install, mjk-update, rollback, mjk-tick, egress probes, the backup unit)
+        run: sudo --preserve-env=CI deploy/tests/e2e.sh
+
   ci:
     name: ci
     if: always()
-    needs: [check, integration, shellcheck, e2e]
+    needs: [check, integration, shellcheck, e2e, deploy]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
