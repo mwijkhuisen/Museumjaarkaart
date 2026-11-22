@@ -15,9 +15,9 @@
 
 - **maplibre-gl 6.15.0** as a lazy chunk, with **pmtiles 4.5.0**; the worker URL is set with `setWorkerUrl` (same origin, never `blob:`), as in Waterheight ADR-0016.
 - **Tiles:** a Protomaps extract of the Netherlands made with go-pmtiles 1.31.2 (`pmtiles extract`, in the server image), refreshed quarterly by a worker job [U size ~1–2 GB], uploaded to the media bucket under `tiles/` and read with range requests from `media.<domain>`. The previous file stays for rollback.
-- **Style:** generated from `@protomaps/basemaps` 5.7.2, checked against `@maplibre/maplibre-gl-style-spec` 26.4.4, and committed. Glyphs and sprites are self-hosted in the web image under `/map/*`.
+- **Style:** generated from `@protomaps/basemaps` 5.7.2 (flavour `light`), checked against `@maplibre/maplibre-gl-style-spec` 26.4.4, and committed. Glyphs (Noto Sans Regular, Medium, Italic) and the `light` sprites are self-hosted in the web image under `/map/*`, copies of `protomaps/basemaps-assets` at a pinned commit with a sha256 list (owner, P1d).
 - **CSP** (A§15.6): `img-src 'self' data: https://media.<domain>`, `connect-src 'self' https://media.<domain>`, `worker-src 'self'`. The bucket's CORS allows `GET` from `https://<domain>` only.
-- **Attribution:** "© OpenStreetMap contributors · Protomaps"; the pmtiles protocol runs with `metadata: false`.
+- **Attribution:** "© OpenStreetMap contributors · Protomaps", plain text with no link (owner, P1d); the pmtiles protocol runs with `metadata: false`.
 - **Museum points** come from our own API, so no OSM data enters our database (ADR-0005). **Near me** uses the browser's Geolocation and SQL (ADR-0015), with no third party.
 - Pins are re-checked against the 7-day rule when installed.
 
@@ -33,3 +33,8 @@
 
 - **OSM raster tiles or third-party tile CDNs (OpenFreeMap and the like):** third-party browser requests, and no SLA.
 - **Tiles through the tunnel from the VM disk, like Waterheight:** large range responses against Cloudflare's terms, all carried by the home line.
+
+## Amendment (P1d, 2026-11-22)
+
+- Built in P1d as decided above, with the owner's answers to the phase's questions (`docs/plan/phases/p1d-map.md` §0.1, A§15.3): the extract is the `NL_BOX` at the build's full zoom range; `tiles/current.json` names the file in use and the previous one, which stays until the next refresh succeeds; the tile file goes up as a multipart upload; the refresh runs on the first Sunday of January, April, July and October.
+- The bucket's CORS rule needs `AllowedHeaders: range` and `ExposeHeaders: ETag` besides `GET` from `https://<domain>`. The CI stand-in proves the browser side; the [box] run of P1d records the cold-miss and warm `Range` answers of R2's custom domain (still [U] until then).
