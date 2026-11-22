@@ -217,7 +217,7 @@ describe('failures, with fake binaries', () => {
     }
   });
 
-  it('creates the repository when restic reports none (exit 10), then backs up', async () => {
+  it('refuses a missing repository (restic exit 10): exit 78, repo_missing, never init', async () => {
     const s = withSecrets(setup());
     const log = join(s.root, 'calls');
     const pgDump = script(
@@ -229,16 +229,16 @@ describe('failures, with fake binaries', () => {
       `echo "$*" >> ${log}\ncase "$*" in *cat*) exit 10 ;; esac\ncase "$*" in *backup*) echo '{"message_type":"summary","files_new":3,"snapshot_id":"abcdef0123456789"}' ;; esac`,
     );
     const { logger, lines } = memoryLogger('backup');
-    expect(await runBackup(env(), deps(s, { logger, pgDumpBin: pgDump, resticBin: restic }))).toBe(0);
-    expect(lines().map((l) => l.msg)).toEqual(['backup_started', 'dump_done', 'repo_created', 'backup_done']);
-    expect(lines().at(-1)).toMatchObject({ snapshot: 'abcdef01', filesNew: 3 });
+    expect(await runBackup(env(), deps(s, { logger, pgDumpBin: pgDump, resticBin: restic }))).toBe(78);
+    expect(lines().map((l) => l.msg)).toEqual(['backup_started', 'dump_done', 'config_invalid']);
+    expect(lines().at(-1)).toMatchObject({ code: 'repo_missing' });
     const calls = readFileSync(log, 'utf8').trim().split('\n');
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(1);
     expect(calls[0]).toContain('cat config');
-    expect(calls[1]).toContain('init');
-    expect(calls[2]).toContain('backup --host mjk');
-    // Never forget or prune.
-    expect(calls.join('\n')).not.toMatch(/forget|prune/);
+    // Never init, forget or prune.
+    expect(calls.join('\n')).not.toMatch(/init|forget|prune/);
+    expect(readdirSync(s.stagingDir)).toEqual([]);
+    expect(readdirSync(s.tmpDir)).toEqual([]);
   });
 });
 
@@ -297,8 +297,13 @@ if (minioUrl === '') {
         pgDumpBin: pgDumpShim(s.shims, pgTrace),
         resticBin: resticShim(s.shims, resticTrace),
       });
-      // Twice: the first run creates the repository, the second finds it.
-      exits = [await runBackup(runEnv, d), await runBackup(runEnv, d)];
+      // The first run finds no repository and refuses (78, repo_missing). Then the repository is
+      // created as the owner does from the workstation (backup.md §3), and two runs back up.
+      exits = [await runBackup(runEnv, d)];
+      await exec(resticBin, ['--no-cache', '--quiet', 'init'], {
+        env: { ...resticEnv(parsedConfig.config, s.secretsDir) },
+      });
+      exits.push(await runBackup(runEnv, d), await runBackup(runEnv, d));
     }, 300_000);
 
     const restic = async (...args: string[]) => {
@@ -311,13 +316,16 @@ if (minioUrl === '') {
       return stdout;
     };
 
-    it('exits 0 twice, creating the repository the first time only', () => {
-      expect(exits).toEqual([0, 0]);
+    it('refuses before the repository exists, then exits 0 twice; it never creates the repository', () => {
+      expect(exits).toEqual([78, 0, 0]);
       const msgs = logs.lines().map((l) => l.msg);
+      expect(logs.lines().find((l) => l.msg === 'config_invalid')).toMatchObject({ code: 'repo_missing' });
       expect(msgs).toEqual([
         'backup_started',
         'dump_done',
-        'repo_created',
+        'config_invalid',
+        'backup_started',
+        'dump_done',
         'backup_done',
         'backup_started',
         'dump_done',

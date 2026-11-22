@@ -142,9 +142,6 @@ export function resticEnv(cfg: BackupConfig, secretsDir: string = SECRETS_DIR): 
 /** `restic cat config`: exit 0 when the repository exists, 10 when it does not, 12 for a wrong password. */
 export const resticProbeArgs = (): string[] => ['--no-cache', '--quiet', 'cat', 'config'];
 
-/** `restic init` for the very first run. */
-export const resticInitArgs = (): string[] => ['--no-cache', '--quiet', 'init'];
-
 /**
  * `restic backup` of the dump and the originals, as one snapshot series on a fixed host name.
  * `--no-cache` keeps restic inside the container's 256 MiB and its read-only file system.

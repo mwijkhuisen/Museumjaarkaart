@@ -17,7 +17,6 @@ import {
   RESTIC_EXIT,
   resticBackupArgs,
   resticEnv,
-  resticInitArgs,
   resticProbeArgs,
   SECRETS_DIR,
   STAGING_DIR,
@@ -29,7 +28,9 @@ import {
 //   2. restic backup of that dump and /srv/mjk/originals into the R2 bucket `mjk-backup`;
 //   3. the dump and the pgpass are deleted, whatever happened.
 //
-// It never runs `forget` or `prune`: the bucket key could not, and retention is the owner's
+// It never runs `init`, `forget` or `prune`. The owner creates the repository once from the
+// workstation (docs/runbooks/backup.md §3): a missing repository is a config error (78,
+// `repo_missing`), never a silent new repository with a new key. Retention is the owner's
 // weekly job from the workstation. The health ping is the host unit's (interfaces.md, Q5).
 // Logs are fixed codes and numbers: no path of a secret, no child output, no environment.
 
@@ -215,7 +216,8 @@ export async function runBackup(env: Env, deps: BackupDeps = {}): Promise<number
     logger.info({ bytes }, 'dump_done');
     rmSync(pgDir, { recursive: true, force: true }); // the password is not needed any more
 
-    // 2. The repository: it exists, or this is the very first run (restic exit 10) and it is created.
+    // 2. The repository must exist (restic exit 10: it does not). It is never created here: a
+    // missing `config` (a wrong bucket, a lost key) must fail the ping, not start a new repository.
     const probe = await runChild(restic, resticProbeArgs(), resticEnvironment, {
       timeoutMs: RESTIC_QUICK_TIMEOUT_MS,
       signal,
@@ -225,13 +227,10 @@ export async function runBackup(env: Env, deps: BackupDeps = {}): Promise<number
       return EXIT_CONFIG;
     }
     if (probe.exit === RESTIC_EXIT.noRepository) {
-      const init = await runChild(restic, resticInitArgs(), resticEnvironment, {
-        timeoutMs: RESTIC_QUICK_TIMEOUT_MS,
-        signal,
-      });
-      if (init.exit !== 0) return failed('restic_init', { exit: init.exit });
-      logger.info({}, 'repo_created');
-    } else if (probe.exit !== 0) {
+      logger.error({ code: 'repo_missing' }, 'config_invalid');
+      return EXIT_CONFIG;
+    }
+    if (probe.exit !== 0) {
       if (aborted()) return failed('restic_probe');
       logger.error({ exit: probe.exit }, 'repo_unavailable');
       return EXIT_UNAVAILABLE;
