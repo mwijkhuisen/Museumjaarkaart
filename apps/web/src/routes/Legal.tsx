@@ -19,6 +19,8 @@ function Privacy() {
       <p>{m.privacy_intro()}</p>
       <h2>{m.privacy_h_collect()}</h2>
       <p>{m.privacy_collect()}</p>
+      <h2>{m.privacy_h_location()}</h2>
+      <p>{m.privacy_location()}</p>
       <h2>{m.privacy_h_logs()}</h2>
       <p>{m.privacy_logs()}</p>
       <h2>{m.privacy_h_cloudflare()}</h2>

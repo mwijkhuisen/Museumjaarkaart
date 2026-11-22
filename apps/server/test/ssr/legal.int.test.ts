@@ -63,6 +63,8 @@ describe.each([
     for (const key of [
       'privacy_intro',
       'privacy_collect',
+      'privacy_location',
+      'privacy_h_location',
       'privacy_logs',
       'privacy_cloudflare',
       'privacy_backups',

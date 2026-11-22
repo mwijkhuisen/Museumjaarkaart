@@ -114,6 +114,8 @@
   "privacy_intro": "This page covers the preliminary version of the site: the catalogue of Dutch museums. There are no accounts yet.",
   "privacy_h_collect": "What we collect",
   "privacy_collect": "We ask nothing of you and store no personal data of visitors. We set no cookies, use no analytics or tracking and load nothing from third parties: your browser talks only to our own site.",
+  "privacy_h_location": "Museums near me",
+  "privacy_location": "The “Museums near me” button sends your browser’s position to us only when you press it, rounded to about 100 metres, to find the nearest museums. We do not store or log it. Like every other request, it reaches us through Cloudflare.",
   "privacy_h_logs": "Logs",
   "privacy_logs": "Our servers log fixed codes only (which kind of page, which status), no IP addresses, no email addresses and no search terms.",
   "privacy_h_cloudflare": "Cloudflare",

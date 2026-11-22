@@ -114,6 +114,8 @@
   "privacy_intro": "Deze pagina geldt voor de voorlopige versie van de site: de catalogus van Nederlandse musea. Er zijn nog geen accounts.",
   "privacy_h_collect": "Wat we verzamelen",
   "privacy_collect": "We vragen niets van je en slaan geen persoonsgegevens van bezoekers op. We plaatsen geen cookies, gebruiken geen analyse- of volgdiensten en laden niets van derden: je browser praat alleen met onze eigen site.",
+  "privacy_h_location": "Musea bij mij in de buurt",
+  "privacy_location": "De knop “Musea bij mij in de buurt” stuurt de positie van je browser alleen naar ons als je erop drukt, afgerond op ongeveer 100 meter, om de dichtstbijzijnde musea te vinden. We slaan die positie niet op en loggen hem niet. Net als elk ander verzoek gaat hij via Cloudflare naar ons.",
   "privacy_h_logs": "Logboeken",
   "privacy_logs": "Onze servers loggen alleen vaste codes (welk soort pagina, welke status), geen IP-adressen, geen e-mailadressen en geen zoekopdrachten.",
   "privacy_h_cloudflare": "Cloudflare",
