@@ -96,8 +96,11 @@ describe('resolveClient', () => {
     expect(resolveClient(`::ffff:${CADDY_PEER}`, '203.0.113.7', CADDY_PEER)).toBe('203.0.113.7');
     expect(resolveClient(SSR_PEER, '203.0.113.7', CADDY_PEER)).toBe(SSR_PEER);
     expect(resolveClient('10.63.2.100', '203.0.113.7', CADDY_PEER)).toBe('10.63.2.100');
-    expect(resolveClient(CADDY_PEER, 'garbage', CADDY_PEER)).toBe(CADDY_PEER);
-    expect(resolveClient(CADDY_PEER, undefined, CADDY_PEER)).toBe(CADDY_PEER);
+    // From caddy a missing or invalid header leaves the client unknown (fail closed), never caddy itself.
+    expect(resolveClient(CADDY_PEER, 'garbage', CADDY_PEER)).toBeNull();
+    expect(resolveClient(CADDY_PEER, undefined, CADDY_PEER)).toBeNull();
+    expect(resolveClient(CADDY_PEER, '', CADDY_PEER)).toBeNull();
+    expect(resolveClient(CADDY_PEER, `${CADDY_PEER}, 203.0.113.7`, CADDY_PEER)).toBeNull();
     expect(resolveClient(undefined, '203.0.113.7', CADDY_PEER)).toBeNull();
   });
 });
@@ -129,10 +132,11 @@ describe('the middleware', () => {
     });
   });
 
-  it('an invalid header from caddy falls back to caddy itself, never to the header', async () => {
+  it('a missing or invalid header from caddy leaves the client unset, never caddy itself or the header', async () => {
     const { app } = setup(peerIs(CADDY_PEER));
     for (const bad of ['', 'unknown', '198.51.100.1, 203.0.113.9', '198.51.100.1:80', 'x'.repeat(10_000)])
-      expect(await whoami(app, bad), bad.slice(0, 40)).toMatchObject({ address: CADDY_PEER });
+      expect(await whoami(app, bad), bad.slice(0, 40)).toBeNull();
+    expect(await whoami(app)).toBeNull();
   });
 
   it('the IPv4-mapped form of the peer and of the header', async () => {

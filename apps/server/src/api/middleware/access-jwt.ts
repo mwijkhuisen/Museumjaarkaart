@@ -201,19 +201,20 @@ export type AccessDeps = {
 };
 
 /**
- * Whether a Host header names the admin host: case-insensitive, an optional port stripped. Anything
- * odd (no Host, a trailing dot, an empty or non-numeric port) is not the admin host, so it gets the
- * public host's behaviour, which has no admin route.
+ * Whether a Host header names the admin host. Fail closed: every spelling that Caddy's host matcher
+ * (net.SplitHostPort) could route to the admin block counts, so the name part decides. Everything
+ * from the first `:` on is dropped (an empty, non-numeric or out-of-range port included), then any
+ * trailing dots, then case. No Host is not the admin host (the public host has no admin route).
  */
 export function isAdminHost(host: string | undefined, adminHost: string): boolean {
-  if (host === undefined || host.length > 260) return false;
-  let h = host.toLowerCase();
-  const colon = h.lastIndexOf(':');
-  if (colon !== -1) {
-    if (!/^[0-9]{1,5}$/.test(h.slice(colon + 1))) return false;
-    h = h.slice(0, colon);
-  }
-  return h === adminHost;
+  if (host === undefined) return false;
+  let h = host;
+  const colon = h.indexOf(':');
+  if (colon !== -1) h = h.slice(0, colon);
+  // A scan from the end, never a `x+$` regex on request text (CLAUDE.md gotcha).
+  let end = h.length;
+  while (end > 0 && h.charCodeAt(end - 1) === 0x2e) end--;
+  return h.slice(0, end).toLowerCase() === adminHost;
 }
 
 type Outcome = { ok: true; identity: AccessIdentity } | { ok: false; reason: RefusalReason } | { ok: 'unavailable' };

@@ -85,17 +85,15 @@ export function withPrefixes(address: string): ClientAddress {
 }
 
 /**
- * The address a request comes from, or null when the peer is gone (a closed socket). The header
- * counts only from the trusted peer and only when it is one valid IP literal; otherwise the peer's
- * own address is the client.
+ * The address a request comes from, or null when it is unknown. From the trusted peer (caddy) only
+ * the header counts, and only when it is one valid IP literal: a missing or invalid header is null,
+ * never caddy's own address (every such request would share one limiter key; P1e review S17). From
+ * any other peer the peer's own address is the client. A gone peer (a closed socket) is null too.
  */
 export function resolveClient(peerRaw: string | undefined, header: string | undefined, trusted: string): string | null {
   const peer = peerRaw === undefined ? null : canonicalAddress(peerRaw);
   if (peer === null) return null;
-  if (peer === trusted && header !== undefined) {
-    const forwarded = canonicalAddress(header);
-    if (forwarded !== null) return forwarded;
-  }
+  if (peer === trusted) return header === undefined ? null : canonicalAddress(header);
   return peer;
 }
 
