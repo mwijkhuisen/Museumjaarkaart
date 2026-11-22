@@ -39,6 +39,10 @@ describe('runAdmin', () => {
     [['museum', 'export']],
     [['museum', 'import']],
     [['museum', 'slug']],
+    [['tiles']],
+    [['tiles', 'nope']],
+    [['tiles', 'refresh', 'extra']],
+    [['tiles', 'rollback', '--force']],
     [['museum', 'flag', 'Q1', 'participating', '--since', '2020-01-01', '--since', '2020-01-02']],
   ])('usage error %j: exit 64, before any connection', async (argv) => {
     const h = harness();

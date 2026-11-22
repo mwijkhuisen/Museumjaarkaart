@@ -3,7 +3,7 @@ import type pg from 'pg';
 import type { Db } from '../db/kysely.ts';
 import { HEARTBEAT_EVERY_MS, touch } from '../heartbeat.ts';
 import type { Logger } from '../lib/log.ts';
-import { type ClaimedJob, claim, complete, fail, LEASE_SECONDS, NOTIFY_CHANNEL, reap } from './queue.ts';
+import { type ClaimedJob, claim, complete, fail, LEASE_SECONDS, NOTIFY_CHANNEL, reap, touchLease } from './queue.ts';
 import { JobError, type JobHandler } from './types.ts';
 
 // The worker loop (A§5, plan §2.5): one job at a time. A NOTIFY wakes it; the poll
@@ -139,7 +139,9 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
     down = true;
   };
 
-  // While a long job runs there is no claim; this ping keeps the heartbeat fresh.
+  // While a long job runs there is no claim; this ping keeps the heartbeat fresh and the job's lease ours.
+  let running: ClaimedJob | undefined;
+  let leaseLost = false;
   let pinging = false;
   const ping = setInterval(async () => {
     if (pinging) return;
@@ -147,6 +149,11 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
     try {
       await sql`SELECT 1`.execute(db);
       dbOk();
+      const job = running;
+      if (job !== undefined && !(await touchLease(db, job, workerId)) && !leaseLost) {
+        leaseLost = true;
+        logger.warn({ kind: job.kind, id: job.id }, 'job_lease_lost');
+      }
     } catch {
       dbFailed();
     } finally {
@@ -159,6 +166,8 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
 
   const runJob = async (job: ClaimedJob): Promise<void> => {
     const started = performance.now();
+    running = job;
+    leaseLost = false;
     const handler = Object.hasOwn(handlers, job.kind) ? handlers[job.kind] : undefined;
     let code: string | undefined;
     let retry = true;
@@ -174,6 +183,7 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
         retry = err instanceof JobError ? err.retry : true;
       }
     }
+    running = undefined;
     try {
       if (code === undefined) {
         if (await complete(db, job, workerId)) {

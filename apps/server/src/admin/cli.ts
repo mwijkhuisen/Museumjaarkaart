@@ -30,6 +30,9 @@ import {
   rejectChange,
   resolveMatch,
 } from '../museums/review.ts';
+import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB } from '../tiles/job.ts';
+import { enqueueUnique } from '../worker/queue.ts';
+import { TILES_REFRESH_ATTEMPTS } from '../worker/schedule.ts';
 
 // The `admin` role (A§5, plan §2.6): the owner's curation tool, run as `mjk_api`. Exit codes:
 // 0 ok · 64 usage · 65 bad data · 66 not found · 78 config · 2 a command a later phase builds.
@@ -284,13 +287,28 @@ const change: Group = {
   },
 };
 
+/** The jobs of the worker's tiles refresh (A§15.3); the worker, not this role, holds the R2 secret. */
+const queueTiles = (kind: string, done: string): Command => ({
+  spec: { min: 0, max: 0 },
+  async run(ctx) {
+    const inserted = await enqueueUnique(ctx.db, kind, {}, { maxAttempts: TILES_REFRESH_ATTEMPTS });
+    ctx.io.out(inserted ? done : `${kind} is already queued or running`);
+    return 0;
+  },
+});
+
+const tiles: Group = {
+  refresh: queueTiles(TILES_REFRESH_JOB, 'tiles_refresh queued'),
+  rollback: queueTiles(TILES_ROLLBACK_JOB, 'tiles_rollback queued'),
+};
+
 /** The groups that are built. */
-export const GROUPS: Record<string, Group> = { museum, list, match, change };
+export const GROUPS: Record<string, Group> = { museum, list, match, change, tiles };
 /** Groups of later phases: exit 2. */
 export const NOT_BUILT: readonly string[] = ['invite', 'user'];
 
 const USAGE =
-  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject> …';
+  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 
