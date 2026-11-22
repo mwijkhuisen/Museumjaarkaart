@@ -19,9 +19,9 @@ export const styleFile = (lang: string) => join(STYLES_DIR, `style-${lang}.json`
 
 export const LANGS = ['nl', 'en'] as const;
 export const ASSETS_COMMIT = '028c18f';
-export const FLAVOUR = 'white';
-export const ATTRIBUTION =
-  '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> · Protomaps';
+export const FLAVOUR = 'light';
+/** Plain text: MapLibre's attribution control renders HTML, and a link would name an OSM host (A§15.3). */
+export const ATTRIBUTION = '© OpenStreetMap contributors · Protomaps';
 
 export function buildStyle(lang: string): StyleSpecification {
   const assets = `/map/${ASSETS_COMMIT}/`;
@@ -31,7 +31,14 @@ export function buildStyle(lang: string): StyleSpecification {
     sources: { basemap: { type: 'vector', url: 'pmtiles://basemap', attribution: ATTRIBUTION } },
     glyphs: `${assets}fonts/{fontstack}/{range}.pbf`,
     sprite: `${assets}sprites/v4/${FLAVOUR}`,
-    layers: layers('basemap', namedFlavor(FLAVOUR), { lang }),
+    // We ship Noto Sans Regular, Medium and Italic only (owner, P1d): the Devanagari stack that basemaps
+    // names in its `format` overrides becomes Regular, so no label can ask for a font we do not serve.
+    layers: JSON.parse(
+      JSON.stringify(layers('basemap', namedFlavor(FLAVOUR), { lang })).replaceAll(
+        'Noto Sans Devanagari Regular v1',
+        'Noto Sans Regular',
+      ),
+    ),
   };
 }
 

@@ -25,11 +25,8 @@ function strings(x: unknown, out: string[] = []): string[] {
 /** The font names a style's `text-font` values hold (plain stacks and expressions). */
 function fontNames(style: Style): string[] {
   const names = new Set<string>();
-  for (const l of style.layers) {
-    const font = (l as { layout?: { 'text-font'?: unknown } }).layout?.['text-font'];
-    if (font === undefined) continue;
-    for (const s of strings(font)) if (s.startsWith('Noto')) names.add(s);
-  }
+  // Every font stack anywhere in a layer: `text-font`, and the `format` overrides inside `text-field`.
+  for (const s of strings(style.layers)) if (s.startsWith('Noto')) names.add(s);
   return [...names].sort();
 }
 
@@ -52,13 +49,13 @@ describe.each(LANGS)('style-%s.json', (lang) => {
     const style = committed(lang);
     expect(style.sources).toEqual({ basemap: { type: 'vector', url: 'pmtiles://basemap', attribution: ATTRIBUTION } });
     expect(style.glyphs).toBe('/map/028c18f/fonts/{fontstack}/{range}.pbf');
-    expect(style.sprite).toBe('/map/028c18f/sprites/v4/white');
+    expect(style.sprite).toBe('/map/028c18f/sprites/v4/light');
     for (const s of strings(style)) {
-      if (s === 'pmtiles://basemap' || s === ATTRIBUTION) continue;
+      if (s === 'pmtiles://basemap') continue;
       expect(s, 'a host in the style').not.toContain('://');
     }
-    // The attribution's one link is the only other `://`.
-    expect(ATTRIBUTION.match(/:\/\//g)).toHaveLength(1);
+    // Plain text (owner, P1d): MapLibre's attribution control renders HTML, so no markup and no link.
+    expect(ATTRIBUTION).toBe('© OpenStreetMap contributors · Protomaps');
   });
 
   it('references only fonts and sprites that exist', () => {
@@ -70,7 +67,7 @@ describe.each(LANGS)('style-%s.json', (lang) => {
       const want = Array.from({ length: 256 }, (_, i) => `${i * 256}-${i * 256 + 255}.pbf`).sort();
       expect(got, name).toEqual(want);
     }
-    for (const f of ['white.json', 'white.png', 'white@2x.json', 'white@2x.png']) {
+    for (const f of ['light.json', 'light.png', 'light@2x.json', 'light@2x.png']) {
       expect(existsSync(join(ASSETS, 'sprites/v4', f)), f).toBe(true);
     }
     expect(existsSync(join(ASSETS, 'fonts/OFL.txt'))).toBe(true);
