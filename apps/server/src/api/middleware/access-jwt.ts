@@ -202,15 +202,27 @@ export type AccessDeps = {
 
 /**
  * Whether a Host header names the admin host. Fail closed: every spelling that Caddy's host matcher
- * (net.SplitHostPort) could route to the admin block counts, so the name part decides. Everything
- * from the first `:` on is dropped (an empty, non-numeric or out-of-range port included), then any
- * trailing dots, then case. No Host is not the admin host (the public host has no admin route).
+ * could route to the admin block counts, so the name part decides. Caddy's MatchHost takes
+ * net.SplitHostPort's host (which drops one pair of brackets and the port), or, when that fails, the
+ * whole value with one leading `[` and one trailing `]` trimmed. So: a value that starts with `[` keeps
+ * what lies between it and the first `]` (or everything after it, with no `]`); any other value drops
+ * everything from the first `:` (an empty, non-numeric or out-of-range port included), then one
+ * trailing `]`. Then any trailing dots, then case. The result must equal the admin host exactly, so
+ * nothing looser than "the name part is the admin host" ever counts. No Host is not the admin host
+ * (the public host has no admin route).
  */
 export function isAdminHost(host: string | undefined, adminHost: string): boolean {
   if (host === undefined) return false;
   let h = host;
-  const colon = h.indexOf(':');
-  if (colon !== -1) h = h.slice(0, colon);
+  if (h.startsWith('[')) {
+    h = h.slice(1);
+    const close = h.indexOf(']');
+    if (close !== -1) h = h.slice(0, close);
+  } else {
+    const colon = h.indexOf(':');
+    if (colon !== -1) h = h.slice(0, colon);
+    if (h.endsWith(']')) h = h.slice(0, -1);
+  }
   // A scan from the end, never a `x+$` regex on request text (CLAUDE.md gotcha).
   let end = h.length;
   while (end > 0 && h.charCodeAt(end - 1) === 0x2e) end--;
