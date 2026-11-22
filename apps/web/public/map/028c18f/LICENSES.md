@@ -1,6 +1,6 @@
 # Licences of the map assets
 
-Fonts and sprites of https://github.com/protomaps/basemaps-assets at commit 028c18f713baecad011301ff7a69acc39bcc2ae7. Every file here except this one is a byte-for-byte copy of the file of that name in the commit, and is listed with its sha256 in SHA256SUMS. The copy holds only what the styles of `scripts/build-map-style.ts` (flavour `light`) reference: the three font stacks they name and the `light` sprites. The fonts come from the owner's Waterheight repository, which holds the same commit (its `sprites/v4/white.json` matched the commit byte for byte on 2026-11-22); the `light` sprites were downloaded once from `raw.githubusercontent.com` at the commit on 2026-11-22 (owner, P1d).
+Fonts and sprites of https://github.com/protomaps/basemaps-assets at commit 028c18f713baecad011301ff7a69acc39bcc2ae7. Every file here except this one is a byte-for-byte copy of the file of that name in the commit, and is listed with its sha256 in SHA256SUMS. The copy holds only what the styles of `scripts/build-map-style.ts` (flavour `light`) reference: the three font stacks they name and the `light` sprites. The fonts come from the owner's Waterheight repository, which holds the same commit; the `light` sprites were downloaded once from `raw.githubusercontent.com` at the commit (owner, P1d). On 2026-11-22 every file in SHA256SUMS except this one (768 glyph ranges, `fonts/OFL.txt` and the four sprite files) was fetched from the commit on `raw.githubusercontent.com` and matched its line byte for byte.
 
 ## Fonts (fonts/)
 
