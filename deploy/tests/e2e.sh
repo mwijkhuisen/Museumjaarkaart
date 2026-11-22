@@ -280,7 +280,7 @@ chmod 0644 "$ETC/compose.override.yaml"
 
 install_out=$("$REPO/deploy/bin/mjk-install") || fail "mjk-install with the secrets failed"
 if grep -q 'NOT ENABLED' <<<"$install_out"; then fail "mjk-install still lists something missing: $install_out"; fi
-for name in mjk-update mjk-tick mjk-resolvers mjk-ping; do
+for name in mjk-update mjk-tick mjk-resolvers mjk-ping mjk-envcheck; do
   [[ $(stat -c '%u:%g:%a' "$BIN/$name") == 0:0:755 ]] || fail "$BIN/$name is not root:root 0755"
 done
 [[ $(stat -c '%u:%g:%a' "$ETC/secrets") == 0:0:700 ]] || fail "$ETC/secrets is not root:root 0700"
@@ -418,6 +418,17 @@ busy_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BAC
 grep -q 'busy' <<<"$busy_out" || fail "mjk-update with a shared lock held (a backup) did not say busy: $busy_out"
 exec 8>&-
 ok "a second run is 'up to date' and leaves current.env alone; with the lock held, exclusive or shared (a backup), it exits 0 with 'busy'"
+
+# mjk.env edited after the last install: mjk-update checks it again and refuses (78), naming the key only.
+cp -p "$ETC/mjk.env" "$SCRATCH/mjk.env.deployed"
+printf 'DATABASE_URL=postgres://e2e-not-a-real-login@db/mjk\n' >>"$ETC/mjk.env"
+upd_rc=0
+upd_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1) || upd_rc=$?
+cp -p "$SCRATCH/mjk.env.deployed" "$ETC/mjk.env"
+((upd_rc == 78)) || fail "mjk-update with DATABASE_URL in mjk.env exited $upd_rc, not 78: $upd_out"
+grep -q 'the key DATABASE_URL is not allowed' <<<"$upd_out" || fail "mjk-update did not name the refused key: $upd_out"
+if grep -qF 'e2e-not-a-real-login' <<<"$upd_out"; then fail "mjk-update printed the refused value"; fi
+ok "mjk-update re-checks mjk.env before a deploy: a key outside the allowlist is exit 78, named without its value"
 
 # A compose change alone is deployed with the same images; the deploy then removes our old references.
 docker tag "$STANDIN_IMAGE" "$OLD_REF"

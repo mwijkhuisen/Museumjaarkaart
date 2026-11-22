@@ -12,6 +12,7 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 
 - The `release` job (environment `production`, you approve it) builds `ghcr.io/mwijkhuisen/mjk-server`, `mjk-web` and `mjk-backup` from one commit, labels all three `org.opencontainers.image.revision=<git sha>` and pushes `:main` and `:sha-<git>`. GitHub holds no credential for the VM.
 - `mjk-update.timer` runs `/usr/local/bin/mjk-update` every 10 minutes (and 3 minutes after boot). The script:
+  0. checks `/etc/mjk/mjk.env` again with `mjk-envcheck`, the same rules as `mjk-install` (root:root 0644 or 0640, allow-listed keys only): an edit since the last install that breaks them is exit 78 `config_invalid`, naming the key or line, never a value;
   1. takes the deploy lock exclusive, without waiting (held by `mjk-tick` or the nightly backup, which take it shared, means exit 0 and nothing done); refuses with exit 1 when `table inet mjk` is not loaded, and checks that again (with `firewall-stopped`) before each compose step;
   2. pulls the three `:main` images (300 s each) and records each by digest (`repo@sha256:…`, never a tag); waits (exit 0) while the three revision labels differ, because a release is still being pushed; stops when the digests and the compose file's sha256 equal `current.env`; refuses a set that equals `failed.env`. A compose file that `mjk-install` changed is deployed with the same images (`compose file changed since current.env`);
   3. runs `migrate` (profile `jobs`, 300 s);

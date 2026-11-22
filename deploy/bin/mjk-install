@@ -95,11 +95,6 @@ NETWORKS=(mjk-db:10.63.1.0/24 mjk-edge:10.63.2.0/24 mjk-egress:10.63.3.0/24 mjk-
 # Config the P1e roles need (names only; mjk.env holds no secret). MJK_R2_BUCKET_MEDIA comes with P3b.
 ENV_KEYS=(MJK_BRAND_NAME MJK_DOMAIN MJK_PROFILE MJK_SYNC_CONTACT CF_ACCESS_TEAM CF_ACCESS_AUD
   MJK_CONTROLLER_NAME MJK_CONTACT_EMAIL MJK_R2_ENDPOINT MJK_R2_BUCKET_BACKUP)
-# Every key mjk.env may hold: A§17.3's config list (the required ones above, the later phases' named
-# ones) and the optional MJK_R2_REGION. Every key reaches every Node container (env_file), so nothing
-# else may: never DATABASE_URL (it would replace every login's file secret), NODE_OPTIONS, a *_FILE
-# path or a secret (P1e review S7).
-ENV_ALLOWED=("${ENV_KEYS[@]}" MJK_R2_BUCKET_MEDIA MJK_MAIL_CAP MJK_SIGNUP MJK_R2_REGION)
 
 # --- 1. refusals, before anything changes ------------------------------------------------------------
 # A path of ours that resolves into another stack's tree (a symlink, a typo) is refused.
@@ -132,23 +127,12 @@ for dir in "$ETC" "$ETC/secrets" "$ETC/postgres" "$SRV" "$SRV/state" "$SRV/origi
   [[ ! -e $dir || -d $dir ]] || die "$dir exists and is not a directory"
 done
 
-# mjk.env: a plain root:root file, 0644 or 0640, of KEY=value lines with allowed keys only. A refusal
-# names the key or the line number, never a value.
+# mjk.env: a plain root:root file, 0644 or 0640, of KEY=value lines with allowed keys only. The one
+# implementation is deploy/bin/mjk-envcheck (mjk-update runs its installed copy before every deploy); a
+# refusal names the key or the line number, never a value.
 ENV_FILE=$ETC/mjk.env
 if [[ -e $ENV_FILE || -L $ENV_FILE ]]; then
-  [[ -f $ENV_FILE && ! -L $ENV_FILE ]] || die "$ENV_FILE is not a regular file"
-  case $(stat -c '%u:%g:%a' "$ENV_FILE") in
-    0:0:644 | 0:0:640) ;;
-    *) die "$ENV_FILE must be root:root 0644 or 0640" ;;
-  esac
-  lineno=0
-  while IFS= read -r line || [[ -n $line ]]; do
-    lineno=$((lineno + 1))
-    [[ -z $line || $line == \#* ]] && continue
-    [[ $line =~ ^([A-Z][A-Z0-9_]*)= ]] || die "mjk.env line $lineno is not KEY=value"
-    key=${BASH_REMATCH[1]}
-    [[ " ${ENV_ALLOWED[*]} " == *" $key "* ]] || die "mjk.env: the key $key is not allowed (allowed: ${ENV_ALLOWED[*]})"
-  done <"$ENV_FILE"
+  "$SRC/deploy/bin/mjk-envcheck" "$ENV_FILE" || die "mjk.env is not acceptable (the line above names why)"
 fi
 
 ip_int() { # 10.63.1.0 -> an integer
@@ -305,7 +289,7 @@ fi
 put "$SRC/deploy/postgres/roles.sql" "$ETC/postgres/roles.sql" 644
 put "$SRC/deploy/host/nftables/mjk.nft" "$ETC/mjk.nft" 644
 nft_changed=$PUT_CHANGED
-for script in mjk-update mjk-tick mjk-resolvers mjk-ping; do
+for script in mjk-update mjk-tick mjk-resolvers mjk-ping mjk-envcheck; do
   put "$SRC/deploy/bin/$script" "$BIN/$script" 755
 done
 units_before=${#CHANGES[@]}

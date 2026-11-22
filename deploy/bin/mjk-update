@@ -129,6 +129,11 @@ done
 
 # --- config, lock, firewall --------------------------------------------------------------------------
 [[ -f $COMPOSE && -f $MJK_ENV ]] || die "config_missing: $COMPOSE or $MJK_ENV" 78
+# The same mjk.env rules as mjk-install (owner, mode, allowed keys), checked again before every deploy:
+# an edit after the last install must not reach the containers. One implementation: mjk-envcheck.
+ENVCHECK=$ROOT/usr/local/bin/mjk-envcheck
+[[ -x $ENVCHECK ]] || die "config_missing: $ENVCHECK (run mjk-install)" 78
+"$ENVCHECK" "$MJK_ENV" || die "config_invalid: mjk.env refused (the line above names the key or line, never a value)" 78
 domain=$(env_get "$MJK_ENV" MJK_DOMAIN)
 domain=${domain//\"/}
 [[ $domain =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || die "config_invalid: MJK_DOMAIN in mjk.env" 78

@@ -104,7 +104,7 @@ Expected: every line `root:<gid> 440`. Put each value (not the file) into your p
 
 ### mjk.env
 
-`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_R2_BUCKET_MEDIA`, `MJK_MAIL_CAP` and `MJK_SIGNUP` (later phases) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value.
+`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_R2_BUCKET_MEDIA`, `MJK_MAIL_CAP` and `MJK_SIGNUP` (later phases) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value. The check is `/usr/local/bin/mjk-envcheck`, and `mjk-update` runs it again before every deploy, so an edit after the install is refused there too (exit 78).
 
 ```bash
 cat > /etc/mjk/mjk.env <<'EOF'
