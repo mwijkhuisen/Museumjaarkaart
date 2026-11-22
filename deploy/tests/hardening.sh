@@ -9,8 +9,12 @@
 # a secret and none is DATABASE_URL; no name holds `rws` or `f1` (names only, never digests).
 #   deploy/tests/hardening.sh [compose file]    (default: deploy/compose.yaml)
 # The argument exists for the mutation checks on a temporary copy. The production paths
-# (/etc/mjk, /srv/mjk) stay literal in the file: `--no-env-resolution` renders it without reading
-# /etc/mjk/mjk.env, so no stand-in files and no path variables are needed.
+# (/etc/mjk, /srv/mjk) stay literal in the file. Compose v5 renders it with `--no-env-resolution`
+# without reading /etc/mjk/mjk.env, but Compose v2 (the GitHub runner's, 2.38) still reads every
+# env_file. So the check renders a staged copy: every /etc/mjk/ and /srv/mjk/ path outside a comment
+# is moved below a temporary root with empty stand-in files, and the rendered JSON is mapped back
+# before any assertion, so the assertions see (and require) the production paths exactly. A path
+# that the staging did not move, or a staged path that did not map back, is a violation.
 set -euo pipefail
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -23,13 +27,31 @@ digest=sha256:0000000000000000000000000000000000000000000000000000000000000000
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+# The staged copy (see above). The stage path is random; it may not occur in the file itself.
+stage=$tmp/stage
+! grep -qF -- "$stage" "$compose_file" || { echo "hardening: the stage path occurs in $compose_file" >&2; exit 2; }
+staged=$tmp/compose.yaml
+sed -E "/^[[:space:]]*#/! s#(^|[^A-Za-z0-9_./-])/(etc|srv)/mjk/#\1$stage/\2/mjk/#g" "$compose_file" >"$staged"
+# One empty stand-in, for exactly /etc/mjk/mjk.env, the only file rendering reads (Compose v2 reads
+# env_file; secret files and bind sources are not opened). So an env_file that names any other path
+# still fails: Compose v2 cannot find it, and under v5 the env_file check below names it.
+mkdir -p "$stage/etc/mjk"
+: >"$stage/etc/mjk/mjk.env"
+
 # env -i: no COMPOSE_* or MJK_* from the caller; --env-file /dev/null: no .env next to the file.
 env -i PATH="$PATH" HOME="${HOME:-$tmp}" ${DOCKER_HOST:+DOCKER_HOST="$DOCKER_HOST"} \
   MJK_SERVER_IMAGE="ghcr.io/mwijkhuisen/mjk-server:hardening@$digest" \
   MJK_WEB_IMAGE="ghcr.io/mwijkhuisen/mjk-web:hardening@$digest" \
   MJK_BACKUP_IMAGE="ghcr.io/mwijkhuisen/mjk-backup:hardening@$digest" \
-  docker compose -f "$compose_file" --env-file /dev/null --profile '*' \
-  config --no-env-resolution --format json >"$tmp/config.json"
+  docker compose -f "$staged" --env-file /dev/null --profile '*' \
+  config --no-env-resolution --format json >"$tmp/staged.json"
+# Back to the production paths: a string that starts with the stage path loses exactly that prefix.
+jq --arg stage "$stage" 'walk(if type == "string" and startswith($stage + "/") then .[($stage | length):] else . end)' \
+  "$tmp/staged.json" >"$tmp/config.json"
+if grep -qF -- "$stage" "$tmp/config.json"; then
+  echo "FAIL a staged path did not map back to a production path" >&2
+  exit 1
+fi
 
 # A§17.3 (with interfaces.md's change: hc_ping_key goes to worker only, and the least-privilege
 # decision: lettermint_api_token, r2_media_rw and app_keys, GIDs 63008, 63009 and 63012, are out of the
