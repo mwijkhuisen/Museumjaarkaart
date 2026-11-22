@@ -20,6 +20,7 @@
 #      labels differ, and stops when the digests and the compose sha256 equal current.env or the set
 #      equals failed.env. A compose change alone (mjk-install copied a new compose.yaml) is deployed with
 #      the same images, through the same steps.
+#   2b. every secret file the compose file names exists, else exit 78 with the stack untouched.
 #   3. migrate (profile jobs), 4. up -d, 5. every daemon healthy within 180 s, then the smoke test with
 #      Host: <domain> on http://127.0.0.1:8280 (/api/v1/healthz, /, /musea and one museum if there is one).
 #   6. on a failure: write failed.env, put current.env's images back and wait until they are healthy;
@@ -335,6 +336,20 @@ fi
 # --- deploy ------------------------------------------------------------------------------------------
 write_env "$NEXT" "${pinned[MJK_SERVER_IMAGE]}" "${pinned[MJK_WEB_IMAGE]}" "${pinned[MJK_BACKUP_IMAGE]}"
 trap 'rm -f "$NEXT" "$NEXT.tmp" "$ERRLOG"' EXIT
+
+# Every secret file the compose file names (all profiles) must exist before anything runs: `up -d` cannot
+# create a service whose secret file is missing, and a rollback keeps this compose file, so it would fail
+# the same way (P1d's r2_media_rw on a P1e host). Refused with the stack untouched and no failed.env, so
+# the next run deploys once the files exist. Names paths only, never a content.
+secret_files=$(dc "$NEXT" --profile '*' config --format json 2>"$ERRLOG" | jq -r '.secrets // {} | .[].file // empty') ||
+  { log_compose_error; die "config_invalid: compose cannot render $COMPOSE" 78; }
+missing=()
+while IFS= read -r file; do
+  [[ -z $file || -f $file ]] || missing+=("$file")
+done <<<"$secret_files"
+if ((${#missing[@]} > 0)); then
+  die "config_missing: secret file(s) missing: ${missing[*]}; nothing deployed, the running stack is untouched (create them as docs/runbooks/update.md says)" 78
+fi
 
 fail_deploy() { # <reason code>
   log "deploy FAILED: $1"

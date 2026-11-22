@@ -32,7 +32,8 @@
 #      10.63.6.10 (a compose override beside the installed compose file): every daemon healthy, current.env
 #      holds the three refs and the compose sha256, the site answers on 127.0.0.1:8280 and through the
 #      tunnel network, only 127.0.0.1:8280 is published, a second run is "up to date", a held lock makes it
-#      exit 0; a changed compose file alone is deployed, and a deploy removes our old image references
+#      exit 0; a compose file whose secret file is missing is refused (78, stack untouched); a changed
+#      compose file alone is deployed, and a deploy removes our old image references
 #      (ghcr.io/mwijkhuisen/mjk-*) and nothing else. The worker gets an unusable ping key (it pings nothing).
 #   4. egress probes through the real table (throw-away busybox containers on the stack's own networks):
 #      each probe must raise exactly the expected drop counter; the allowed ones raise none of table inet
@@ -431,6 +432,22 @@ cp -p "$SCRATCH/mjk.env.deployed" "$ETC/mjk.env"
 grep -q 'the key DATABASE_URL is not allowed' <<<"$upd_out" || fail "mjk-update did not name the refused key: $upd_out"
 if grep -qF 'e2e-not-a-real-login' <<<"$upd_out"; then fail "mjk-update printed the refused value"; fi
 ok "mjk-update re-checks mjk.env before a deploy: a key outside the allowlist is exit 78, named without its value"
+
+# A compose change while a secret file it names is missing (P1d's r2_media_rw on a P1e host): exit 78,
+# naming the file, with current.env, failed.env and the running worker untouched.
+worker_before=$(docker ps -q --no-trunc --filter label=com.docker.compose.project=mjk --filter label=com.docker.compose.service=worker)
+cur_before=$(sha256sum "$STATE/current.env")
+mv "$ETC/secrets/r2_media_rw" "$SCRATCH/r2_media_rw.aside"
+printf '# e2e: a compose change with a secret missing\n' >>"$ETC/compose.override.yaml"
+upd_rc=0
+upd_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1) || upd_rc=$?
+mv "$SCRATCH/r2_media_rw.aside" "$ETC/secrets/r2_media_rw"
+((upd_rc == 78)) || fail "mjk-update with r2_media_rw missing exited $upd_rc, not 78: $upd_out"
+grep -qF "secret file(s) missing: $ETC/secrets/r2_media_rw" <<<"$upd_out" || fail "mjk-update did not name the missing secret file: $upd_out"
+[[ $cur_before == "$(sha256sum "$STATE/current.env")" && ! -e $STATE/failed.env ]] || fail "the refused run changed current.env or wrote failed.env"
+[[ $worker_before == "$(docker ps -q --no-trunc --filter label=com.docker.compose.project=mjk --filter label=com.docker.compose.service=worker)" ]] ||
+  fail "the refused run touched the worker"
+ok "mjk-update refuses a compose file whose secret file is missing (exit 78, named), with the stack, current.env and failed.env untouched"
 
 # A compose change alone is deployed with the same images; the deploy then removes our old references.
 docker tag "$STANDIN_IMAGE" "$OLD_REF"

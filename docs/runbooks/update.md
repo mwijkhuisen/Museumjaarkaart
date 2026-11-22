@@ -8,6 +8,8 @@ All commands run as root on the VM. Shorthand (as in `docs/runbooks/install.md` 
 mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env "$@"; }
 ```
 
+**Before the deploy that brings P1d (an existing P1e host):** create the secret file `/etc/mjk/secrets/r2_media_rw` and set `MJK_R2_BUCKET_MEDIA` in `mjk.env` first (`docs/runbooks/tiles-refresh.md` §2), then run `mjk-install`. Compose cannot create the `worker` without the file, and a rollback keeps the new compose file, so `mjk-update` refuses the deploy until every secret file of the compose file exists (step 2b).
+
 ## 1. How an update happens (A§17.5)
 
 - The `release` job (environment `production`, you approve it) builds `ghcr.io/mwijkhuisen/mjk-server`, `mjk-web` and `mjk-backup` from one commit, labels all three `org.opencontainers.image.revision=<git sha>` and pushes `:main` and `:sha-<git>`. GitHub holds no credential for the VM.
@@ -15,6 +17,7 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
   0. checks `/etc/mjk/mjk.env` again with `mjk-envcheck`, the same rules as `mjk-install` (root:root 0644 or 0640, allow-listed keys only): an edit since the last install that breaks them is exit 78 `config_invalid`, naming the key or line, never a value;
   1. takes the deploy lock exclusive, without waiting (held by `mjk-tick` or the nightly backup, which take it shared, means exit 0 and nothing done); refuses with exit 1 when `table inet mjk` is not loaded, and checks that again (with `firewall-stopped`) before each compose step;
   2. pulls the three `:main` images (300 s each) and records each by digest (`repo@sha256:…`, never a tag); waits (exit 0) while the three revision labels differ, because a release is still being pushed; stops when the digests and the compose file's sha256 equal `current.env`; refuses a set that equals `failed.env`. A compose file that `mjk-install` changed is deployed with the same images (`compose file changed since current.env`);
+  2b. checks that every secret file the compose file names (all profiles) exists: a missing one is exit 78 `config_missing: secret file(s) missing: <paths>`, with the running stack, `current.env` and `failed.env` untouched, so the next run deploys once the files are there;
   3. runs `migrate` (profile `jobs`, 300 s);
   4. runs `up -d --remove-orphans` (600 s);
   5. waits until every daemon is healthy (180 s), then smoke-tests `http://127.0.0.1:8280` with `Host: <domain>`: `/api/v1/healthz`, `/`, `/musea` and one museum page when the catalogue has one;
@@ -34,7 +37,7 @@ systemctl start mjk-update.service                     # run it now, instead of 
 mjkc ps
 ```
 
-The log lines to know: `waiting: the images' revision labels differ`, `up to date: the digests and the compose file equal current.env`, `compose file changed since current.env`, `smoke test passed`, `deployed: …`, `deploy FAILED: <migrate_failed|up_failed|not_healthy|smoke_failed>`, `REFUSED: this set of images failed before`, `no_revision_label`, `pull_failed`, `firewall_missing`, `firewall_stopped`, `compose: …` (compose's own error lines after a failed step).
+The log lines to know: `waiting: the images' revision labels differ`, `up to date: the digests and the compose file equal current.env`, `compose file changed since current.env`, `smoke test passed`, `deployed: …`, `deploy FAILED: <migrate_failed|up_failed|not_healthy|smoke_failed>`, `REFUSED: this set of images failed before`, `no_revision_label`, `pull_failed`, `config_missing: secret file(s) missing`, `firewall_missing`, `firewall_stopped`, `compose: …` (compose's own error lines after a failed step).
 
 ## 3. The rollback proof (criterion 8, [box])
 

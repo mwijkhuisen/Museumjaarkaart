@@ -117,7 +117,8 @@ async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promis
   return runWorkerRole(env, {
     handlers: (db) => ({
       [MUSEUM_SYNC_JOB]: museumSyncJob(db, fetchers, logger),
-      // R2 is read when a tiles job runs, so a worker without it still runs the rest.
+      // MJK_R2_* are read when a tiles job runs, so a worker without them still runs the rest. The secret
+      // file r2_media_rw is not optional: Compose does not start the worker without it.
       [TILES_REFRESH_JOB]: tilesRefreshJob({ logger, env }),
       [TILES_ROLLBACK_JOB]: tilesRollbackJob({ logger, env }),
     }),
