@@ -4,7 +4,7 @@ import { MuseumPoints } from '@mjk/contracts';
 import { describe, expect, it } from 'vitest';
 import '../src/lib/zod.ts';
 import { formatDistance } from '../src/lib/format.ts';
-import { MapError } from '../src/lib/map/errors.ts';
+import { isFatalBasemapError, MapError } from '../src/lib/map/errors.ts';
 import { markerImage, parseHex, pointsGeoJson, selectedOf } from '../src/lib/map/museumLayer.ts';
 import { resolveStyle } from '../src/lib/map/resolveStyle.ts';
 import { mediaOrigin, parseTilesPointer } from '../src/lib/map/tiles.ts';
@@ -48,6 +48,17 @@ describe('parseTilesPointer (tiles/current.json)', () => {
     } catch (err) {
       expect((err as MapError).code).toBe('tiles_pointer_invalid');
     }
+  });
+});
+
+describe('isFatalBasemapError (MapLibre error events during load)', () => {
+  it('fails the map for an error of the basemap source itself, never for one tile or another source', () => {
+    const error = new Error('x');
+    expect(isFatalBasemapError({ type: 'error', error, sourceId: 'basemap' })).toBe(true);
+    expect(isFatalBasemapError({ type: 'error', error, sourceId: 'basemap', tile: { state: 'errored' } })).toBe(false);
+    expect(isFatalBasemapError({ type: 'error', error, sourceId: 'museums' })).toBe(false);
+    expect(isFatalBasemapError({ type: 'error', error })).toBe(false);
+    expect(isFatalBasemapError(null)).toBe(false);
   });
 });
 

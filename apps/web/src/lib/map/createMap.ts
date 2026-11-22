@@ -9,7 +9,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { Protocol } from 'pmtiles';
 import type { Locale } from '../routes.ts';
-import { MapError } from './errors.ts';
+import { isFatalBasemapError, MapError } from './errors.ts';
 import { prefersReducedMotion } from './museumLayer.ts';
 import { acquireProtocol } from './protocol.ts';
 import { resolveStyle } from './resolveStyle.ts';
@@ -77,6 +77,10 @@ export async function createMap(
       locale: labels,
       ...(prefersReducedMotion() ? { fadeDuration: 0 } : {}),
     });
+    // For the map's life: without a listener MapLibre prints every error event with console.error (a
+    // tile 5xx on a pan, a missing sprite image). One failed tile is not a broken map; `loaded` decides
+    // what fails the load.
+    map.on('error', () => {});
     map.touchZoomRotate.disableRotation();
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
     await loaded(map, signal);
@@ -87,7 +91,7 @@ export async function createMap(
   }
 }
 
-/** Resolves on `load`; rejects when the basemap's source fails first, or on abort. */
+/** Resolves on `load`; rejects when the basemap's source (not one tile) fails first, or on abort. */
 function loaded(map: MapLibreMap, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const done = (fail?: unknown) => {
@@ -99,7 +103,7 @@ function loaded(map: MapLibreMap, signal: AbortSignal): Promise<void> {
     };
     const onLoad = () => done();
     const onError = (e: unknown) => {
-      if ((e as { sourceId?: string }).sourceId === 'basemap') done(new MapError('tiles_unavailable'));
+      if (isFatalBasemapError(e)) done(new MapError('tiles_unavailable'));
     };
     const onAbort = () => done(signal.reason);
     map.on('load', onLoad);
