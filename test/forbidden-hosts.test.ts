@@ -91,6 +91,16 @@ const ALLOWED: readonly Allowed[] = [
     count: 1,
     why: 'host_not_allowed: an OSM URL is refused',
   },
+  ...[
+    'scripts/build-map-style.ts',
+    'apps/web/src/lib/map/styles/style-nl.json',
+    'apps/web/src/lib/map/styles/style-en.json',
+  ].map((path) => ({
+    path,
+    pattern: 'openstreetmap',
+    count: 1,
+    why: 'the basemap attribution link (ODbL credit, A§15.3); no OSM data is fetched',
+  })),
   {
     path: 'apps/server/test/museums/sources/wikidata.test.ts',
     pattern: 'museum.nl',

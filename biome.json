@@ -6,6 +6,8 @@
       "**",
       "!apps/server/src/db/types.ts",
       "!apps/server/test/fixtures/museums/**/*.json",
+      "!apps/web/src/lib/map/styles/*.json",
+      "!apps/web/public/map",
       "!**/*.md",
       "!**/*.yaml",
       "!**/*.yml"
