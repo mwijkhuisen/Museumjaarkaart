@@ -3,7 +3,17 @@ import type { Context } from 'hono';
 import { sql } from 'kysely';
 import { z } from 'zod';
 import { checkCode, consumeCode, issueCode } from '../../auth/codes.ts';
-import { BUCKETS, type Bucket, emailKey, enforce, hit, hitIp, ipKeys, peek, refund } from '../../auth/limiter.ts';
+import {
+  BUCKETS,
+  type Bucket,
+  codeEmailLimits,
+  enforce,
+  hit,
+  hitIp,
+  ipKeys,
+  peek,
+  refund,
+} from '../../auth/limiter.ts';
 import { settingsOf, toMeUser } from '../../auth/me.ts';
 import { endUserSessions, requireReauth, type SessionHost, type SessionMethod } from '../../auth/session.ts';
 import { enqueueMailNotice } from '../../mail/payloads.ts';
@@ -13,7 +23,7 @@ import { CACHE_PRIVATE } from '../cache.ts';
 import { ApiError } from '../errors.ts';
 import type { ClientAddress } from '../middleware/client-address.ts';
 import type { ApiEnv } from '../middleware/request.ts';
-import { requireMember } from '../middleware/session.ts';
+import { hostClass, requireMember } from '../middleware/session.ts';
 import { parseParam } from '../query.ts';
 import { sendJson } from '../respond.ts';
 
@@ -78,9 +88,7 @@ export function mountMe(v1: ApiApp, deps: ApiDeps): void {
     if (body.email === session.user.email) throw new ApiError('invalid', ['email']);
     const client = clientOr429(c, deps, BUCKETS.codePrefix);
     enforce(deps.logger, BUCKETS.codePrefix, await hitIp(db, BUCKETS.codePrefix, client));
-    const perPrefix = await hit(db, BUCKETS.codeEmailPrefix, emailKey(keys, `${body.email}\n${client.prefix}`));
-    enforce(deps.logger, BUCKETS.codeEmailPrefix, perPrefix);
-    enforce(deps.logger, BUCKETS.codeEmailDay, await hit(db, BUCKETS.codeEmailDay, emailKey(keys, body.email)));
+    await codeEmailLimits(db, deps.logger, keys, hostClass(c, site), client, body.email);
     // The worker drops the mail when the address already has an account: the answer is the same either way.
     await db.transaction().execute((trx) =>
       issueCode(trx, keys, {

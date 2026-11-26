@@ -81,6 +81,24 @@ export async function peek(db: Db, bucket: Bucket, key: string, opts: Opts = {})
 /** The key for an email (normalised by the contract): the table never holds an address. */
 export const emailKey = (keys: AppKeys, email: string): string => hmac(keys.otp_pepper, 'rl', email).toString('hex');
 
+/** A per-email key of one host class: a public-host flood never fills the admin host's buckets (A§9, A§16.2). */
+export const hostEmailKey = (keys: AppKeys, host: 'public' | 'admin', email: string, prefix?: string): string =>
+  emailKey(keys, prefix === undefined ? `${host}\n${email}` : `${host}\n${email}\n${prefix}`);
+
+/** The per-email code-request limits of sign-up, /auth/code and /me/email (A§9 table), keyed by host class. */
+export async function codeEmailLimits(
+  db: Db,
+  logger: Logger,
+  keys: AppKeys,
+  host: 'public' | 'admin',
+  client: ClientAddress | undefined,
+  email: string,
+): Promise<void> {
+  const pair = await hit(db, BUCKETS.codeEmailPrefix, hostEmailKey(keys, host, email, client?.prefix ?? ''));
+  enforce(logger, BUCKETS.codeEmailPrefix, pair);
+  enforce(logger, BUCKETS.codeEmailDay, await hit(db, BUCKETS.codeEmailDay, hostEmailKey(keys, host, email)));
+}
+
 export type IpKey = { key: string; factor: 1 | 4 };
 
 /** IPv4: the /24. IPv6: the /56, plus the /48 at 4x the limit. Null when the client is unknown. */

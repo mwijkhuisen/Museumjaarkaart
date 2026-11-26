@@ -142,6 +142,20 @@ describe('sign-up', () => {
     }
   });
 
+  it('sign-ups without a usable invite never spend the email’s code budget', async () => {
+    const member = await a.newUser();
+    for (let i = 0; i < 22; i++) {
+      const { res } = await signup({ invite: '0123456789ABCDEF' }, { ...next(), email: member.email });
+      expect(res.status).toBe(403);
+    }
+    const r = await t.req('/auth/code', {
+      peer: '100.81.0.1',
+      body: { email: member.email, purpose: 'signin', altcha: await altchaPayload(t.req), locale: 'nl' },
+    });
+    expect(r.status).toBe(202);
+    expect(await codeFor(a, t.keys, member.email)).toMatch(/^[0-9]{6}$/);
+  });
+
   it('a handle that exists → 409', async () => {
     const u = await a.newUser();
     expect((await signup({ handle: u.handle })).res.status).toBe(409);

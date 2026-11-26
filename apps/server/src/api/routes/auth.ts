@@ -14,7 +14,7 @@ import { newChallenge, spendAltcha } from '../../auth/altcha.ts';
 import { checkCode, consumeCode, issueCode } from '../../auth/codes.ts';
 import { consumeInvite, findUsableInvite } from '../../auth/invite.ts';
 import type { AppKeys } from '../../auth/keys.ts';
-import { BUCKETS, emailKey, enforce, type Hit, hit, hitIp, ipKeys, peek, refund } from '../../auth/limiter.ts';
+import { BUCKETS, codeEmailLimits, enforce, type Hit, hit, hitIp, ipKeys, peek, refund } from '../../auth/limiter.ts';
 import { loadUser, toMeUser } from '../../auth/me.ts';
 import { CLEAR_COOKIE, endSession, endUserSessions, readSessionCookie, startSession } from '../../auth/session.ts';
 import type { Db } from '../../db/kysely.ts';
@@ -58,16 +58,9 @@ const noContent = (c: Context<ApiEnv>, cookie?: string) => {
 /** A pg unique violation (by SQLSTATE, never by message). */
 const isUniqueViolation = (err: unknown) => (err as { code?: unknown }).code === '23505';
 
-/** The code-request limits shared by sign-up and /auth/code (A§9 table). */
-async function codeRequestLimits(c: Context<ApiEnv>, deps: ApiDeps & { keys: AppKeys }, email: string) {
-  const client = c.var.client;
-  const ip = await hitIp(deps.db, BUCKETS.codePrefix, client);
-  enforce(deps.logger, BUCKETS.codePrefix, ip);
-  const prefix = client?.prefix ?? '';
-  const pair = await hit(deps.db, BUCKETS.codeEmailPrefix, emailKey(deps.keys, `${email}\n${prefix}`));
-  enforce(deps.logger, BUCKETS.codeEmailPrefix, pair);
-  const day = await hit(deps.db, BUCKETS.codeEmailDay, emailKey(deps.keys, email));
-  enforce(deps.logger, BUCKETS.codeEmailDay, day);
+/** The per-IP-prefix code-request limit (A§9 table), counted before anything else. */
+async function codePrefixLimit(c: Context<ApiEnv>, deps: ApiDeps) {
+  enforce(deps.logger, BUCKETS.codePrefix, await hitIp(deps.db, BUCKETS.codePrefix, c.var.client));
 }
 
 /**
@@ -137,9 +130,11 @@ export function mountAuth(v1: ApiApp, deps: ApiDeps): void {
     if (RESERVED.has(body.handle)) invalid.push('handle');
     if (invalid.length > 0) throw new ApiError('invalid', invalid);
     if (!(await spendAltcha(deps.db, keys, 'public', body.altcha))) throw new ApiError('bad_request', ['altcha']);
-    await codeRequestLimits(c, d, body.email);
+    await codePrefixLimit(c, deps);
     const inviteId = await findUsableInvite(deps.db, keys, body.invite);
     if (inviteId === undefined) throw new ApiError('forbidden');
+    // Only after a usable invite: an invite-less flood never spends the email's sign-in budget.
+    await codeEmailLimits(deps.db, deps.logger, keys, 'public', c.var.client, body.email);
     const taken = await deps.db
       .selectFrom('app_user')
       .select('id')
@@ -171,7 +166,8 @@ export function mountAuth(v1: ApiApp, deps: ApiDeps): void {
     const body = await readJson(c, CodeRequest);
     const host = hostClass(c, site);
     if (!(await spendAltcha(deps.db, keys, host, body.altcha))) throw new ApiError('bad_request', ['altcha']);
-    await codeRequestLimits(c, d, body.email);
+    await codePrefixLimit(c, deps);
+    await codeEmailLimits(deps.db, deps.logger, keys, host, c.var.client, body.email);
     // An admin-host session only for the Access JWT's email (A§9): any other gets the same 202, and nothing.
     if (host === 'admin' && accessEmail(c) !== body.email) return accepted(c);
     await deps.db

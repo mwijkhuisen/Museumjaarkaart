@@ -10,7 +10,7 @@ import {
   parsePhc,
   verifyPassword,
 } from '../../auth/argon2.ts';
-import { BUCKETS, emailKey, enforce, hit, hitIp } from '../../auth/limiter.ts';
+import { BUCKETS, enforce, hit, hitIp, hostEmailKey } from '../../auth/limiter.ts';
 import { loadUser, toMeUser } from '../../auth/me.ts';
 import { endUserSessions, readSessionCookie, requireReauth, startSession } from '../../auth/session.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
@@ -55,14 +55,14 @@ export function mountPassword(v1: ApiApp, deps: PasswordDeps): void {
   v1.post('/auth/password', async (c) => {
     const { email, password } = await readJson(c, PasswordSignInRequest);
 
+    const host = hostClass(c, site);
     const [ipHit, emailHit] = await Promise.all([
       hitIp(deps.db, BUCKETS.passwordPrefix, c.var.client),
-      hit(deps.db, BUCKETS.passwordEmail, emailKey(keys, email)),
+      hit(deps.db, BUCKETS.passwordEmail, hostEmailKey(keys, host, email)),
     ]);
     enforce(deps.logger, BUCKETS.passwordPrefix, ipHit);
     enforce(deps.logger, BUCKETS.passwordEmail, emailHit);
 
-    const host = hostClass(c, site);
     // A§9: an admin-host session only for the Access JWT's own email; any other is an unknown email.
     const account =
       host === 'admin' && accessEmail(c) !== email

@@ -209,6 +209,22 @@ describe('the admin host', () => {
     expect((await req('/auth/code/verify', { email: u.email, purpose: 'signup', code: '000000' })).status).toBe(401);
   });
 
+  it('a public-host flood of an email’s code requests leaves the admin host’s working', async () => {
+    const u = await a.newUser();
+    for (let i = 0; i < 20; i++) expect((await requestCode(u.email, `100.90.${i}.1`)).status).toBe(202);
+    expect((await requestCode(u.email, '100.90.99.1')).status).toBe(429);
+    const before = await a.admin.query('SELECT count(*)::int AS n FROM job WHERE kind = $1', ['mail_code']);
+    const r = await t.req('/auth/code', {
+      host: 'admin.mjk.test',
+      peer: '100.91.0.1',
+      headers: { 'x-test-access': u.email },
+      body: { email: u.email, purpose: 'signin', altcha: await altchaPayload(t.req, 'admin.mjk.test'), locale: 'nl' },
+    });
+    expect(r.status).toBe(202);
+    const after = await a.admin.query('SELECT count(*)::int AS n FROM job WHERE kind = $1', ['mail_code']);
+    expect(after.rows[0]?.n).toBe((before.rows[0]?.n as number) + 1);
+  });
+
   it('a public-host ALTCHA solution is refused on the admin host', async () => {
     const u = await a.newUser();
     const r = await t.req('/auth/code', {
