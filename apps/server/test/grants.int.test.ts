@@ -653,7 +653,7 @@ describe('P2a: the accounts grants', () => {
 
   it('mjk_worker may SELECT only the listed columns, never password_hash or code_hmac', async () => {
     const SELECT: Record<string, string[]> = {
-      app_user: ['id', 'email', 'status', 'settings'],
+      app_user: ['email', 'status'],
       email_code: ['id', 'email', 'purpose', 'expires_at', 'created_at'],
       session: ['expires_at', 'absolute_expires_at'],
       auth_challenge: ['expires_at'],
@@ -680,7 +680,7 @@ describe('P2a: the accounts grants', () => {
     expect(await attempt(worker, 'SELECT password_hash FROM app_user')).toBe(DENIED);
     expect(await attempt(worker, 'SELECT code_hmac FROM email_code')).toBe(DENIED);
     expect(await attempt(worker, 'SELECT * FROM app_user')).toBe(DENIED);
-    expect(await attempt(worker, 'SELECT id, email, status, settings FROM app_user')).toBe('ok');
+    expect(await attempt(worker, 'SELECT email, status FROM app_user')).toBe('ok');
     expect(await attempt(worker, "DELETE FROM email_code WHERE expires_at < now() - interval '1 day'")).toBe('ok');
     expect(await attempt(worker, "DELETE FROM job WHERE state = 'done'")).toBe('ok');
     expect(await attempt(worker, 'TRUNCATE job')).toBe(DENIED);

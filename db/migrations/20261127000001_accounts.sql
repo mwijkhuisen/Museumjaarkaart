@@ -139,7 +139,7 @@ GRANT SELECT, INSERT ON audit_log TO mjk_api;
 GRANT INSERT ON content_ip_log TO mjk_api;
 
 -- mjk_worker (purges and mail jobs): never password_hash or code_hmac.
-GRANT SELECT (id, email, status, settings) ON app_user TO mjk_worker;
+GRANT SELECT (email, status) ON app_user TO mjk_worker;
 GRANT SELECT (id, email, purpose, expires_at, created_at) ON email_code TO mjk_worker;
 GRANT DELETE ON email_code TO mjk_worker;
 GRANT SELECT (expires_at, absolute_expires_at) ON session TO mjk_worker;
