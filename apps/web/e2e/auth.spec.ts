@@ -4,7 +4,7 @@ import { mailbox, t } from './helpers.ts';
 // P2a: sign-up by invite, sign-in by code, a password set on the account page, sign-in by password (A§9), in each
 // engine with its own address. The invite and the mail sink come from stack.sh (E2E_INVITE, E2E_MAIL_URL); the codes
 // arrive through the worker's real Lettermint client. The ALTCHA widget solves on load: the specs only wait for it.
-const PASSWORD = 'E2e-Pass-Zq7-Long'; // stack.sh's log check looks for this string
+const PASSWORD = 'e2e staple seven horses'; // stack.sh's log check looks for this string (spaces: no gitleaks match)
 
 test('sign up by invite, sign in by code, set a password, sign in by password', async ({
   page,

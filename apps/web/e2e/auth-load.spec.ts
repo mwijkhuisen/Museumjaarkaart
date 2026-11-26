@@ -11,7 +11,7 @@ test('@load 50 parallel password sign-ins answer 401 or 429', async ({ request }
         headers: { origin: 'https://mjk.test', 'content-type': 'application/json' },
         data: {
           email: i % 2 === 0 ? `nobody-${i}@mjk.test` : 'owner-chromium@mjk.test',
-          password: 'Wrong-Pass-Zq7-Long',
+          password: 'wrong staple seven horses',
         },
       }),
     ),

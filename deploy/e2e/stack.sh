@@ -154,7 +154,7 @@ for service in api ssr caddy; do
 done
 echo "logs: no near-me position in the api, ssr and caddy logs"
 
-# Invariant 8: the specs signed up and in with owner-*@mjk.test and e2e-*@mjk.test, a password (E2e-Pass-Zq7-Long,
+# Invariant 8: the specs signed up and in with owner-*@mjk.test and e2e-*@mjk.test, a password ('e2e staple seven horses',
 # auth.spec.ts), the invite, the owners' Access JWTs and the codes in the sink. None of them is in any log. The
 # codes are read back from the sink, and there must be some, or the check proves nothing. Called after each pass
 # that sends them.
@@ -168,7 +168,7 @@ check_auth_logs() {
   [[ -n $codes ]] || { echo "stack: the mail sink holds no code" >&2; exit 1; }
   for service in api worker ssr caddy db mailsink; do
     service_log=$(compose logs --no-color --no-log-prefix "$service")
-    for needle in @mjk.test E2e-Pass-Zq7-Long "${E2E_ACCESS_JWT_CHROMIUM##*.}" "${E2E_ACCESS_JWT_WEBKIT##*.}" "$E2E_INVITE"; do
+    for needle in @mjk.test 'e2e staple seven horses' "${E2E_ACCESS_JWT_CHROMIUM##*.}" "${E2E_ACCESS_JWT_WEBKIT##*.}" "$E2E_INVITE"; do
       if grep -qF -- "$needle" <<<"$service_log"; then
         echo "stack: the $service log holds a spec's address, password, invite or JWT signature" >&2
         exit 1
