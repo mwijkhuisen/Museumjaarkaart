@@ -346,7 +346,7 @@ const setSent = (count: number) =>
     [count],
   );
 
-it('at 70 % of the cap only sign-in codes still go out; the rest are dropped with mail_cap_reached', async () => {
+it('at 70 % of the cap only sign-in codes and the change notice still go out; the rest are dropped with mail_cap_reached', async () => {
   await addUser(EMAIL);
   await setSent(7);
   await requestCode('signup', { email: 'new.member@example.test', code: '111111' });
@@ -364,8 +364,8 @@ it('at 70 % of the cap only sign-in codes still go out; the rest are dropped wit
     );
   await requestCode('signin');
   const { sent, lines } = await drain({ env: { MJK_MAIL_CAP: '10' } });
-  expect(sent.map((m) => m.to)).toEqual([EMAIL]);
-  expect(sent[0]?.text).toContain(CODE);
+  expect(sent.map((m) => m.to)).toEqual([EMAIL, EMAIL]);
+  expect(sent.some((m) => m.text.includes(CODE))).toBe(true);
   // Every dropped job is gone with its sealed values, and so are the dropped codes' rows.
   expect(await jobs()).toEqual([]);
   expect(await codeRows()).toHaveLength(1);
@@ -374,7 +374,6 @@ it('at 70 % of the cap only sign-in codes still go out; the rest are dropped wit
     ['mail_code', 'signup'],
     ['mail_code', 'email_change'],
     ['mail_invite', undefined],
-    ['mail_notice', undefined],
   ]);
   for (const l of reached)
     expect(Object.keys(l).filter((k) => !['kind', 'purpose', 'level', 'msg', 'role', 'time'].includes(k))).toEqual([]);

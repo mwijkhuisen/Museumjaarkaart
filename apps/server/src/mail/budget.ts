@@ -4,8 +4,8 @@ import type { Db } from '../db/kysely.ts';
 // The mail budget (A§17.7, ADR-0012): Lettermint's free plan is a hard cap per month, so every sent mail
 // counts in one `rate_limit` window (bucket `mail_sent`, key `site`) that runs from the start of the
 // calendar month in Europe/Amsterdam to the start of the next. Before each send the worker reads it: a sign-in
-// code goes out while the count is under MJK_MAIL_CAP, every other mail while it is under 70 % of it, so 30 %
-// stays for sign-in codes. At 80 % the worker logs `mail_cap_near` and its health ping fails.
+// code (and the old address's email-change notice) goes out while the count is under MJK_MAIL_CAP, every other
+// mail while it is under 70 % of it, so 30 % stays for them. At 80 % the worker logs `mail_cap_near` and its health ping fails.
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -18,8 +18,8 @@ export function mailCap(env: Env): number | undefined {
   return v !== undefined && /^[1-9]\d{0,8}$/.test(v) ? Number(v) : undefined;
 }
 
-/** The count under which a mail may still go out: the cap for a sign-in code, 70 % of it for any other [U owner]. */
-export const sendLimit = (cap: number, signin: boolean): number => (signin ? cap : Math.floor((cap * 7) / 10));
+/** The count under which a mail may still go out: the cap for a sign-in code or the change notice, 70 % of it for any other [U owner]. */
+export const sendLimit = (cap: number, first: boolean): number => (first ? cap : Math.floor((cap * 7) / 10));
 
 /** At or above 80 % of the cap. */
 export const nearCap = (count: number, cap: number): boolean => count * 5 >= cap * 4;

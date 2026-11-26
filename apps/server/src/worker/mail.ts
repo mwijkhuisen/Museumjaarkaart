@@ -49,12 +49,13 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
 
   /**
    * The monthly cap (A§17.7): true when this month's count leaves no room for this mail, after one
-   * `mail_cap_reached` line with the kind (and the purpose). Without a valid MJK_MAIL_CAP mail is unconfigured.
+   * `mail_cap_reached` line with the kind (and the purpose). `first` (a sign-in code, the change notice) may use
+   * the whole cap. Without a valid MJK_MAIL_CAP mail is unconfigured.
    */
-  async function overCap(signin: boolean, fields: Record<string, string>): Promise<boolean> {
+  async function overCap(first: boolean, fields: Record<string, string>): Promise<boolean> {
     const cap = mailCap(env);
     if (cap === undefined) throw new JobError('mail_unconfigured', { retry: false });
-    if ((await mailSentThisMonth(db)) < sendLimit(cap, signin)) return false;
+    if ((await mailSentThisMonth(db)) < sendLimit(cap, first)) return false;
     logger.warn(fields, 'mail_cap_reached');
     return true;
   }
@@ -139,7 +140,8 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
     const p = parse(MailNoticePayload, payload);
     const contact = env.MJK_CONTACT_EMAIL;
     if (contact === undefined) throw new JobError('mail_unconfigured', { retry: false });
-    if (await overCap(false, { kind: MAIL_NOTICE_JOB })) return 'consumed';
+    // The old address's notice is the member's alarm for a taken-over account (A§16.2): it goes first, like a code.
+    if (await overCap(true, { kind: MAIL_NOTICE_JOB })) return 'consumed';
     const to = unseal(keys.code_seal, p.sealed_to, aad.noticeTo(p.user_id));
     return deliver(to, 'email_changed', p.locale, { contact });
   };
