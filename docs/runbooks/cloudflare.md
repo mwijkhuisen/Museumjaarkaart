@@ -28,7 +28,7 @@ mjkc logs --tail 20 cloudflared           # empty while all is well (--loglevel 
 curl -sI https://<domain>/ | head -5      # 200 from the site, through Cloudflare
 ```
 
-`cloudflared` runs with `--no-autoupdate`, `--management-diagnostics=false` and `--loglevel error` (the least verbose level that still logs tunnel connection errors; the "Registered tunnel connection" info lines and the retry warnings are dropped, so health is read from `mjkc ps` and the metrics `ready` check, not from the log). Update it by changing its pin in `deploy/compose.yaml` through a PR (a digest at least 7 days old), running `deploy/bin/mjk-install`, then `systemctl start mjk-update.service`: it deploys the changed compose file with the same images (`docs/runbooks/install.md` §11).
+`cloudflared` runs with `--protocol http2` (QUIC was refused by the edge on 2026-11-26: `CRYPTO_ERROR 0x178 … no application protocol` in `mjkc logs cloudflared`; A§17.2), `--no-autoupdate`, `--management-diagnostics=false` and `--loglevel error` (the least verbose level that still logs tunnel connection errors; the "Registered tunnel connection" info lines and the retry warnings are dropped, so health is read from `mjkc ps` and the metrics `ready` check, not from the log). Update it by changing its pin in `deploy/compose.yaml` through a PR (a digest at least 7 days old), running `deploy/bin/mjk-install`, then `systemctl start mjk-update.service`: it deploys the changed compose file with the same images (`docs/runbooks/install.md` §11).
 
 ## 3. The Access application on `admin.<domain>` (A§16.2, ADR-0004)
 

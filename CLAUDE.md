@@ -111,7 +111,7 @@ From F1 and Waterheight; re-verify when P0 pins versions. Items marked **[U]** a
   - restic 0.19.1 reads `AWS_SHARED_CREDENTIALS_FILE`, so the secret `r2_backup_put` is an AWS credentials file (`[default]` with `aws_access_key_id` and `aws_secret_access_key`). pg_dump accepts `--exclude-table-data` for a table that does not exist; a restored dump holds the excluded tables' structure without their data.
   - An interface name has at most 15 characters: the bridge of `mjk-backup-egress` is `mjk-bkp-egress` (every bridge is `mjk-*`; `hardening.sh` asserts it).
   - `mjk-edge` and `mjk-tunnel-edge` give Docker's dynamic addresses only the upper /25 (`ip_range`), so no other container can take 10.63.2.10 or 10.63.6.10.
-  - cloudflared 2026.11.0 has `--token-file` and `tunnel --metrics 127.0.0.1:20241 ready` (its healthcheck); it runs with `--no-autoupdate --management-diagnostics=false`.
+  - cloudflared 2026.11.0 has `--token-file` and `tunnel --metrics 127.0.0.1:20241 ready` (its healthcheck); it runs with `--no-autoupdate --management-diagnostics=false --protocol http2`. Proven on the VM (2026-11-26): its QUIC dials were refused by the edge (`CRYPTO_ERROR 0x178`, TLS alert 120 `no_application_protocol`) and the tunnel never became ready; HTTP/2 over tcp/7844 works. Retry QUIC only with a newer cloudflared, on the VM.
   - The `postgres` image runs as 63532 and `read_only` on a new volume (`shm_size: 128m`, `log_min_error_statement=panic`, `stop_grace_period: 30s`).
   - Docker CLI: `docker ps --format` needs `{{.Label "key"}}`; `index .Labels` silently matched nothing.
   - Anonymous Docker Hub pulls answered 429 from the cloud session: local runs use `mirror.gcr.io/library/<image>@<digest>` retagged under the Docker Hub name.
