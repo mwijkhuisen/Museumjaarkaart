@@ -24,8 +24,11 @@
 #   2. table inet mjk loaded from the installed /etc/mjk/mjk.nft in the host's network namespace (the
 #      real boundary), and mjk-resolvers filled. Then the test's own `table inet mjk_e2e_sink`, which
 #      drops every packet that leaves an mjk-* bridge for another interface after table inet mjk has
-#      judged it: the run reaches no host outside this machine (invariant 9: no R2, Cloudflare,
-#      healthchecks.io, Wikidata or RCE), and a probe that table inet mjk lets through is counted there.
+#      judged it: no packet from a container reaches a host outside this machine (invariant 9: no R2,
+#      Cloudflare, healthchecks.io, Wikidata or RCE), and a probe that table inet mjk lets through is
+#      counted there. Container DNS is the exception the sink cannot see: Docker's embedded DNS asks the
+#      runner's resolver from the host's namespace (step 4), so a container in this run may only ever
+#      look up reserved `.invalid` names (step 4's control, step 7's backup endpoint).
 #      Where the sandbox does not allow loading a table, the steps that need it are skipped with a
 #      message: a skip is a failure under CI.
 #   3. deploy: mjk-update --server --web --backup on a pseudo-terminal (as an owner's manual run, so a
@@ -38,7 +41,8 @@
 #      (ghcr.io/mwijkhuisen/mjk-*) and nothing else. The worker gets an unusable ping key (it pings nothing).
 #   4. egress probes through the real table (throw-away busybox containers on the stack's own networks):
 #      each probe must raise exactly the expected drop counter; the allowed ones raise none of table inet
-#      mjk's and are then counted, and dropped, by the sink.
+#      mjk's and are then counted, and dropped, by the sink. Then Docker's embedded DNS, which the table
+#      does not see: caddy and ssr get SERVFAIL for an outside name, caddy still resolves api and ssr.
 #   5. rollback: a server image whose daemons never get healthy (migrate and healthcheck are the real
 #      ones): mjk-update exits 1, current.env is unchanged, failed.env names the broken image, the old
 #      images are healthy again and the site answers.
@@ -497,6 +501,30 @@ if ((HAVE_NFT)) && awk '$2 == "00000000" && $8 == "00000000" && $1 !~ /^mjk-/ {f
   ok "DNS to a resolver in resolvers4 passes, ahead of the private-range drop"
 else
   skip "no usable host nftables or no default route: the egress probes did not run"
+fi
+
+# Docker's embedded DNS (127.0.0.11) asks the host's resolvers from the host's namespace, where
+# table inet mjk does not look, so the table cannot stop it (proven on the VM, 2026-11-26). What a
+# container gets for a reserved name that no resolver knows (RFC 6761): NXDOMAIN when Docker forwarded
+# it, SERVFAIL when it did not. The worker is the control: its NXDOMAIN shows this host can forward
+# (its A and AAAA queries leave through the runner's resolver; a reserved name, no service).
+embedded_dns() { # <container> <name>
+  docker run --rm --network "container:$1" --user 63532:63532 --read-only --cap-drop ALL --security-opt no-new-privileges \
+    "$STANDIN_IMAGE" timeout 10 nslookup "$2" 127.0.0.11 2>&1 || true
+}
+dns_verdict() { grep -o -m 1 -E 'NXDOMAIN|SERVFAIL|timed out' <<<"$1" || echo 'no answer'; }
+control=$(dns_verdict "$(embedded_dns mjk-worker-1 mjk-e2e.invalid)")
+if [[ $control == NXDOMAIN ]]; then
+  for c in mjk-caddy-1 mjk-ssr-1; do
+    verdict=$(dns_verdict "$(embedded_dns "$c" mjk-e2e.invalid)")
+    [[ $verdict == SERVFAIL ]] || fail "$c can resolve outside names through Docker's embedded DNS ($verdict; caddy needs dns: 127.0.0.1)"
+  done
+  for name in api ssr; do
+    grep -q '^Address: 10\.63\.2\.' <<<"$(embedded_dns mjk-caddy-1 "$name")" || fail "caddy cannot resolve $name on mjk-edge"
+  done
+  ok "Docker's embedded DNS: the worker's outside lookup is forwarded; caddy and ssr get SERVFAIL; caddy still resolves api and ssr"
+else
+  skip "the worker's control lookup got '$control', not NXDOMAIN: this host does not forward container DNS, so the caddy and ssr DNS checks did not run"
 fi
 
 # --- 5. rollback -------------------------------------------------------------------------------------
