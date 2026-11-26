@@ -3,7 +3,9 @@
  * Classes (BEM-ish):
  *   layout   .skip-link .site-header .site-nav .site-footer .page .stack .cluster
  *   content  .card .card-list .facts (dl of div > dt + dd) .badge .badge--participating|left|unknown
- *   controls .button .field .filters .pager
+ *   controls .button .button--quiet .link-button .field .field__hint .field__error .form-error .check .code-input
+ *            .hp (the honeypot, off-screen) .filters .pager
+ *   account  .session-list .badge--current .reauth .notice (and altcha-widget's tokens)
  *   map      .map-region .map-region__canvas .map-card .near-me__list
  *   utility  .muted .visually-hidden .icon .scroll
  * Dark theme: the colour block inside the prefers-color-scheme media query. When the toggle arrives
@@ -347,6 +349,115 @@ main:focus {
   grid-template-columns: 1fr;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+/* forms of the account screens (P2a): hints and errors are tied to the input by aria-describedby */
+.field__hint,
+.field__error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.field__hint {
+  color: var(--color-text-muted);
+}
+.field__error,
+.form-error {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.field input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+.form-error {
+  margin: 0;
+}
+.notice {
+  margin: 0;
+}
+.code-input {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--font-size-lg);
+  letter-spacing: 0.35em;
+  max-width: 12rem;
+}
+.check {
+  display: grid;
+  grid-template-columns: var(--tap) 1fr;
+  align-items: center;
+}
+.check input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0 auto;
+  accent-color: var(--color-accent);
+}
+.check label {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+.check .field__error {
+  grid-column: 2;
+}
+.button--quiet {
+  background: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.link-button {
+  min-height: var(--tap);
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--color-link);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+/* The honeypot: off-screen, still in the layout tree for a bot that fills every field. Never a style attribute. */
+.hp {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.session-list > li {
+  max-width: none;
+}
+.session-list p {
+  margin: 0 0 var(--space-2);
+}
+.badge--current {
+  color: var(--color-accent);
+}
+.reauth:focus {
+  outline: 3px solid var(--color-focus);
+}
+/* The ALTCHA widget (altcha/altcha.css, a lazy chunk) on our light and dark tokens. */
+altcha-widget {
+  --altcha-color-base: var(--color-surface);
+  --altcha-color-base-content: var(--color-text);
+  --altcha-color-primary: var(--color-accent);
+  --altcha-color-primary-content: var(--color-accent-text);
+  --altcha-color-error: var(--color-danger);
+  --altcha-color-success: var(--color-accent);
+  --altcha-border-color: var(--color-border-strong);
+  --altcha-checkbox-size: 1.5rem;
+  --altcha-max-width: 24rem;
 }
 
 .pager {

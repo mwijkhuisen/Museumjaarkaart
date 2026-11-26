@@ -42,6 +42,9 @@ export function Layout({ route, children }: { route: Route; children: ReactNode 
             <li>
               <Link href={page({ page: 'map', locale, query: '' })}>{m.page_map()}</Link>
             </li>
+            <li>
+              <Link href={page({ page: 'shell', locale, app: 'account' })}>{m.nav_account()}</Link>
+            </li>
           </ul>
         </nav>
         <LanguageLink route={route} />

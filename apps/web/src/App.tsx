@@ -6,6 +6,7 @@ import { type ClientConfig, ConfigContext, useConfig } from './lib/config.ts';
 import { RouterProvider, useRouter } from './lib/router.tsx';
 import { apiPathsOf, type Route } from './lib/routes.ts';
 import { type ErrorKind, titleOf } from './lib/seo/head.tsx';
+import { Account } from './routes/Account.tsx';
 import { ErrorPage } from './routes/ErrorPage.tsx';
 import { Home } from './routes/Home.tsx';
 import { Legal } from './routes/Legal.tsx';
@@ -15,6 +16,7 @@ import { Museums } from './routes/Museums.tsx';
 import { Province } from './routes/Province.tsx';
 import { Search } from './routes/Search.tsx';
 import { Shell } from './routes/Shell.tsx';
+import { SignIn } from './routes/SignIn.tsx';
 
 // The app, the same tree on the server (entry-server.tsx) and in the browser (entry-client.tsx).
 
@@ -71,6 +73,8 @@ function PageFor({ route }: { route: Route }) {
     case 'legal':
       return <Legal route={route} />;
     case 'shell':
+      if (route.app === 'signin') return <SignIn route={route} />;
+      if (route.app === 'account') return <Account route={route} />;
       return <Shell route={route} />;
     case 'not_found':
       return <ErrorPage kind="not_found" />;

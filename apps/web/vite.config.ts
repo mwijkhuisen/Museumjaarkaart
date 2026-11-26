@@ -1,9 +1,11 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// One build, two outputs (A§15.1, ADR-0009): the client bundle and the SSR bundle the `ssr` role
-// imports. There is no index.html: the SSR bundle writes the whole document and finds the client's
-// hashed files through the manifest. `vite build` builds both environments (`builder`).
+// One build, three outputs (A§15.1, ADR-0009): the public client bundle, the SSR bundle the `ssr`
+// role imports, and the admin entry (`admin.html`, a plain client render on admin.<domain>). There is
+// no index.html: for the public site the SSR bundle writes the whole document and finds the client's
+// hashed files through the manifest (key `src/entry-client.tsx`). `vite build` builds both
+// environments (`builder`).
 export default defineConfig({
   root: import.meta.dirname,
   // public/ holds the self-hosted map glyphs and sprites (/map/...); the client build copies it.
@@ -17,7 +19,7 @@ export default defineConfig({
         manifest: true,
         // Strict CSP (A§15.6): every asset is a file, never a data: URL.
         assetsInlineLimit: 0,
-        rolldownOptions: { input: 'src/entry-client.tsx' },
+        rolldownOptions: { input: ['src/entry-client.tsx', 'admin.html'] },
       },
     },
     ssr: {

@@ -54,6 +54,12 @@ const ALLOWED_URLS = [
   'https://media.${',
   // The base of a `new URL(attribute, base)` that only reads the protocol of an attribute value.
   'https://maplibre.invalid/',
+  // ALTCHA's widget (`altcha/external`, a lazy chunk; inspected in P2a, all inert). The href of its
+  // logo link and the default English footer string (an <a href>, a navigation, not a request): we
+  // pass `hideLogo` and `hideFooter` and override the English strings with our own (footer empty).
+  'https://altcha.org',
+  // Svelte's error texts ("https://svelte.dev/e/<code>"): console messages, never fetched.
+  'https://svelte.dev/e/',
 ];
 
 const item = {
@@ -124,6 +130,8 @@ const KINDS: Kind[] = [
   ['map', '/kaart?province=NL-NH', '/en/map'],
   ['legal', '/privacy', '/en/privacy'],
   ['shell', '/paspoort', '/en/passport'],
+  ['signin', '/inloggen', '/en/sign-in'],
+  ['account', '/account', '/en/account'],
   ['404', '/nergens/naartoe', '/en/nowhere/at/all'],
   ['400', '/musea', '/en/museums', 400],
   ['5xx', '/musea', '/en/museums', 503],
@@ -143,10 +151,13 @@ type ManifestChunk = {
   css?: string[];
   assets?: string[];
   isDynamicEntry?: boolean;
+  isEntry?: boolean;
 };
 let manifest: Record<string, ManifestChunk> = {};
 const ENTRY = 'src/entry-client.tsx';
 const MAP_CHUNK = 'src/lib/map/createMap.ts';
+const ALTCHA_CHUNK = 'src/components/auth/altcha-load.ts';
+let adminHtml = '';
 
 beforeAll(async () => {
   tmp = mkdtempSync(join(tmpdir(), 'mjk-build-'));
@@ -157,6 +168,7 @@ beforeAll(async () => {
     htmls.push({ name: p.name, status: r.status, html: r.body });
   }
   manifest = JSON.parse(readFileSync(join(tmp, 'client', '.vite', 'manifest.json'), 'utf8')) as typeof manifest;
+  adminHtml = readFileSync(join(tmp, 'client', 'admin.html'), 'utf8');
   const dir = join(tmp, 'client', 'assets');
   for (const file of readdirSync(dir)) assets.push({ file, text: readFileSync(join(dir, file), 'utf8') });
 }, 300_000);
@@ -214,6 +226,43 @@ describe('the rendered HTML of every page kind', () => {
     console.log(
       `build scan: ${htmls.length} pages (${PAGES.length / 2} kinds x nl/en), link-outs (<a href>, navigations): ${JSON.stringify([...linkOuts])}, findings 0`,
     );
+  });
+});
+
+describe('the admin entry (dist/client/admin.html, A§15.1)', () => {
+  it('is an empty #admin root and one module script, with no inline script, style, handler, data: or other host', () => {
+    expect(adminHtml).toMatch(/<body>\s*<div id="admin"><\/div>\s*<\/body>/);
+    const tags = tagsOf(adminHtml);
+    const scripts = tags.filter((t) => t.tag === 'script');
+    expect(scripts).toHaveLength(1);
+    for (const { tag, attrs } of tags) {
+      if (tag === 'script') expect(attrs).toMatch(/type="module"[^>]*\bsrc="\/assets\/admin-[\w-]+\.js"/);
+      expect(attrs, `<${tag}>`).not.toMatch(/(^|\s)style=/i);
+      expect(attrs, `<${tag}>`).not.toMatch(/\son[a-z]+=/i);
+      for (const [attr, v] of attrsOf(attrs)) {
+        if (/^(src|href|srcset|action|poster|data)$/i.test(attr)) expect(v, `<${tag} ${attr}>`).not.toMatch(ABSOLUTE);
+      }
+    }
+    expect(adminHtml).not.toContain('<style');
+    expect(adminHtml).not.toMatch(/javascript:/i);
+    expect(adminHtml).not.toMatch(/\b(?:data|blob):/i);
+    expect(adminHtml).not.toMatch(/url\(/i);
+    expect(adminHtml).toContain('<html lang="nl">');
+  });
+
+  it('leaves the public entry key in the manifest for the ssr bundle', () => {
+    expect(manifest[ENTRY]?.isEntry).toBe(true);
+    expect(manifest['admin.html']?.isEntry).toBe(true);
+  });
+});
+
+describe('the app-shell pages', () => {
+  it('server-render the heading and the loading state only', () => {
+    for (const name of ['signin nl', 'signin en', 'account nl', 'account en']) {
+      const html = htmls.find((h) => h.name === name)?.html ?? '';
+      expect(html, name).toContain('<h1>');
+      expect(html, name).not.toMatch(/<form|<input|altcha/i);
+    }
   });
 });
 
@@ -300,6 +349,47 @@ describe('the map marker tokens in the built stylesheet', () => {
       expect(value, name).toBeDefined();
       expect(() => parseHex((value ?? '').trim()), `${name}: ${value}`).not.toThrow();
     }
+  });
+});
+
+describe('the lazy ALTCHA chunk (P2a)', () => {
+  const staticKeys = (key: string, seen = new Set<string>()): Set<string> => {
+    if (seen.has(key)) return seen;
+    seen.add(key);
+    for (const dep of manifest[key]?.imports ?? []) staticKeys(dep, seen);
+    return seen;
+  };
+  const text = (key: string) => readFileSync(join(tmp, 'client', manifest[key]?.file ?? 'missing'), 'utf8');
+
+  it('keeps the widget out of everything either entry imports, and puts it, its stylesheet and its SHA-256 worker in one lazy chunk', () => {
+    for (const entry of [ENTRY, 'admin.html']) {
+      expect(manifest[entry]?.imports ?? [], `${entry} has no static import of the widget chunk`).not.toContain(
+        ALTCHA_CHUNK,
+      );
+      for (const key of staticKeys(entry)) {
+        // `altcha-checkbox` is a class name inside the widget's own templates, not in our code.
+        expect(text(key), `${entry}: ${manifest[key]?.file}`).not.toContain('altcha-checkbox');
+      }
+    }
+    const lazy = manifest[ALTCHA_CHUNK];
+    expect(lazy?.isDynamicEntry).toBe(true);
+    expect(text(ALTCHA_CHUNK)).toContain('altcha-checkbox');
+    expect(lazy?.css?.length, "the widget's stylesheet is part of the lazy chunk").toBeGreaterThan(0);
+    expect(
+      lazy?.assets?.filter((a) => /\/sha-[\w-]+\.js$/.test(a)),
+      'one SHA-256 worker file',
+    ).toHaveLength(1);
+    // Only SHA-256 (A§9): no argon2id or scrypt worker (WebAssembly, which the CSP forbids), no blob: worker.
+    const files = readdirSync(join(tmp, 'client', 'assets'));
+    expect(files.filter((f) => /argon2|scrypt|pbkdf2/i.test(f))).toEqual([]);
+    expect(text(ALTCHA_CHUNK)).not.toMatch(/WebAssembly|blob:/);
+    expect(text(ALTCHA_CHUNK)).toMatch(/new Worker\(`\/assets\/sha-[\w-]+\.js`/);
+    for (const f of files.filter((f) => /^sha-.*\.js$/.test(f))) {
+      expect(readFileSync(join(tmp, 'client', 'assets', f), 'utf8'), f).not.toMatch(/WebAssembly|blob:/);
+    }
+    console.log(
+      `build scan: ALTCHA lazy chunk ${lazy?.file} (${(text(ALTCHA_CHUNK).length / 1024).toFixed(1)} kB), css ${lazy?.css?.join(', ')}, worker ${lazy?.assets?.join(', ')}; no static import from either entry`,
+    );
   });
 });
 

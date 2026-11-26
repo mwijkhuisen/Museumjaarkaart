@@ -114,6 +114,8 @@ const PATHS = [
   '/contact',
   '/hoe-wij-reviews-controleren',
   '/paspoort',
+  '/inloggen',
+  '/account',
   '/bestaat-niet',
 ];
 const EN_PATHS = [
@@ -129,6 +131,8 @@ const EN_PATHS = [
   '/en/contact',
   '/en/how-we-check-reviews',
   '/en/passport',
+  '/en/sign-in',
+  '/en/account',
   '/en/does-not-exist',
 ];
 
