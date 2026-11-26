@@ -64,15 +64,15 @@ mjk-update          # normal run again: "up to date" or the next release
 
 `mjk-update --server <ref> --web <ref> --backup <ref>` deploys exactly those images (drills, a manual pin). A ref that is left out keeps its image from `current.env`; an explicit run skips the revision-label wait and the `failed.env` refusal. A ref needs a registry host, for example `ghcr.io/mwijkhuisen/mjk-server:sha-<git>`.
 
-## 4. A deploy without a 502 [U box]
+## 4. The gap during a deploy (measured)
 
-Caddy's `lb_try_duration` is 5 s, so a restart during a deploy should be a pause, not a 502; that is configured and asserted, but only a real deploy proves it. During the next release, from a second terminal on the VM:
+Caddy's `lb_try_duration` is 5 s, so a restart of `api` or `ssr` behind a running caddy is a pause, not a 502. But every release builds a new web image (its revision label alone changes the digest), so a deploy also recreates caddy, and while it is replaced the published port is gone. Measured on the VM (2026-11-26) with the loop below across two deploys (a pin back to the previous release, then `:main` again; all three images new each time): per deploy one `502`, then ten `000` (refused connections), then `200` again, roughly 5 to 10 s without a site. Through the tunnel a visitor sees Cloudflare's error page for that time. Accepted for prelaunch; decided before P5a (A§17.2). Measure again with timestamps at a later deploy, from a second terminal on the VM:
 
 ```bash
-while :; do curl -s -o /dev/null -w '%{http_code} ' -H "Host: <domain>" http://127.0.0.1:8280/musea; sleep 0.5; done
+while :; do printf '%s %s\n' "$(date +%T.%N | cut -c1-12)" "$(curl -s -o /dev/null -m 10 -w '%{http_code}' -H "Host: <domain>" http://127.0.0.1:8280/musea)"; sleep 0.5; done
 ```
 
-Run it across a deploy (`systemctl start mjk-update.service`). Write the result into A§17.2: any `502` or `000` in the run, and for how long. A pause (slow answers) is fine.
+Run it across a deploy (`systemctl start mjk-update.service`) and write the first and last non-`200` times into A§17.2. A pause (slow answers) is fine.
 
 ## 5. After a failed deploy
 

@@ -40,6 +40,8 @@ aws s3 cp --recursive --endpoint-url "https://<account id>.eu.r2.cloudflarestora
 # attach both to the password manager entry of the restic password, then: rm -r ./mjk-restic-config ./mjk-restic-keys
 ```
 
+Without the `aws` CLI or rclone on the workstation, download the two objects in the dashboard instead (R2 → `mjk-backup` → Objects: `config` and the one object under `keys/`), as on 2026-11-26.
+
 With the password, these files are enough to read the data objects again even if `config` or `keys/` were ever lost.
 
 Changing or removing a lock rule needs an Admin token. That token lives in your password manager only, never on the VM and never in a file there.
@@ -79,7 +81,7 @@ Run it a second time (two consecutive backups) before the lock tests in §5.
 
 ## 4. The workstation
 
-Install restic 0.19.1 on your workstation (the same version as the image; a release binary from github.com/restic/restic, checked against the release's `SHA256SUMS`). Keep the workstation key as an AWS credentials file and the restic password as a file, both mode 0600, outside any repository:
+Install restic 0.19.1 on your workstation (the same version as the image; a release binary from github.com/restic/restic, checked against the release's `SHA256SUMS`). Or copy the static binary out of the deployed backup image, which is the exact build the VM runs (as on 2026-11-26): `id=$(docker create <MJK_BACKUP_IMAGE from current.env>); docker cp "$id:/usr/local/bin/restic" ~/.local/bin/restic; docker rm "$id"`. Keep the workstation key as an AWS credentials file and the restic password as a file, both mode 0600, outside any repository:
 
 ```bash
 mkdir -p ~/.config/mjk && chmod 700 ~/.config/mjk
@@ -113,7 +115,7 @@ r2() { local m=$1 bucket=$2 key=$3; shift 3
     curl -sS -K - -o /dev/null -w '%{http_code}\n' -X "$m" -H 'x-amz-content-sha256: UNSIGNED-PAYLOAD' "$@" "$EP/$bucket/$key"; }
 ```
 
-If R2 refuses the signature (400/403 on the very first PUT in step a), curl's SigV4 is not enough here [U box]: use `rclone` or `aws s3api` instead, with the same key file, and write the working form back into this runbook.
+curl's SigV4 works for R2 (proven on the VM, 2026-11-26: the first PUT in step a answered 200). If R2 ever refuses the signature (400/403 on that PUT), use `rclone` or `aws s3api` instead, with the same key file, and write the working form back into this runbook.
 
 a. **The lock holds under `data/` and for `config`** (a canary object per prefix; the canary stays 28 days and is harmless: restic reads only the objects it knows by hash, and a canary with a non-hash name is not one):
 
@@ -138,6 +140,8 @@ mjkc --profile backup run --rm -T --entrypoint /usr/local/bin/restic $RO backup 
 mjkc --profile backup run --rm -T --entrypoint /usr/local/bin/restic $RO backup --no-cache forget <id of the older snapshot>   # expect: an error (access denied / locked)
 mjkc --profile backup run --rm -T --entrypoint /usr/local/bin/restic $RO backup --no-cache snapshots                          # both snapshots are still listed
 ```
+
+The `forget` prints `Remove(<snapshot/…>) returned error, retrying after …: client.RemoveObject: The object is locked by the bucket policy` and keeps retrying for up to 15 minutes (restic 0.17 and later retry a failed request that long). After the first few such lines the answer is clear: `Ctrl-C` is fine, restic then removes its own lock (proven on the VM, 2026-11-26; `list locks` in step c was empty afterwards). While it runs it holds an exclusive lock, so do not start step e at the same time. Run the last `snapshots` on its own line, so a `Ctrl-C` does not skip it.
 
 The `index/` rule is checked by the prune in §6, which must write and delete there; prune never touches `keys/` or `config`.
 
@@ -166,7 +170,7 @@ restic forget --keep-daily 28 --prune --max-unused 0
 restic check
 ```
 
-On a young repository nothing is older than 28 days, so this run mostly proves that restic can take and release its lock and rewrite `index/` under the lock. Repeat it after a month. Write the result into A§17.6 and ADR-0011, and:
+On a young repository nothing is older than 28 days, so `forget` keeps every snapshot and no prune runs at all (2026-11-26: both snapshots kept, `restic check` found no errors). The run proves only that the workstation key opens the repository and takes and releases its lock; the prune under the `index/` rule is first tested once snapshots are older than 28 days (after 2026-12-24). Repeat it after a month. Write the result into A§17.6 and ADR-0011, and:
 - if `forget --prune` fails writing or replacing a recent `index/` file: take `index/` out of the lock rule (restic can rebuild its index) and record that in A§17.6 and ADR-0011's Revisit line (owner decision Q8);
 - if it fails deleting a `data/` pack younger than 28 days: raise `--max-unused` (for example `5%`) so recent packs are not repacked, and record the cost (the bytes kept) in A§17.6;
 - anything else: stop, keep the output, and ask before touching the lock rule.

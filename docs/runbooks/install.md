@@ -28,11 +28,14 @@ cd /root && git clone https://github.com/mwijkhuisen/mjk.git mjk-checkout
 cd mjk-checkout                                      # on `main`: P1e and P1d are merged
 ```
 
-## 3. Before: list the other two stacks (criterion 6)
+## 3. Before: list the other stacks (criterion 6)
+
+The VM also runs Trilium (compose project `notes`, `/etc/notes`, `table inet notes`; found on 2026-11-26), and invariant 2 covers it like `rws` and `f1`. `docker compose ls` lists every project.
 
 ```bash
 docker compose -p rws ps > /root/rws-before.txt
 docker compose -p f1 ps > /root/f1-before.txt
+docker compose -p notes ps > /root/notes-before.txt
 docker network ls --format '{{.Name}} {{.Driver}}' | sort > /root/networks-before.txt
 nft list tables > /root/nft-tables-before.txt
 ```
@@ -278,7 +281,7 @@ probe mjk-probe-backup nslookup example.org 127.0.0.11; docker rm -f mjk-probe-b
 
 If `caddy` or `ssr` resolves an outside name, the channel is open again: stop and fix it through a PR (A§16.2).
 
-**[U box] cloudflared's log (P1e review S14, invariant 8, A§17.7).** `--loglevel error` drops the info and warning lines, but cloudflared's origin errors are error lines and may carry the request URL (`dest=`), query string included. Check while nobody uses the site:
+**cloudflared's log (P1e review S14, invariant 8, A§17.7; proven on the VM, 2026-11-26).** `--loglevel error` drops the info and warning lines, but cloudflared's origin errors are error lines and might carry the request URL (`dest=`), query string included. On the VM the marker below came back 502 and appeared 0 times in the log (a refused origin). Check it again after a cloudflared upgrade, while nobody uses the site:
 
 ```bash
 mjkc stop caddy
@@ -289,15 +292,17 @@ mjkc logs --since 5m cloudflared | grep -c 'e2e-marker' || true       # 0 is the
 
 If the marker appears, record that in A§17.7 (the line, without the marker's value) and decide in a PR: accept it (the Docker log rotates, and only the owner reads it) or move cloudflared's log to `--logfile` on a tmpfs.
 
-**[U box] `systemctl reload nftables` (P1e review S3).** Debian's reload re-applies `/etc/nftables.conf`, which empties the ruleset; `ReloadPropagatedFrom=nftables.service` in `mjk-firewall.service` must load `table inet mjk` again right after:
+**`nftables.service` stays masked (P1e review S3; checked on the VM, 2026-11-26).** Debian's start and reload apply `/etc/nftables.conf`, which empties the whole ruleset: every table on the host, Docker's, Waterheight's, F1's and Trilium's included. Never start or reload it on this shared host, not even to test `ReloadPropagatedFrom=nftables.service` in `mjk-firewall.service`. On the VM it is masked and inactive. Check it, read-only:
 
 ```bash
-systemctl reload nftables; sleep 2
-nft list table inet mjk >/dev/null && echo 'table inet mjk is back'; nft list set inet mjk resolvers4 | grep -c elements
-journalctl -u mjk-firewall.service -n 5 --no-pager
+systemctl is-enabled nftables; systemctl is-active nftables     # masked, inactive
+grep -n -E '^(flush|include|table)' /etc/nftables.conf | head -3
+nft list tables
 ```
 
-Write the answer into A§17.4. If the table is missing, `mjk-tick` reloads it within 10 minutes, and the unit's ordering is the thing to fix.
+If it is ever enabled, mask it again (`systemctl mask nftables`). `mjk-tick` reloads `table inet mjk` within 10 minutes if anything empties it.
+
+The host-input drop `containers never open a connection to the host` moves by a few packets now and then at rest (390 to 398 over an evening on 2026-11-26), not on a container start; the source is not identified yet (A§17.4). A probe judges only the counter that its own packets should move.
 
 ## 9. A day of `docker stats` (criterion 11)
 
@@ -319,12 +324,13 @@ Include a sync run and a backup run inside the day, and one `sync-museums` run (
 ```bash
 docker compose -p rws ps > /root/rws-after.txt; diff /root/rws-before.txt /root/rws-after.txt && echo 'rws unchanged'
 docker compose -p f1 ps > /root/f1-after.txt;   diff /root/f1-before.txt  /root/f1-after.txt  && echo 'f1 unchanged'
+docker compose -p notes ps > /root/notes-after.txt; diff /root/notes-before.txt /root/notes-after.txt && echo 'notes unchanged'
 docker network ls --format '{{.Name}} {{.Driver}}' | sort > /root/networks-after.txt
 diff /root/networks-before.txt /root/networks-after.txt          # only the eight mjk-* networks are new
-nft list tables                                                  # table inet mjk is added; rws and f1 tables stay
+diff /root/nft-tables-before.txt <(nft list tables)              # only table inet mjk is added (a table its own stack reloaded moves to the end)
 ```
 
-Container uptimes in `docker compose ps` can differ if a stack restarted for its own reasons; compare the project, service and image columns. Then open the Waterheight and F1 sites in a browser (criterion 14, [owner]) and note in the PR that both work, after the install and again after the first `mjk-update`.
+Container uptimes in `docker compose ps` can differ if a stack restarted for its own reasons; compare the project, service and image columns. Images can differ too when a stack deployed itself meanwhile: its own update journal shows it (on 2026-11-26 `f1-update` deployed new images at 18:30Z, and `rws-update` some hours earlier). Then open the Waterheight, F1 and Trilium sites in a browser (criterion 14, [owner]) and note in the PR that all three work, after the install and again after the first `mjk-update`.
 
 ## 11. Updating the host side later
 
