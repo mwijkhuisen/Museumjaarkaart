@@ -26,6 +26,7 @@ const ENV = {
   MJK_BRAND_NAME: BRAND,
   MJK_DOMAIN: 'example.test',
   MJK_CONTACT_EMAIL: 'help@example.test',
+  MJK_MAIL_CAP: '300',
 };
 const EMAIL = 'alice.secret@example.test';
 const CODE = '482915';
@@ -99,7 +100,9 @@ const newInvite = async () =>
   ).rows[0]?.id as string;
 
 /** Runs the real worker loop until the queue holds no queued or running job. */
-async function drain(over: { env?: Record<string, string>; mailer?: ReturnType<typeof memoryMailer> } = {}) {
+async function drain(
+  over: { env?: Record<string, string | undefined>; mailer?: ReturnType<typeof memoryMailer> } = {},
+) {
   const mail = over.mailer ?? memoryMailer();
   const log = memoryLogger('worker');
   const ac = new AbortController();
@@ -298,13 +301,9 @@ it('a failed send is a fixed code; a code mail is not retried', async () => {
 });
 
 it('logs mail_cap_near from 80 % of MJK_MAIL_CAP, with only the count and the cap', async () => {
-  for (let i = 0; i < 5; i++) {
-    await apiDb
-      .transaction()
-      .execute((trx) =>
-        enqueueMailNotice(trx, keys, { userId: `019a0000-0000-7000-8000-00000000000${i}`, to: EMAIL, locale: 'en' }),
-      );
-  }
+  // Sign-in codes, which may use the whole cap (every other mail stops at 70 %).
+  await addUser(EMAIL);
+  for (let i = 0; i < 5; i++) await requestCode('signin');
   const { sent, lines } = await drain({ env: { MJK_MAIL_CAP: '5' } });
   expect(sent).toHaveLength(5);
   const near = lines.filter((l) => l.msg === 'mail_cap_near');
@@ -316,17 +315,80 @@ it('logs mail_cap_near from 80 % of MJK_MAIL_CAP, with only the count and the ca
   expect(Object.keys(near[0] ?? {}).sort()).toEqual(['cap', 'count', 'level', 'msg', 'role', 'time']);
 });
 
-it('ignores an unset or invalid MJK_MAIL_CAP', async () => {
+it('an unset or invalid MJK_MAIL_CAP fails every mail job mail_unconfigured, and nothing is sent', async () => {
   for (const cap of [undefined, 'abc', '0', '-5']) {
-    await admin.query('TRUNCATE job, rate_limit');
+    await admin.query('TRUNCATE job, rate_limit, email_code');
+    await admin.query('DELETE FROM app_user');
+    await addUser(EMAIL);
+    await requestCode('signin');
     await apiDb
       .transaction()
       .execute((trx) =>
         enqueueMailNotice(trx, keys, { userId: '019a0000-0000-7000-8000-000000000001', to: EMAIL, locale: 'en' }),
       );
-    const { lines } = await drain(cap === undefined ? {} : { env: { MJK_MAIL_CAP: cap } });
-    expect(lines.map((l) => l.msg)).not.toContain('mail_cap_near');
+    const { sent } = await drain({ env: { MJK_MAIL_CAP: cap } });
+    expect(sent, String(cap)).toEqual([]);
+    expect((await jobs()).map((j) => [j.state, j.last_error])).toEqual([
+      ['failed', 'mail_unconfigured'],
+      ['failed', 'mail_unconfigured'],
+    ]);
   }
+});
+
+/** This month's `mail_sent` count, set directly. */
+const setSent = (count: number) =>
+  admin.query(
+    `INSERT INTO rate_limit (bucket, key, window_start, window_end, count)
+     VALUES ('mail_sent', 'site',
+       date_trunc('month', now() AT TIME ZONE 'Europe/Amsterdam') AT TIME ZONE 'Europe/Amsterdam',
+       (date_trunc('month', now() AT TIME ZONE 'Europe/Amsterdam') + interval '1 month') AT TIME ZONE 'Europe/Amsterdam', $1)
+     ON CONFLICT (bucket, key, window_start) DO UPDATE SET count = $1`,
+    [count],
+  );
+
+it('at 70 % of the cap only sign-in codes still go out; the rest are dropped with mail_cap_reached', async () => {
+  await addUser(EMAIL);
+  await setSent(7);
+  await requestCode('signup', { email: 'new.member@example.test', code: '111111' });
+  await requestCode('email_change', { email: 'other.address@example.test', code: '222222' });
+  const inviteId = await newInvite();
+  await apiDb
+    .transaction()
+    .execute((trx) =>
+      enqueueMailInvite(trx, keys, { inviteId, code: INVITE_CODE, to: 'x@example.test', locale: 'nl' }),
+    );
+  await apiDb
+    .transaction()
+    .execute((trx) =>
+      enqueueMailNotice(trx, keys, { userId: '019a0000-0000-7000-8000-000000000001', to: EMAIL, locale: 'en' }),
+    );
+  await requestCode('signin');
+  const { sent, lines } = await drain({ env: { MJK_MAIL_CAP: '10' } });
+  expect(sent.map((m) => m.to)).toEqual([EMAIL]);
+  expect(sent[0]?.text).toContain(CODE);
+  // Every dropped job is gone with its sealed values, and so are the dropped codes' rows.
+  expect(await jobs()).toEqual([]);
+  expect(await codeRows()).toHaveLength(1);
+  const reached = lines.filter((l) => l.msg === 'mail_cap_reached');
+  expect(reached.map((l) => [l.kind, l.purpose])).toEqual([
+    ['mail_code', 'signup'],
+    ['mail_code', 'email_change'],
+    ['mail_invite', undefined],
+    ['mail_notice', undefined],
+  ]);
+  for (const l of reached)
+    expect(Object.keys(l).filter((k) => !['kind', 'purpose', 'level', 'msg', 'role', 'time'].includes(k))).toEqual([]);
+});
+
+it('at the cap a sign-in code is dropped too', async () => {
+  await addUser(EMAIL);
+  await setSent(10);
+  await requestCode('signin');
+  const { sent, lines } = await drain({ env: { MJK_MAIL_CAP: '10' } });
+  expect(sent).toEqual([]);
+  expect(await jobs()).toEqual([]);
+  expect(await codeRows()).toEqual([]);
+  expect(lines.filter((l) => l.msg === 'mail_cap_reached').map((l) => l.purpose)).toEqual(['signin']);
 });
 
 it('no log line holds the address, the code or the subject', async () => {
@@ -373,6 +435,7 @@ it('the health ping fails at 80 % of the cap and passes below it', async () => {
   await pingWorkerHealth(workerDb, pinger, logger, { MJK_MAIL_CAP: '5' });
   await admin.query(`UPDATE rate_limit SET count = 4`);
   await pingWorkerHealth(workerDb, pinger, logger, { MJK_MAIL_CAP: '5' });
+  await admin.query(`UPDATE rate_limit SET count = 0`);
   await pingWorkerHealth(workerDb, pinger, logger, {});
-  expect(pings).toEqual(['success', 'success', 'fail', 'success']);
+  expect(pings).toEqual(['success', 'success', 'fail', 'fail']);
 });

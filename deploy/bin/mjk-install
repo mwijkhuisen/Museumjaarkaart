@@ -20,7 +20,8 @@
 #   4. Checks the thirteen secrets of P1e, P1d and P2a and mjk.env, by name only: it never writes a secret and never reads
 #      one (only whether the file exists, is root:<gid> 0440 and is not empty). r2_media_rw is the worker's
 #      from P1d; from P2a, app_keys is the api's, the worker's and admin's, lettermint_api_token the worker's.
-#      MJK_MAIL_FROM and MJK_MAIL_CAP are not required: the worker treats a missing mail setting as unconfigured.
+#      It does not check MJK_MAIL_FROM and MJK_MAIL_CAP: mail needs both, and without either the worker fails
+#      every mail job mail_unconfigured (its other jobs run) and its health ping fails.
 #   5. Enables mjk-firewall.service (and starts it), and, only when every secret and mjk.env are in
 #      place, mjk-update.timer, mjk-tick.timer and mjk-backup.timer. Until then it lists what is missing
 #      and leaves the timers off.

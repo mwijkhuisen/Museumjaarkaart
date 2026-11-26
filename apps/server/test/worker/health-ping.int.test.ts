@@ -90,11 +90,14 @@ describe('lastSyncIsFresh', () => {
   });
 });
 
+/** Mail is configured: MJK_MAIL_CAP is required for mail, and the ping fails without it. */
+const CAP = { MJK_MAIL_CAP: '300' };
+
 describe('pingWorkerHealth', () => {
   it('pings success while the sync is fresh', async () => {
     await run('applied', '2 days');
     const { logger, lines } = memoryLogger('worker');
-    expect(await pingWorkerHealth(db, pinger(), logger)).toBe(true);
+    expect(await pingWorkerHealth(db, pinger(), logger, CAP)).toBe(true);
     expect(hits).toEqual(['mjk-worker']);
     expect(lines()).toEqual([]);
   });
@@ -102,7 +105,7 @@ describe('pingWorkerHealth', () => {
   it('pings /fail when the sync is stale, and logs a fixed code', async () => {
     await run('applied', '9 days');
     const { logger, lines } = memoryLogger('worker');
-    expect(await pingWorkerHealth(db, pinger(), logger)).toBe(true);
+    expect(await pingWorkerHealth(db, pinger(), logger, CAP)).toBe(true);
     expect(hits).toEqual(['mjk-worker/fail']);
     expect(lines().map((l) => l.msg)).toEqual(['sync_stale']);
   });
@@ -112,7 +115,7 @@ describe('pingWorkerHealth', () => {
       createPool('mjk_worker', { DATABASE_URL: 'postgres://x:y@127.0.0.1:1/z' }, { max: 1 }) as pg.Pool,
     );
     const { logger, lines } = memoryLogger('worker');
-    await pingWorkerHealth(broken, pinger(), logger);
+    await pingWorkerHealth(broken, pinger(), logger, CAP);
     await broken.destroy();
     expect(hits).toEqual(['mjk-worker/fail']);
     expect(lines().map((l) => l.msg)).toEqual(['health_check_failed', 'sync_stale']);
@@ -122,14 +125,14 @@ describe('pingWorkerHealth', () => {
   it('survives a hc-ping outage: the answer is false and nothing throws', async () => {
     await run('applied', '1 day');
     server.use(http.post('https://hc-ping.com/:key/:slug', () => HttpResponse.error()));
-    expect(await pingWorkerHealth(db, pinger(), memoryLogger().logger)).toBe(false);
+    expect(await pingWorkerHealth(db, pinger(), memoryLogger().logger, CAP)).toBe(false);
   });
 });
 
 describe('startHealthPing', () => {
   it('pings at once and then on the interval, and stops', async () => {
     await run('applied', '1 day');
-    const timer = startHealthPing({ db, pinger: pinger(), logger: memoryLogger().logger, everyMs: 40 });
+    const timer = startHealthPing({ db, pinger: pinger(), logger: memoryLogger().logger, env: CAP, everyMs: 40 });
     await delay(300);
     timer.stop();
     const n = hits.length;

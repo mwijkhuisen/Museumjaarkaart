@@ -8,7 +8,8 @@ import { mailCap, mailSentThisMonth, nearCap } from '../mail/budget.ts';
 // while the newest applied museum sync (seed or weekly) finished less than 8 days ago, so one
 // missed Tuesday run turns it red within a day of the next ping, and `/fail` otherwise. The
 // check is made on the database's clock. It also needs this month's mails under 80 % of `MJK_MAIL_CAP`
-// (Lettermint's hard cap, A§17.7); with the cap unset or invalid that part is off. A database that cannot answer sends `/fail` too.
+// (Lettermint's hard cap, A§17.7); with the cap unset or invalid mail is unconfigured, so the ping fails
+// (`mail_unconfigured`). A database that cannot answer sends `/fail` too.
 
 export const WORKER_CHECK_SLUG = 'mjk-worker';
 export const PING_EVERY_MS = 3_600_000;
@@ -33,16 +34,17 @@ export async function pingWorkerHealth(
 ): Promise<boolean> {
   let fresh = false;
   let mailOk = false;
+  const cap = mailCap(env);
   try {
     fresh = await lastSyncIsFresh(db);
-    const cap = mailCap(env);
-    mailOk = cap === undefined || !nearCap(await mailSentThisMonth(db), cap);
+    if (cap !== undefined) mailOk = !nearCap(await mailSentThisMonth(db), cap);
   } catch {
     // No message: it can quote the connection.
     logger.error({}, 'health_check_failed');
   }
   if (!fresh) logger.warn({}, 'sync_stale');
-  if (fresh && !mailOk) logger.warn({}, 'mail_cap_near');
+  if (cap === undefined) logger.warn({}, 'mail_unconfigured');
+  else if (fresh && !mailOk) logger.warn({}, 'mail_cap_near');
   return pinger.ping(WORKER_CHECK_SLUG, fresh && mailOk ? 'success' : 'fail');
 }
 

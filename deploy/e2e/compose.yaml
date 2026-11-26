@@ -149,6 +149,7 @@ services:
       MJK_BRAND_NAME: Testmerk
       MJK_DOMAIN: mjk.test
       MJK_MAIL_FROM: noreply@mjk.test
+      MJK_MAIL_CAP: "300"
       MJK_CONTACT_EMAIL: info@mjk.test
       NODE_EXTRA_CA_CERTS: /e2e-ca.pem
     volumes:

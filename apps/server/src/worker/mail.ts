@@ -4,7 +4,7 @@ import { open } from '../auth/crypto.ts';
 import type { AppKeys } from '../auth/keys.ts';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
-import { countMailSent, mailCap, nearCap } from '../mail/budget.ts';
+import { countMailSent, mailCap, mailSentThisMonth, nearCap, sendLimit } from '../mail/budget.ts';
 import { MailError, type Mailer } from '../mail/mailer.ts';
 import {
   aad,
@@ -20,8 +20,8 @@ import { JobError, type JobHandler } from './types.ts';
 
 // The mail jobs (A§9, A§17.7, ADR-0012). A job opens its sealed values, renders a fixed text, sends it and
 // resolves `'consumed'`, so the worker deletes the row: no sealed value outlives the send. A mail that must
-// not go out (the drop rules below) is consumed too. Nothing here logs an address, a code, a subject or a
-// text; logs hold fixed codes, ids and counts.
+// not go out (the drop rules below, and the monthly cap with its reserve for sign-in codes) is consumed too.
+// Nothing here logs an address, a code, a subject or a text; logs hold fixed codes, ids and counts.
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type MailDeps = { db: Db; keys: AppKeys; mailer: Mailer; logger: Logger; env: Env };
@@ -46,6 +46,18 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
     if (brand === undefined || domain === undefined) throw new JobError('mail_unconfigured', { retry: false });
     return { brand, domain };
   };
+
+  /**
+   * The monthly cap (A§17.7): true when this month's count leaves no room for this mail, after one
+   * `mail_cap_reached` line with the kind (and the purpose). Without a valid MJK_MAIL_CAP mail is unconfigured.
+   */
+  async function overCap(signin: boolean, fields: Record<string, string>): Promise<boolean> {
+    const cap = mailCap(env);
+    if (cap === undefined) throw new JobError('mail_unconfigured', { retry: false });
+    if ((await mailSentThisMonth(db)) < sendLimit(cap, signin)) return false;
+    logger.warn(fields, 'mail_cap_reached');
+    return true;
+  }
 
   /** Render, send, count; a failure is a JobError with a fixed code. Resolves `'consumed'`. */
   async function deliver(to: string, kind: MailKind, locale: Locale, data: Partial<TemplateData>): Promise<'consumed'> {
@@ -101,6 +113,7 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
             : undefined;
     // ponytail: the deletion confirmation (purpose `delete`, A§13.5) has no template yet; it arrives with its feature.
     if (kind === undefined) throw new JobError('mail_purpose_unsupported', { retry: false });
+    if (await overCap(row.purpose === 'signin', { kind: MAIL_CODE_JOB, purpose: row.purpose })) return drop();
     const code = unseal(keys.code_seal, p.sealed, aad.code(p.email_code_id));
     return deliver(row.email, kind, p.locale, { code });
   };
@@ -116,6 +129,7 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
       .where('id', '=', p.invite_id)
       .executeTakeFirst();
     if (invite === undefined || invite.expired) return 'consumed';
+    if (await overCap(false, { kind: MAIL_INVITE_JOB })) return 'consumed';
     const code = unseal(keys.code_seal, p.sealed_code, aad.inviteCode(p.invite_id));
     const to = unseal(keys.code_seal, p.sealed_to, aad.inviteTo(p.invite_id));
     return deliver(to, 'invite', p.locale, { code, validUntil: invite.until });
@@ -123,9 +137,10 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
 
   const mailNotice: JobHandler = async (payload) => {
     const p = parse(MailNoticePayload, payload);
-    const to = unseal(keys.code_seal, p.sealed_to, aad.noticeTo(p.user_id));
     const contact = env.MJK_CONTACT_EMAIL;
     if (contact === undefined) throw new JobError('mail_unconfigured', { retry: false });
+    if (await overCap(false, { kind: MAIL_NOTICE_JOB })) return 'consumed';
+    const to = unseal(keys.code_seal, p.sealed_to, aad.noticeTo(p.user_id));
     return deliver(to, 'email_changed', p.locale, { contact });
   };
 

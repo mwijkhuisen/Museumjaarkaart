@@ -107,7 +107,7 @@ describe('the logs of every account flow', () => {
         MJK_BRAND_NAME: 'Testmerk',
         MJK_DOMAIN: 'mjk.test',
         MJK_CONTACT_EMAIL: 'contact@mjk.test',
-        MJK_MAIL_CAP: '1',
+        MJK_MAIL_CAP: '3',
       },
     });
     const jobs = await a.admin.query<{ kind: string; payload: unknown }>(

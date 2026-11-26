@@ -3,19 +3,23 @@ import type { Db } from '../db/kysely.ts';
 
 // The mail budget (A§17.7, ADR-0012): Lettermint's free plan is a hard cap per month, so every sent mail
 // counts in one `rate_limit` window (bucket `mail_sent`, key `site`) that runs from the start of the
-// calendar month in Europe/Amsterdam to the start of the next. At 80 % of MJK_MAIL_CAP the worker logs
-// `mail_cap_near` and its health ping fails.
+// calendar month in Europe/Amsterdam to the start of the next. Before each send the worker reads it: a sign-in
+// code goes out while the count is under MJK_MAIL_CAP, every other mail while it is under 70 % of it, so 30 %
+// stays for sign-in codes. At 80 % the worker logs `mail_cap_near` and its health ping fails.
 
 type Env = Readonly<Record<string, string | undefined>>;
 
 const START = sql`date_trunc('month', now() AT TIME ZONE 'Europe/Amsterdam') AT TIME ZONE 'Europe/Amsterdam'`;
 const END = sql`(date_trunc('month', now() AT TIME ZONE 'Europe/Amsterdam') + interval '1 month') AT TIME ZONE 'Europe/Amsterdam'`;
 
-/** The monthly cap, or undefined when MJK_MAIL_CAP is unset or not a positive integer (the check is then off). */
+/** The monthly cap, or undefined when MJK_MAIL_CAP is unset or not a positive integer (mail is then unconfigured). */
 export function mailCap(env: Env): number | undefined {
   const v = env.MJK_MAIL_CAP;
   return v !== undefined && /^[1-9]\d{0,8}$/.test(v) ? Number(v) : undefined;
 }
+
+/** The count under which a mail may still go out: the cap for a sign-in code, 70 % of it for any other [U owner]. */
+export const sendLimit = (cap: number, signin: boolean): number => (signin ? cap : Math.floor((cap * 7) / 10));
 
 /** At or above 80 % of the cap. */
 export const nearCap = (count: number, cap: number): boolean => count * 5 >= cap * 4;
