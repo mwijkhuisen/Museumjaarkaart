@@ -1,6 +1,6 @@
 # P1a build plan: museum sources, matching and curation
 
-Status: draft for the owner's approval (2026-11-01); the owner answered the §1 questions on 2026-11-01. It plans issue [#12](https://github.com/mwijkhuisen/Museumjaarkaart/issues/12) (PHASES §3 P1a) and cites ARCHITECTURE.md as A§x. Nothing here binds until the owner approves it. The build PR then writes each approved proposal marked **→ A§x** into ARCHITECTURE.md, in the same PR (PHASES §2 "New facts").
+Status: draft for the owner's approval (2026-11-01); the owner answered the §1 questions on 2026-11-01. It plans issue [#12](https://github.com/mwijkhuisen/mjk/issues/12) (PHASES §3 P1a) and cites ARCHITECTURE.md as A§x. Nothing here binds until the owner approves it. The build PR then writes each approved proposal marked **→ A§x** into ARCHITECTURE.md, in the same PR (PHASES §2 "New facts").
 
 ## 0. Before the build starts
 
@@ -83,7 +83,7 @@ Three migrations, each with its grants and a working `down` (CI runs up → down
 - **One HTTP helper** (`museums/sources/http.ts`) on the global `fetch`. No undici in P1a: a timeout, no redirects and a size cap need no dispatcher.
   - Allowed hosts: `query.wikidata.org` and `services.rce.geovoorziening.nl`. Any other host fails with `host_not_allowed` before a request is made.
   - Requests: `redirect: 'error'`, `AbortSignal.timeout(90 s)`, a 20 MB [U] body cap.
-  - `User-Agent: mjk-museum-sync/<version> (+https://github.com/mwijkhuisen/Museumjaarkaart)`. The owner may add an email address; it is config, not a secret.
+  - `User-Agent: mjk-museum-sync/<version> (+https://github.com/mwijkhuisen/mjk)`. The owner may add an email address; it is config, not a secret.
   - On 429 or 503 it waits `Retry-After` (seconds or an HTTP date, capped at 10 min) or a backoff, three tries at most. It waits through an injected `sleep`, so the test needs no fake timers.
 - **Wikidata:**
   - The query lives in `museums/sources/wikidata.sparql`, and the code sends the byte-identical constant in `museums/sources/wikidata-query.ts` (the image runs from `dist`, which holds no `.sparql` file; a unit test keeps the two equal). A unit test pins its sha256 to the one in the `normal` fixture's meta file, so changing the query forces a re-recording. One POST per run, `Accept: application/sparql-results+json`.

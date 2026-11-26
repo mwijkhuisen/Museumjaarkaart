@@ -1,4 +1,4 @@
-# Architecture: Museumjaarkaart (code name mjk)
+# Architecture: Muzelog (code name mjk)
 
 Status: draft for the owner's approval (2026-11-01). Cited as A§x. Decisions are recorded in `docs/adr/`; this file is the overview. Facts marked **[U]** are unverified and are checked by the first phase that depends on them.
 
@@ -10,7 +10,7 @@ Status: draft for the owner's approval (2026-11-01). Cited as A§x. Decisions ar
 - **Brand:** **Muzelog**, domain `muzelog.nl` (owner, 2026-11-26; D5, `docs/plan/research/naming.md` §4). `muzelog.nl` is registered (2026-11-26); the trademark check by hand is still open in A1. The brand and domain never contain "Museum(jaar)kaart". It came from the shortlist Muselog / Muzelog, Museumvink, Museumlog. Museumlog has a high conflict: museumlog.app is "Museum Log", an international, English-language, pre-launch visit-logbook app (registered 2026-05-04), not a Dutch one.
   - Code reads the brand from config (`MJK_BRAND_NAME`, `MJK_DOMAIN`) and the i18n messages. The plan writes `<brand>` and `<domain>`. The code name `mjk` (D23) is never shown to visitors.
   - "Museumkaart geldig" appears only as a description. The footer says the site is not affiliated with the Museumvereniging or the Museumkaart (ADR-0006).
-  - The public repository is renamed to `mjk` before the first VM install (owner, 2026-11-22; A1): its name carries the card's old name, which the Museumvereniging still treats as its brand.
+  - The public repository was renamed from Museumjaarkaart to `mjk` on 2026-11-26, before the first VM install (owner, 2026-11-22; A1): its old name carries the card's old name, which the Museumvereniging still treats as its brand.
 - **Non-goals:** selling, renewing or showing the card; tickets; opening hours or an exhibitions agenda (we link to museum.nl and the museum's own site) · a native app (a PWA instead, P5a) · ads, affiliate links, donations or any other revenue (D14) · OpenStreetMap data in our database (only inside the basemap tiles) and Google data of any kind · scraping or copying museum.nl · social login (D8) · museum accounts or a right of reply in v1 (revisit after the beta).
 
 ## 2. Principles

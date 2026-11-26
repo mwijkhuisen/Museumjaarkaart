@@ -9,7 +9,7 @@ import type { SourceErrorCode } from './types.ts';
 /** The only hosts the sync talks to. No Commons host in P1a (plan §2.9); the link-out host is never fetched. */
 export const ALLOWED_HOSTS: readonly string[] = Object.freeze(['query.wikidata.org', 'services.rce.geovoorziening.nl']);
 
-export const REPO_URL = 'https://github.com/mwijkhuisen/Museumjaarkaart';
+export const REPO_URL = 'https://github.com/mwijkhuisen/mjk';
 export const USER_AGENT_PRODUCT = 'mjk-museum-sync/1.0';
 export const DEFAULT_TIMEOUT_MS = 90_000;
 /** [U] 20 MB: the full Wikidata answer is a few hundred kB; RCE's about 300 kB. */
