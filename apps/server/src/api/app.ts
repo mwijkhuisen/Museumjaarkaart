@@ -14,6 +14,7 @@ import { sessionMiddleware } from './middleware/session.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
 import { mountAuth } from './routes/auth.ts';
+import { mountMe } from './routes/me.ts';
 import { mountMkList } from './routes/mk-list.ts';
 import { mountMuseumDetail } from './routes/museum-detail.ts';
 import { mountMuseumsList } from './routes/museums-list.ts';
@@ -155,6 +156,7 @@ export const mountCatalogue: Mount = (v1, d) => {
 export const mountAccounts: Mount = (v1, d) => {
   mountAuth(v1, d);
   mountPassword(v1, d);
+  mountMe(v1, d);
 };
 
 export function createApp(deps: ApiDeps): ApiApp {
