@@ -22,7 +22,12 @@ const Echo = z.strictObject({
 
 function setup(opts: { ping?: () => Promise<boolean> } = {}) {
   const { logger, lines } = memoryLogger('api');
-  const deps: ApiDeps = { db: {} as Db, logger, ping: opts.ping ?? (async () => true) };
+  const deps: ApiDeps = {
+    db: {} as Db,
+    logger,
+    ping: opts.ping ?? (async () => true),
+    site: { domain: 'mjk.test', adminHost: 'admin.mjk.test' },
+  };
   const app = buildApp(deps, (v1) => {
     v1.get('/echo', (c) =>
       sendJson(c, z.strictObject({ a: z.string().nullable() }), { a: parseQuery(c, Echo).a ?? null }, 'x'),
@@ -178,14 +183,16 @@ describe('fixed errors', () => {
 });
 
 describe('the 64 KB body cap (headers only; socket.int.test.ts runs it over a real socket)', () => {
+  // A same-origin JSON mutation, so the CSRF and JSON-only checks after the cap let it through.
+  const SAME = { 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' };
   const post = (app: ReturnType<typeof setup>['app'], path: string, headers: Record<string, string>, body?: string) =>
-    get(app, path, { method: 'POST', headers, ...(body === undefined ? {} : { body }) });
+    get(app, path, { method: 'POST', headers: { ...SAME, ...headers }, ...(body === undefined ? {} : { body }) });
 
   it('passes a Content-Length of 64 KB and refuses one byte more with 413 too_large', async () => {
     const { app } = setup();
     const ok = await get(app, '/api/v1/sink', {
       method: 'POST',
-      headers: { 'Content-Length': String(BODY_LIMIT_BYTES) },
+      headers: { ...SAME, 'Content-Length': String(BODY_LIMIT_BYTES) },
       body: new Uint8Array(BODY_LIMIT_BYTES),
     });
     expect(ok.status).toBe(200);
@@ -216,9 +223,14 @@ describe('the 64 KB body cap (headers only; socket.int.test.ts runs it over a re
     const admin = await post(app, '/api/admin/x', { 'Transfer-Encoding': 'chunked', 'Content-Length': '999999' }, 'x');
     expect(admin.status).toBe(404);
     expect(await json(admin)).toEqual({ error: 'not_found' });
-    const bodyless = await get(app, '/api/v1/healthz', { method: 'DELETE' });
+    const bodyless = await get(app, '/api/v1/healthz', {
+      method: 'DELETE',
+      headers: { 'Sec-Fetch-Site': 'same-origin' },
+    });
     expect(bodyless.status).toBe(404);
     expect(await json(bodyless)).toEqual({ error: 'not_found' });
+    // Without the browser's same-origin proof the same request is refused first (csrf.test.ts).
+    expect((await get(app, '/api/v1/healthz', { method: 'DELETE' })).status).toBe(403);
   });
 });
 
@@ -284,6 +296,7 @@ describe('the request log (invariant 8)', () => {
     const [line, ...rest] = lines();
     expect(rest).toEqual([]);
     expect(Object.keys(line ?? {}).sort()).toEqual([
+      'body',
       'level',
       'method',
       'ms',
@@ -300,6 +313,7 @@ describe('the request log (invariant 8)', () => {
       method: 'GET',
       route: '/api/v1/museums/:slug',
       status: 200,
+      body: 'none',
       req: r.headers.get('x-request-id'),
     });
     expect(typeof line?.ms).toBe('number');
@@ -320,7 +334,8 @@ describe('the request log (invariant 8)', () => {
     ['/api/v1/healthz', 'PROPFIND', 'unmatched', 404],
   ])('%s %s logs route %s', async (path, method, route, status) => {
     const { app, lines } = setup();
-    expect((await get(app, path, { method })).status).toBe(status);
+    // PROPFIND is unsafe: with the browser's same-origin proof it reaches routing (P2a CSRF).
+    expect((await get(app, path, { method, headers: { 'Sec-Fetch-Site': 'same-origin' } })).status).toBe(status);
     expect(lines()[0]).toMatchObject({ route, status, method: method === 'PROPFIND' ? 'other' : method });
     expect(JSON.stringify(lines())).not.toContain('secret-path');
   });

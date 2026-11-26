@@ -8,12 +8,15 @@ import { describe, expect, it } from 'vitest';
 import { dbUrl, EXIT_CONFIG, migratorUrl } from '../src/db/migrate.ts';
 import { HEARTBEAT_MAX_AGE_MS, healthy, touch } from '../src/heartbeat.ts';
 import { EXIT_NOT_BUILT, EXIT_USAGE, parseSyncArgs, run } from '../src/main.ts';
+import { writeTestKeys } from './auth/test-keys.ts';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'mjk-test-'));
 const USAGE = 'usage: main.ts <api|ssr|worker|migrate|healthcheck|sync-museums|admin|backup> [args]';
 const MAIN = fileURLToPath(new URL('../src/main.ts', import.meta.url));
 /** The api's config (P1e): the domain and the Access team and AUD, test values only. */
 const API_ENV = { MJK_DOMAIN: 'mjk.test', CF_ACCESS_TEAM: 'test-team', CF_ACCESS_AUD: 'a'.repeat(64) };
+/** A valid throw-away app_keys (P2a), so the api's later checks are the ones a test reaches. */
+const KEYS_DIR = writeTestKeys().dir;
 
 describe('run', () => {
   it.each([[[]], [['nope']]])('%j exits 2 with the usage line', async (argv) => {
@@ -75,14 +78,27 @@ describe('run', () => {
   it('api without a database setting exits 78 naming the setting, never its value', async () => {
     const lines: string[] = [];
     const env = { ...API_ENV, DATABASE_URL: 'mysql://user:Secret-Value-123@db/x' };
-    expect(await run(['api'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(EXIT_CONFIG);
+    const deps = { signal: AbortSignal.abort(), secretsDir: KEYS_DIR };
+    expect(await run(['api'], env, (l) => lines.push(l), undefined, deps)).toBe(EXIT_CONFIG);
     expect(lines).toEqual(['api: DATABASE_URL is not a postgres URL']);
     lines.length = 0;
     // No DATABASE_URL: production's file secret, which the sandbox does not have.
-    expect(await run(['api'], API_ENV, (l) => lines.push(l), undefined, { signal: AbortSignal.abort() })).toBe(
-      EXIT_CONFIG,
-    );
+    expect(await run(['api'], API_ENV, (l) => lines.push(l), undefined, deps)).toBe(EXIT_CONFIG);
     expect(lines).toEqual(['api: the file secret db_mjk_api is missing']);
+  });
+
+  it('api without a valid app_keys exits 78 naming the key, never a value', async () => {
+    const lines: string[] = [];
+    const empty = mkdtempSync(join(tmpdir(), 'mjk-nokeys-'));
+    const env = { ...API_ENV, DATABASE_URL: 'postgres://u:p@db/x' };
+    expect(
+      await run(['api'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort(), secretsDir: empty }),
+    ).toBe(EXIT_CONFIG);
+    writeFileSync(join(empty, 'app_keys'), `otp_pepper=${'A'.repeat(43)}\n`);
+    expect(
+      await run(['api'], env, (l) => lines.push(l), undefined, { signal: AbortSignal.abort(), secretsDir: empty }),
+    ).toBe(EXIT_CONFIG);
+    expect(lines).toEqual(['api: app_keys: unreadable', 'api: app_keys: invite_pepper missing']);
   });
 
   it('api needs the domain and the Access team and AUD, exiting 78 for each before the database', async () => {

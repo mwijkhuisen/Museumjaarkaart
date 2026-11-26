@@ -1,5 +1,6 @@
 import { EmptyQuery, Healthz } from '@mjk/contracts';
 import { type Context, Hono } from 'hono';
+import type { AppKeys } from '../auth/keys.ts';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { CACHE_NONE } from './cache.ts';
@@ -7,7 +8,9 @@ import { ApiError, ContractMismatch, respondError } from './errors.ts';
 import { type AccessDeps, accessJwt } from './middleware/access-jwt.ts';
 import { bodyCap } from './middleware/body-cap.ts';
 import { type ClientAddressDeps, clientAddress } from './middleware/client-address.ts';
+import { csrf, jsonOnly, type SiteDeps } from './middleware/csrf.ts';
 import { type ApiEnv, requestLog } from './middleware/request.ts';
+import { sessionMiddleware } from './middleware/session.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
 import { mountMkList } from './routes/mk-list.ts';
@@ -17,11 +20,12 @@ import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountMuseumsPoints } from './routes/museums-points.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
-// The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2): request id and
-// log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) → /api/admin/* is a
-// 404 whatever the method and body unless the admin host's JWT passed → the header-only 64 KB body
-// cap (middleware/body-cap.ts) → each route parses its query strictly → the route → the fixed error
-// handler.
+// The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2, P2a design 6):
+// request id and log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) →
+// /api/admin/* is a 404 whatever the method and body unless the admin host's JWT passed → the
+// header-only 64 KB body cap (middleware/body-cap.ts) → CSRF on every unsafe method (403) → JSON-only
+// mutations (415) → the session cookie, on the auth, me and admin paths only → each route parses its
+// query and body strictly → the route → the fixed error handler.
 
 export type ApiDeps = {
   /** The pool as mjk_api; public queries read only the pub_* views. */
@@ -33,6 +37,10 @@ export type ApiDeps = {
   clientAddress?: ClientAddressDeps;
   /** The admin host's Access JWT check; set only by runApi, so the in-process app never serves it. */
   access?: AccessDeps;
+  /** `<domain>` and `admin.<domain>`: the origins CSRF accepts. Without it every unsafe method is a 403. */
+  site?: SiteDeps;
+  /** The `app_keys` secret (P2a); set only by runApi, which also mounts the account routes with it. */
+  keys?: AppKeys;
 };
 
 export type ApiApp = Hono<ApiEnv>;
@@ -71,7 +79,7 @@ const sqlstate = (err: unknown): string | null => {
 };
 
 function onError(err: Error, c: Context, logger: Logger): Response {
-  if (err instanceof ApiError) return respondError(c, err.code, err.fields);
+  if (err instanceof ApiError) return respondError(c, err.code, err.fields, err.retryAfter);
   if (err instanceof ContractMismatch) {
     logger.error({}, 'contract_mismatch');
     return respondError(c, 'internal');
@@ -101,6 +109,13 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
     await next();
   });
   app.use('*', bodyCap(BODY_LIMIT_BYTES));
+  app.use('*', csrf(deps.site));
+  app.use('*', jsonOnly());
+  // The session cookie is read only where a session can matter (A§14: public routes never read it).
+  if (deps.site !== undefined && deps.keys !== undefined) {
+    const withSession = sessionMiddleware(deps.db, deps.site);
+    for (const path of ['/api/v1/auth/*', '/api/v1/me', '/api/v1/me/*', '/api/admin/*']) app.use(path, withSession);
+  }
 
   const v1 = new Hono<ApiEnv>();
   // A§14: select 1 → 200 {"ok":true}, else 503 {"ok":false}; no-store.

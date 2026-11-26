@@ -6,6 +6,7 @@ import { http, passthrough } from 'msw';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { server as msw } from '../../../../test/msw.setup.ts';
 import { run } from '../../src/main.ts';
+import { writeTestKeys } from '../auth/test-keys.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 
 // The real `api` role as mjk_api on a migrated database (WP3): healthz over HTTP, the heartbeat
@@ -37,6 +38,7 @@ it('serves healthz as mjk_api, touches the heartbeat, and exits 0 after the stop
   };
   const exited = run(['api'], env, () => {}, hb, {
     signal: stop.signal,
+    secretsDir: writeTestKeys().dir,
     port: 0,
     hostname: '127.0.0.1',
     onListening: (p) => {

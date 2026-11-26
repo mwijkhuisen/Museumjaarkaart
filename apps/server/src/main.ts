@@ -46,6 +46,8 @@ export type RunDeps = {
   onListening?: (port: number) => void;
   /** The backup role's paths and tool binaries (tests). */
   backup?: BackupDeps;
+  /** The file secrets' directory (`app_keys`); `/run/secrets` in production. */
+  secretsDir?: string;
 };
 
 /** The signal that stops a daemon: the test's, or SIGTERM and SIGINT. */
@@ -138,6 +140,7 @@ function runApiRole(env: Env, heartbeatPath: string, log: (line: string) => void
     ...(deps.port === undefined ? {} : { port: deps.port }),
     ...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
     ...(deps.onListening === undefined ? {} : { onListening: deps.onListening }),
+    ...(deps.secretsDir === undefined ? {} : { secretsDir: deps.secretsDir }),
   });
 }
 
