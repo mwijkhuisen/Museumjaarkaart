@@ -2,6 +2,7 @@
   "head": {
     "vars": [
       "item",
+      "classes",
       "labelNl",
       "labelEn",
       "descNl",
@@ -15,7 +16,6 @@
       "registered",
       "museumnl",
       "images",
-      "classes",
       "dissolved"
     ]
   },
@@ -25,6 +25,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q474171"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -78,10 +82,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Haarlem%20-%20Teylers%20Fundatiehuis%20-%20gevel%20met%20zandstenen%20platen.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Teyler-huis%20Damstraat-21%20Haarlem%20Nederland.JPG"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -91,6 +91,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q484899"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q133305501\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -144,10 +148,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Liegeraeder%201920er%20Velorama.jpg\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Nijmegen%20-%20Nationaal%20Fietsmuseum%20Velorama%2020250125.jpg"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q133305501\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -157,6 +157,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q924335"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q41176\u001fhttp://www.wikidata.org/entity/Q3196771\u001fhttp://www.wikidata.org/entity/Q98929991\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -210,10 +214,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/De%20nieuwe%20vleugel%20van%20het%20Stedelijk%20Museum%20Amsterdam.jpg"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q41176\u001fhttp://www.wikidata.org/entity/Q3196771\u001fhttp://www.wikidata.org/entity/Q98929991\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -223,6 +223,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q1051928"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q207694\u001fhttp://www.wikidata.org/entity/Q1759852\u001fhttp://www.wikidata.org/entity/Q3152824\u001fhttp://www.wikidata.org/entity/Q17431399\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -276,10 +280,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Entrance%20Kr%C3%B6ller-M%C3%BCller%20Museum.JPG"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001fhttp://www.wikidata.org/entity/Q207694\u001fhttp://www.wikidata.org/entity/Q1759852\u001fhttp://www.wikidata.org/entity/Q3152824\u001fhttp://www.wikidata.org/entity/Q17431399\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -289,6 +289,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q1237983"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -342,10 +346,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Haarlemmermeerstation.jpg"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -355,6 +355,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q1406810"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -408,10 +412,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Amersfoort-c-the%20river.jpg"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": "\u001f2007-10-22T00:00:00Z"
@@ -421,6 +421,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q1862034"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -474,10 +478,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Inrichten%20van%20tentoonstelling%20Opleiding%20Ontwerpen%20in%20Instituut%20voor%20Nijverheid%2C%20Bestanddeelnr%20913-5976.jpg"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": "\u001f1997-01-01T00:00:00Z"
@@ -487,6 +487,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q1890193"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -540,10 +544,6 @@
           "type": "literal",
           "value": ""
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -553,6 +553,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q2004711"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -606,10 +610,6 @@
           "type": "literal",
           "value": ""
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -619,6 +619,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q2534195"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -672,10 +676,6 @@
           "type": "literal",
           "value": ""
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -685,6 +685,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q2598787"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -738,10 +742,6 @@
           "type": "literal",
           "value": "\u001fhttp://commons.wikimedia.org/wiki/Special:FilePath/Stedelijk%20Museum%20Roermond.jpeg"
         },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
-        },
         "dissolved": {
           "type": "literal",
           "value": ""
@@ -751,6 +751,10 @@
         "item": {
           "type": "uri",
           "value": "http://www.wikidata.org/entity/Q2736515"
+        },
+        "classes": {
+          "type": "literal",
+          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "labelNl": {
           "type": "literal",
@@ -803,10 +807,6 @@
         "images": {
           "type": "literal",
           "value": ""
-        },
-        "classes": {
-          "type": "literal",
-          "value": "http://www.wikidata.org/entity/Q33506\u001f"
         },
         "dissolved": {
           "type": "literal",

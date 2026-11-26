@@ -293,7 +293,7 @@ Check the golden diff for what you expect (row counts, no odd names or hosts) be
 curl -sS -o /tmp/wdqs-answer.txt -w 'HTTP %{http_code} in %{time_total} s\n' -H 'Accept: application/sparql-results+json' -H "User-Agent: mjk-museum-sync/1.0 (+$MJK_SYNC_CONTACT)" --data-urlencode query@apps/server/src/museums/sources/wikidata.sparql https://query.wikidata.org/sparql
 ```
 
-An HTTP 504 after about 60 s ("upstream request timeout") or a 500 with `TimeoutException` means the query ran past WDQS's 60 s limit (A§7.1). A 400 carries a `MalformedQueryException` line that names the spot.
+An HTTP 504 after about 60 s ("upstream request timeout") or a 500 with `TimeoutException` means the query ran past WDQS's 60 s limit (A§7.1). A 500 with `Headless value factory should not be asked for its namespace` is Blazegraph bug T145868: the query's first aggregate held only the `COALESCE` constant for an item, so keep `?classes` first (A§7.1). A 502 within a second, as an nginx page, is WDQS's own trouble: try again later. A 400 carries a `MalformedQueryException` line that names the spot.
 
 ## 10. Wikimedia etiquette
 
