@@ -48,7 +48,7 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
   - A new code voids the unused ones for the same email and purpose; verify compares only with the newest code of that purpose.
   - `/auth/code` sends nothing for an email without an account (`signin`, `delete`), with the same 202 and timing.
 - **Mail jobs** (A§9, ADR-0012):
-  - `mail_code`, `mail_invite` and the notice to the old address on an email change carry ids plus sealed fields. The worker opens them, sends, and nulls the sealed fields in the same transaction. An unsent sealed code is nulled at `expires_at`; mail jobs are deleted on success.
+  - `mail_code`, `mail_invite` and the notice to the old address on an email change carry ids plus sealed fields. The worker opens them, sends, and deletes the job row in the sending step. An unsent code's sealed field is nulled by the 10-minute purge after `expires_at` (within about 20 minutes of issue); a dropped job is deleted at once; mail jobs are deleted on success.
   - `Mailer` is an interface: Lettermint through plain `fetch` (no SDK), a fake for unit tests, and the CI mail sink that speaks Lettermint's API. Templates in NL and EN by `locale`, holding the code and fixed text only (no handle or display name).
   - The mail budget (A§17.7): sign-in codes first; anonymous-triggered mails counted in `rate_limit` under the key `site`; past the day's cap, `/auth/signup` answers 429 with `Retry-After`.
 - **Sessions** (Lucia's `auth_session` approach, A§9):
@@ -201,9 +201,9 @@ Phase checks:
 - Codes: random from node:crypto; HMAC under the pepper; constant-time comparison; the attempt
   counter cannot be raced past 5; a new code voids the older ones of the same email and purpose;
   verify uses only the newest code of the named purpose; single use; 10 minutes.
-- Sealing: AES-256-GCM with a fresh nonce and the ids as associated data; the worker nulls the
-  sealed fields in the sending transaction; an unsent code is nulled at expires_at; mail jobs are
-  deleted on success; no address is stored on invite.
+- Sealing: AES-256-GCM with a fresh nonce and the ids as associated data; a sent mail's job row
+  is deleted in the sending step; an unsent code is nulled by the purge within about 20 minutes of
+  issue; a dropped job is deleted at once; mail jobs are deleted on success; no address is stored on invite.
 - Sessions: only sha256(token) stored; the exact cookie attributes; sliding and absolute expiry
   for both hosts; a session works only on its host; sign-in drops the sent cookie's row and issues
   a new token; re-auth within 10 minutes where A§9 says; email and password changes end every

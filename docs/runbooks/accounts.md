@@ -46,17 +46,20 @@ Their results go into a follow-up docs PR.
 
 ### B1. argon2 on the VM
 
-Run on the image already deployed. Keep the highest m whose median is under 250 ms; a follow-up PR commits it to `apps/server/src/auth/argon2.ts` and A§9. Re-run the e2e `@load` pass after it.
+Run on the image already deployed. The gate allows 2 hashes at once, so each m is measured alone and as a pair (`Promise.all` of two). Keep the highest m whose single median and pair median are both under 250 ms; a follow-up PR commits it to `apps/server/src/auth/argon2.ts` and A§9. Re-run the e2e `@load` pass after it.
+
+For that PR: `dummyVerify` runs at the current parameters, so after m goes up an unknown email answers slower than an account whose hash still has the old m, until that member signs in. Run the dummy at the old parameters too, with a test (A§9).
 
 ```bash
 img=$(sed -n 's/^MJK_SERVER_IMAGE=//p' /srv/mjk/state/current.env)
 docker run --rm --network none --cpus 1.0 --memory 384m --read-only --cap-drop ALL \
   --security-opt no-new-privileges --user 63532:63532 --entrypoint /usr/local/bin/node "$img" -e '
 const {argon2,randomBytes}=require("node:crypto"),a=require("node:util").promisify(argon2);
-(async()=>{for(const mib of [19,24,32,40,48,56,64]){const t=[];for(let i=0;i<8;i++){const s=process.hrtime.bigint();
-await a("argon2id",{message:"correct horse battery staple",nonce:randomBytes(16),parallelism:1,tagLength:32,memory:mib*1024,passes:2});
-t.push(Number(process.hrtime.bigint()-s)/1e6)}t.shift();t.sort((x,y)=>x-y);
-console.log(`${mib} MiB: median ${t[3].toFixed(0)} ms, max ${t.at(-1).toFixed(0)} ms`)}})()'
+const h=(mib)=>a("argon2id",{message:"correct horse battery staple",nonce:randomBytes(16),parallelism:1,tagLength:32,memory:mib*1024,passes:2});
+const med=async(f)=>{const t=[];for(let i=0;i<8;i++){const s=process.hrtime.bigint();await f();
+t.push(Number(process.hrtime.bigint()-s)/1e6)}t.shift();t.sort((x,y)=>x-y);return `median ${t[3].toFixed(0)} ms, max ${t.at(-1).toFixed(0)} ms`};
+(async()=>{for(const mib of [19,24,32,40,48,56,64])
+console.log(`${mib} MiB: one ${await med(()=>h(mib))}; two at once ${await med(()=>Promise.all([h(mib),h(mib)]))}`)})()'
 ```
 
 ### B2. The Cloudflare rule
