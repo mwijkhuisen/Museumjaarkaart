@@ -249,6 +249,9 @@ services:
     # verbose level that still logs tunnel connection errors (fatal would not); it drops the info
     # lines (connection registered, config updates) and the warnings (retries). Origin errors stay
     # at error level and may still carry the request URL (invariant 8: [U box], install.md §8).
+    # --protocol http2 (TCP 7844): on the VM (2026-11-26) every QUIC dial of 2026.11.0 was refused by
+    # the edge with CRYPTO_ERROR 0x178 (TLS alert 120, no_application_protocol) and the tunnel never
+    # became ready; HTTP/2 was ready within 45 s. The firewall keeps udp/7844 for a later retry of QUIC.
     command:
       - tunnel
       - --no-autoupdate
@@ -257,6 +260,8 @@ services:
       - error
       - --metrics
       - 127.0.0.1:20241
+      - --protocol
+      - http2
       - run
       - --token-file
       - /run/secrets/cf_tunnel_token
