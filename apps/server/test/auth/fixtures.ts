@@ -58,3 +58,17 @@ export async function openAuthDb(): Promise<AuthDb> {
     },
   };
 }
+
+/** The public tables any row of which holds `text` (a DB scan through row_to_json; tests only). */
+export async function tablesHolding(a: AuthDb, text: string): Promise<string[]> {
+  const tables = await a.admin.query<{ t: string }>("SELECT tablename AS t FROM pg_tables WHERE schemaname = 'public'");
+  const found: string[] = [];
+  for (const { t } of tables.rows) {
+    const r = await a.admin.query(
+      `SELECT 1 FROM public.${JSON.stringify(t)} x WHERE strpos(row_to_json(x)::text, $1) > 0 LIMIT 1`,
+      [text],
+    );
+    if (r.rowCount) found.push(t);
+  }
+  return found;
+}
