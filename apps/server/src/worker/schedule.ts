@@ -1,6 +1,7 @@
 import { Cron } from 'croner';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
+import { purge } from './purge.ts';
 import { enqueueUnique } from './queue.ts';
 
 // The weekly museum sync [U → A§7.4]: Tuesday 03:17 Europe/Amsterdam, unless one is
@@ -10,6 +11,7 @@ import { enqueueUnique } from './queue.ts';
 export const MUSEUM_SYNC_PATTERN = '17 3 * * 2';
 /** `0#1` is the first Sunday of the month. */
 export const TILES_REFRESH_PATTERN = '23 2 * 1,4,7,10 0#1';
+export const PURGE_PATTERN = '*/10 * * * *';
 export const SCHEDULE_TIMEZONE = 'Europe/Amsterdam';
 /** A quarterly job that fails on a flaky night tries again twice (15 and 30 minutes later), then waits for the owner. */
 export const TILES_REFRESH_ATTEMPTS = 3;
@@ -19,6 +21,8 @@ export type Schedule = {
   cron: Cron;
   /** The tiles refresh's. */
   tilesCron: Cron;
+  /** The retention purge's. */
+  purgeCron: Cron;
   stop(): void;
 };
 
@@ -37,12 +41,27 @@ export function startSchedule(opts: { db: Db; logger: Logger }): Schedule {
     });
   const cron = every(MUSEUM_SYNC_PATTERN, 'museum_sync');
   const tilesCron = every(TILES_REFRESH_PATTERN, 'tiles_refresh', TILES_REFRESH_ATTEMPTS);
+  // The retention purge (A§13.2) runs here directly, with no job row.
+  const purgeCron = new Cron(PURGE_PATTERN, { timezone: SCHEDULE_TIMEZONE, protect: true, name: 'purge' }, async () => {
+    try {
+      await purge(db, logger);
+    } catch (err) {
+      // The SQLSTATE if any, never the message (it can quote a value).
+      const code = (err as { code?: unknown } | null)?.code;
+      logger.error(
+        { code: typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : 'internal' },
+        'purge_failed',
+      );
+    }
+  });
   return {
     cron,
     tilesCron,
+    purgeCron,
     stop: () => {
       cron.stop();
       tilesCron.stop();
+      purgeCron.stop();
     },
   };
 }

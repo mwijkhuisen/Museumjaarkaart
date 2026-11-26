@@ -3,6 +3,7 @@ import type { Db } from '../../src/db/kysely.ts';
 import { silentLogger } from '../../src/lib/log.ts';
 import {
   MUSEUM_SYNC_PATTERN,
+  PURGE_PATTERN,
   SCHEDULE_TIMEZONE,
   type Schedule,
   startSchedule,
@@ -75,4 +76,13 @@ it('runs once a week', () => {
   schedule = startSchedule({ db: {} as Db, logger: silentLogger });
   const [a, b] = schedule.cron.nextRuns(2, new Date('2027-06-01T00:00:00Z'));
   expect((b as Date).getTime() - (a as Date).getTime()).toBe(7 * 24 * 3_600_000);
+});
+
+it('registers the 10-minute purge, protected against overlap', () => {
+  schedule = startSchedule({ db: {} as Db, logger: silentLogger });
+  expect(PURGE_PATTERN).toBe('*/10 * * * *');
+  expect(schedule.purgeCron.options.protect).toBe(true);
+  expect(schedule.purgeCron.name).toBe('purge');
+  const next = schedule.purgeCron.nextRun(new Date('2027-01-05T12:03:00Z'));
+  expect(next?.toISOString()).toBe('2027-01-05T12:10:00.000Z');
 });
