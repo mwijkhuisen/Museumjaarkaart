@@ -45,7 +45,7 @@ export function DisplayNameSection({ user, onChanged }: { user: MeUser; onChange
   return (
     <section className="stack" aria-labelledby="account-name">
       <h2 id="account-name">{m.account_h_name()}</h2>
-      <form className="stack" onSubmit={submit} noValidate>
+      <form method="post" className="stack" onSubmit={submit} noValidate>
         <Field
           label={m.field_display_name()}
           hint={m.field_hint_display_name()}
@@ -116,7 +116,7 @@ export function EmailSection({ user, locale, guard, onChanged }: Props & { onCha
       <h2 id="account-email">{m.account_h_email()}</h2>
       <p>{m.account_email_current({ email: user.email })}</p>
       {target === null ? (
-        <form className="stack" onSubmit={request} noValidate>
+        <form method="post" className="stack" onSubmit={request} noValidate>
           <Field
             label={m.field_new_email()}
             error={failure?.fields.email}
@@ -138,7 +138,7 @@ export function EmailSection({ user, locale, guard, onChanged }: Props & { onCha
           </button>
         </form>
       ) : (
-        <form className="stack" onSubmit={verify} noValidate>
+        <form method="post" className="stack" onSubmit={verify} noValidate>
           <p role="status">{m.account_email_code_sent({ email: target })}</p>
           <Field
             label={m.field_code()}
@@ -213,7 +213,7 @@ export function PasswordSection({ user, guard, onChanged }: Omit<Props, 'locale'
       <h2 id="account-password">{m.account_h_password()}</h2>
       <p>{user.has_password ? m.account_password_has() : m.account_password_none()}</p>
       <p className="muted">{m.auth_lost_mailbox()}</p>
-      <form className="stack" onSubmit={save} noValidate>
+      <form method="post" className="stack" onSubmit={save} noValidate>
         <Field
           label={m.field_new_password()}
           hint={m.field_hint_password()}

@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { App } from '../src/App.tsx';
@@ -89,11 +92,13 @@ describe.each([
     const wrapper = /<div class="hp" aria-hidden="true">(.*?)<\/div>/s.exec(html);
     expect(wrapper).not.toBeNull();
     const input = /<input\b[^>]*>/.exec(wrapper?.[1] ?? '')?.[0] ?? '';
-    expect(input).toContain('name="website"');
+    expect(input).toContain('name="mjk_hp_field"');
     expect(input).toContain('tabindex="-1"');
     expect(input).toMatch(/autocomplete="off"/i);
-    // It is the only `website` field, and the only thing in the form that is hidden.
-    expect(html.match(/name="website"/g)).toHaveLength(1);
+    // No name or id that autofill fills (a person's autofill would trip it and get no mail).
+    expect(input).not.toMatch(/\b(name|id)="[^"]*(website|url|homepage)/i);
+    expect(html.match(/name="mjk_hp_field"/g)).toHaveLength(1);
+    // It is the only thing in the form that is hidden.
     expect(html.match(/aria-hidden="true"/g)).toHaveLength(1);
   });
 
@@ -111,6 +116,36 @@ describe.each([
   it('shows the handle rules and does not render the widget before it is loaded', () => {
     expect(html).toMatch(/3 (tot|to) 30/);
     expect(html).not.toContain('altcha-widget');
+  });
+});
+
+describe('every form posts', () => {
+  // A programmatic form.submit() fires no submit event, so React's preventDefault never runs: a GET
+  // form would put the email or the password in the URL. Only the router's search form is a GET.
+  it('the rendered sign-up form and code step carry method="post"', () => {
+    setLocale('nl', { reload: false });
+    const code = renderToStaticMarkup(
+      <CodeStep locale="nl" email="a@example.org" purpose="signin" onVerified={() => {}} onBack={() => {}} />,
+    );
+    for (const html of [form('nl'), code]) {
+      const forms = html.match(/<form\b[^>]*>/g) ?? [];
+      expect(forms.length).toBeGreaterThan(0);
+      for (const f of forms) expect(f).toContain('method="post"');
+    }
+  });
+
+  it('every <form> under src has method="post", except the GET search form of the router', () => {
+    const root = fileURLToPath(new URL('../src/', import.meta.url));
+    const files = readdirSync(root, { recursive: true, encoding: 'utf8' }).filter((f) => f.endsWith('.tsx'));
+    let seen = 0;
+    for (const f of files) {
+      for (const tag of readFileSync(join(root, f), 'utf8').match(/<form\b[^>]*>/g) ?? []) {
+        seen += 1;
+        if (f.endsWith(join('lib', 'router.tsx'))) expect(tag).toContain('method="get"');
+        else expect(tag, f).toContain('method="post"');
+      }
+    }
+    expect(seen).toBeGreaterThanOrEqual(9);
   });
 });
 

@@ -60,7 +60,7 @@ export function EmailCodeSignIn({
   };
 
   return (
-    <form className="stack" onSubmit={submit} noValidate>
+    <form method="post" className="stack" onSubmit={submit} noValidate>
       {known === undefined ? (
         <Field
           label={m.field_email()}

@@ -9,8 +9,8 @@ import { fieldsOf, useAction } from './errors.ts';
 import { CheckField, Field, FormError } from './fields.tsx';
 
 // Sign-up by invite (A§9): the invite, the address, a handle, a display name, the 16+ box, the
-// current terms, an ALTCHA solution and a honeypot (`website`, hidden off-screen, never filled by a
-// person). The server answers 202 whatever the address; the account exists once the code is entered.
+// current terms, an ALTCHA solution and a honeypot (field `mjk_hp_field`, sent as `website`; hidden
+// off-screen, never filled by a person, and named so that autofill leaves it alone). The server answers 202 whatever the address; the account exists once the code is entered.
 // The terms and the privacy notice open in a new tab, so a half-filled form survives the reading.
 
 export function SignUpForm({
@@ -80,7 +80,7 @@ export function SignUpForm({
 
   const fieldError = (name: string) => failure?.fields[name];
   return (
-    <form className="stack" onSubmit={submit} noValidate>
+    <form method="post" className="stack" onSubmit={submit} noValidate>
       <Field
         label={m.field_invite()}
         hint={m.field_hint_invite()}
@@ -162,7 +162,7 @@ export function SignUpForm({
       <div className="hp" aria-hidden="true">
         <Field
           label={m.field_website()}
-          name="website"
+          name="mjk_hp_field"
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
           tabIndex={-1}

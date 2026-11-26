@@ -63,7 +63,7 @@ export function CodeStep({
   };
 
   return (
-    <form className="stack" onSubmit={submit} noValidate>
+    <form method="post" className="stack" onSubmit={submit} noValidate>
       <p role="status">{m.auth_code_sent({ email })}</p>
       <Field
         label={m.field_code()}

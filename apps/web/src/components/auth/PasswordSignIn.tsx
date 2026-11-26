@@ -25,7 +25,7 @@ export function PasswordSignIn({ email: known, onSignedIn }: { email?: string; o
   };
 
   return (
-    <form className="stack" onSubmit={submit} noValidate>
+    <form method="post" className="stack" onSubmit={submit} noValidate>
       {known === undefined ? (
         <Field
           label={m.field_email()}
