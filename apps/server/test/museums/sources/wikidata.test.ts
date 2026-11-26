@@ -154,7 +154,14 @@ describe('fixtures', () => {
     expect(WIKIDATA_QUERY).toBe(file);
     expect(wikidataQueryText()).toBe(file);
     expect(createHash('sha256').update(file).digest('hex')).toBe(wikidataQuerySha256());
-    expect(wikidataQuerySha256()).toBe('764bfb9bbaab2cfd15aedc7097a36adb9b74d4d66dbff600d83e8036089de211');
+    expect(wikidataQuerySha256()).toBe('c8f93cff29adac6ddd496fc9f978b5da805111bb8f75cf117319a05530dc84e2');
+  });
+
+  it('puts ?classes first: WDQS can fail with HTTP 500 when the first aggregate is only the constant (T145868)', () => {
+    // Every item has a class (the selection goes through P31). With ?labelNl first, the three items without
+    // a Dutch label failed their batch ("Headless value factory…", the owner's probes, 2026-11-26).
+    const lines = wikidataQueryText().split('\n');
+    expect(lines[lines.indexOf('SELECT ?item') + 1]).toMatch(/ AS \?classes\)$/);
   });
 
   it('pins the query: changing wikidata.sparql changes its sha256 and forces a re-recording', () => {

@@ -16,7 +16,7 @@ export const WIKIDATA_QUERY = String.raw`# mjk museum sync (P1a plan 2.2): every
 # COALESCE'd to "", which the parser reads as absent (an empty record is dropped, an empty label is
 # no label). MAX picks the one value over "" (one label and one description per language).
 #
-# WDQS runs Blazegraph, and the query leans on two of its behaviours (the owner's probes, 2026-11-02):
+# WDQS runs Blazegraph, and the query leans on its behaviours (the owner's probes, 2026-11-02 and -26):
 # - The item set is a named subquery (WITH ... AS %items, a Blazegraph extension), computed once, and
 #   every UNION branch starts with INCLUDE %items. A sub-select joined to the UNION timed out (HTTP 504)
 #   even for three items: the branches were evaluated over all of Wikidata.
@@ -27,6 +27,10 @@ export const WIKIDATA_QUERY = String.raw`# mjk museum sync (P1a plan 2.2): every
 #   could start a branch from a pattern it thought smaller (all municipalities with a CBS code)
 #   instead of the items: the full run took 42 s once and timed out (HTTP 504) the next time, while
 #   60 items took 1.4 s. So every group below is written in the order it must run.
+# - The first aggregate is ?classes, which every item has a value for (the selection goes through
+#   P31). With ?labelNl first, the three items without a Dutch label failed the whole request with
+#   HTTP 500 "Headless value factory should not be asked for its namespace" (Phabricator T145868),
+#   alone and in their batch, every time; moving that aggregate moved the failure (2026-11-26).
 PREFIX hint: <http://www.bigdata.com/queryHints#>
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
@@ -35,6 +39,7 @@ PREFIX schema: <http://schema.org/>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
 SELECT ?item
+  (GROUP_CONCAT(DISTINCT COALESCE(STR(?class), ""); SEPARATOR="\u001F") AS ?classes)
   (MAX(COALESCE(STR(?lNl), "")) AS ?labelNl)
   (MAX(COALESCE(STR(?lEn), "")) AS ?labelEn)
   (MAX(COALESCE(STR(?dNl), "")) AS ?descNl)
@@ -48,7 +53,6 @@ SELECT ?item
   (MAX(COALESCE(?reg, "false")) AS ?registered)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?mnl), ""); SEPARATOR="\u001F") AS ?museumnl)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?image), ""); SEPARATOR="\u001F") AS ?images)
-  (GROUP_CONCAT(DISTINCT COALESCE(STR(?class), ""); SEPARATOR="\u001F") AS ?classes)
   (GROUP_CONCAT(DISTINCT COALESCE(STR(?end), ""); SEPARATOR="\u001F") AS ?dissolved)
 WITH {
   # The items, once each (an item with two museum classes would otherwise be multiplied):

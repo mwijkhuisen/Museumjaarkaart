@@ -2,6 +2,7 @@
   "head": {
     "vars": [
       "item",
+      "classes",
       "labelNl",
       "labelEn",
       "descNl",
@@ -15,7 +16,6 @@
       "registered",
       "museumnl",
       "images",
-      "classes",
       "dissolved"
     ]
   },
