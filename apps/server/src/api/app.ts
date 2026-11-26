@@ -3,6 +3,7 @@ import { type Context, Hono } from 'hono';
 import type { AppKeys } from '../auth/keys.ts';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
+import { adminRoutes, publicOnly } from './admin.ts';
 import { CACHE_NONE } from './cache.ts';
 import { ApiError, ContractMismatch, respondError } from './errors.ts';
 import { type AccessDeps, accessJwt } from './middleware/access-jwt.ts';
@@ -105,8 +106,8 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   if (deps.access !== undefined) app.use('*', accessJwt(deps.access, deps.logger));
   // Invariant 3: no admin route on any host but the admin host, and there only behind a valid
   // Access JWT (`access` is set by nothing else). Registered before the body cap, so an admin path
-  // is a 404 whatever the method and body. P2a mounts the admin routes, with the role check
-  // (`AdminAuthorizer`), behind this; until then the admin host's admin paths are 404 too.
+  // is a 404 whatever the method and body. Behind it, adminRoutes() also needs an admin-host
+  // session of the JWT's email and the role (D22; api/admin.ts).
   app.all('/api/admin/*', async (c, next) => {
     if (c.var.access === undefined) return respondError(c, 'not_found');
     await next();
@@ -118,6 +119,9 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   if (deps.site !== undefined && deps.keys !== undefined) {
     const withSession = sessionMiddleware(deps.db, deps.site);
     for (const path of ['/api/v1/auth/*', '/api/v1/me', '/api/v1/me/*', '/api/admin/*']) app.use(path, withSession);
+    // Sign-up and uploads do not exist on the admin host (A§14).
+    const notOnAdmin = publicOnly(deps.site);
+    for (const path of ['/api/v1/auth/signup', '/api/v1/uploads', '/api/v1/uploads/*']) app.use(path, notOnAdmin);
   }
 
   const v1 = new Hono<ApiEnv>();
@@ -129,6 +133,7 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   });
   mount(v1, deps);
   app.route('/api/v1', v1);
+  if (deps.site !== undefined && deps.keys !== undefined) app.route('/api/admin', adminRoutes());
 
   app.notFound((c) => respondError(c, 'not_found'));
   app.onError((err, c) => onError(err, c, deps.logger));
