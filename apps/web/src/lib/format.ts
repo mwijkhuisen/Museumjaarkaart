@@ -37,3 +37,10 @@ export function formatMonth(iso: string, locale: Locale): string {
 export function formatCount(n: number, locale: Locale): string {
   return new Intl.NumberFormat(TAG[locale]).format(n);
 }
+
+/** "450 m", "12,3 km": the distance of a near-me answer (whole metres from the API). */
+export function formatDistance(metres: number, locale: Locale): string {
+  if (metres < 1000) return `${new Intl.NumberFormat(TAG[locale]).format(Math.round(metres))} m`;
+  const km = new Intl.NumberFormat(TAG[locale], { maximumFractionDigits: 1 }).format(metres / 1000);
+  return `${km} km`;
+}

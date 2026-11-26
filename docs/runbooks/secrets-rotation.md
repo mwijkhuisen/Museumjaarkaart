@@ -78,6 +78,19 @@ systemctl start mjk-backup.service; journalctl -u mjk-backup.service -n 20 --no-
 
 The backup container reads the file at each run; no restart is needed. The workstation key and the Admin token are rotated in the dashboard and your password manager only; they are not on the VM.
 
+## 3b. The media R2 key (`r2_media_rw`, 63009)
+
+When: yearly, after a leak, or after `store_denied` in a `tiles_*` job. Create a new Object Read & Write token on `mjk-media` only (`docs/runbooks/cloudflare.md` §4), write the AWS credentials file, then revoke the old token in the dashboard:
+
+```bash
+read -rs -p 'access key id: ' id; echo; read -rs -p 'secret access key: ' key; echo
+printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$id" "$key" | newsecret r2_media_rw 63009; unset id key
+mjkc up -d --force-recreate worker
+mjkc ps worker; mjkc logs --tail 20 worker
+```
+
+The worker mounts the file when its container is created and the tiles job reads it each time it runs, so a recreate is needed. The next `tiles_*` job proves the new token (a wrong one ends `store_denied`, `docs/runbooks/tiles-refresh.md` §6): run `mjkc --profile tools run --rm admin tiles refresh` and read the worker log. A running tiles job is cut off by the recreate (`tiles_aborted`, retried), so rotate between runs.
+
 ## 4. The restic password (`restic_password`, 63011)
 
 The repository is encrypted with a key derived from the password, so changing the file alone makes every backup unreadable. Add the new password as a second restic key first, from the workstation (`docs/runbooks/backup.md` §4 environment):
@@ -121,4 +134,4 @@ If the token was ever exposed, rotate it at once, and check the recent versions 
 
 ## 8. Secrets that arrive later
 
-`lettermint_api_token` (63008), `app_keys` (63012) and `r2_media_rw` (63009) come with P2a and P3b; their rotation is added to this runbook then. A new `app_keys` pepper invalidates only pending codes and unused invites [U overlap window, A§17.3].
+`lettermint_api_token` (63008) and `app_keys` (63012) come with P2a and P3b; their rotation is added to this runbook then. A new `app_keys` pepper invalidates only pending codes and unused invites [U overlap window, A§17.3].

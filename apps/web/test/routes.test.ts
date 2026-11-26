@@ -2,6 +2,7 @@ import { PROVINCE_CODES } from '@mjk/contracts';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
+  apiPath,
   apiPathsOf,
   inLocale,
   localeOf,
@@ -37,7 +38,7 @@ describe('routeOf: the A§15.2 table', () => {
       { page: 'province', province: 'noord-holland', query: '' },
     ],
     ['/provincie/fryslan', '/en/province/fryslan', { page: 'province', province: 'fryslan', query: '' }],
-    ['/kaart', '/en/map', { page: 'map' }],
+    ['/kaart', '/en/map', { page: 'map', query: '' }],
     ['/zoeken', '/en/search', { page: 'search', query: '' }],
     ['/privacy', '/en/privacy', { page: 'legal', doc: 'privacy' }],
     ['/voorwaarden', '/en/terms', { page: 'legal', doc: 'terms' }],
@@ -147,11 +148,45 @@ describe('apiPathsOf', () => {
     ['/provincie/noord-holland?cursor=abc', ['/api/v1/provinces', '/api/v1/museums?province=NL-NH&cursor=abc']],
     ['/zoeken', []],
     ['/zoeken?q=rijks', ['/api/v1/museums?q=rijks']],
-    ['/kaart', []],
+    ['/kaart', ['/api/v1/museums', '/api/v1/provinces']],
+    [
+      '/kaart?province=NL-NH&mk=participating',
+      ['/api/v1/museums?province=NL-NH&mk=participating', '/api/v1/provinces'],
+    ],
+    ['/en/map?q=x&cursor=abc&utm=1', ['/api/v1/museums?q=x&cursor=abc', '/api/v1/provinces']],
     ['/privacy', []],
     ['/inloggen', []],
   ])('%s needs %j', (path, expected) => {
     expect(apiPathsOf(route(path))).toEqual(expected);
+  });
+});
+
+describe('the map page query and the points path', () => {
+  it('keeps the list parameters like the list page', () => {
+    expect(route('/kaart?utm=x&mk=participating&q=van+gogh&province=NL-NH&sort=name&limit=5&cursor=c')).toEqual({
+      page: 'map',
+      locale: 'nl',
+      query: 'q=van+gogh&province=NL-NH&mk=participating&sort=name&limit=5&cursor=c',
+    });
+    expect(pathOf(route('/en/map?province=NL-NH'))).toBe('/en/map?province=NL-NH');
+  });
+
+  it.each<[string, string]>([
+    ['', '/api/v1/museums/points'],
+    ['province=NL-NH&mk=participating', '/api/v1/museums/points?province=NL-NH&mk=participating'],
+    // The points contract takes no paging or sorting parameter (any other one is a 400).
+    ['q=x&sort=name&limit=5&cursor=abc', '/api/v1/museums/points?q=x'],
+    ['sort=name&cursor=abc', '/api/v1/museums/points'],
+    [
+      'category=art&municipality=GM0392&q=a&province=NL-UT&mk=participating',
+      '/api/v1/museums/points?q=a&province=NL-UT&municipality=GM0392&category=art&mk=participating',
+    ],
+  ])('apiPath.points(%j)', (query, expected) => {
+    expect(apiPath.points(query)).toBe(expected);
+  });
+
+  it('builds the near path from two rounded values', () => {
+    expect(apiPath.near('52.373', '4.890')).toBe('/api/v1/museums/near?lat=52.373&lon=4.890');
   });
 });
 

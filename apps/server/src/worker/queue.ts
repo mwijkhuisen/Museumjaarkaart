@@ -9,7 +9,10 @@ import { ERROR_CODE } from './types.ts';
 
 export type ClaimedJob = Selectable<Job>;
 
-/** The lease of a running job [U]: the museum sync may run 30 minutes before another worker may take it over. */
+/**
+ * The lease of a running job [U]: another worker may take it over 30 minutes after its last touch. The worker
+ * touches the lease of the job it runs on every heartbeat ping (touchLease), so only a dead worker loses it.
+ */
 export const LEASE_SECONDS = 30 * 60;
 
 /** The Postgres channel a worker LISTENs on; the NOTIFY payload is the job kind. */
@@ -173,6 +176,22 @@ export async function reap(db: Db, opts: { leaseSeconds: number }): Promise<numb
     .where((w) => w('attempts', '>=', w.ref('max_attempts')))
     .executeTakeFirst();
   return Number(r.numUpdatedRows);
+}
+
+/**
+ * Pushes the lease of a job this worker still holds out to now(): a handler that runs longer than
+ * LEASE_SECONDS (the tiles extract and upload) is not taken over or reaped while the worker lives.
+ * Same owner guard as complete(). Returns whether the lease is still ours.
+ */
+export async function touchLease(db: Db, job: Pick<ClaimedJob, 'id'>, workerId: string): Promise<boolean> {
+  const r = await db
+    .updateTable('job')
+    .set({ locked_at: sql<Date>`now()` })
+    .where('id', '=', job.id)
+    .where('state', '=', 'running')
+    .where('locked_by', '=', workerId)
+    .executeTakeFirst();
+  return r.numUpdatedRows > 0n;
 }
 
 /**

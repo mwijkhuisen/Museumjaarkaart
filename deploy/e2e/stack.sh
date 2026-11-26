@@ -20,10 +20,14 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 # by the containers' UID 63532 (0444 in a 0700 directory: the daemon bind-mounts the files).
 E2E_SECRETS=$(mktemp -d)
 export E2E_SECRETS DBMATE_BIN
-for name in postgres mjk_migrator mjk_api mjk_ssr mjk_worker mjk_backup; do
-  head -c 24 /dev/urandom | base64 | tr '+/' '-_' >"$E2E_SECRETS/db_$name"
-  chmod 0444 "$E2E_SECRETS/db_$name"
+for name in db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup minio_root_user minio_root_password; do
+  head -c 24 /dev/urandom | base64 | tr '+/' '-_' >"$E2E_SECRETS/$name"
+  chmod 0444 "$E2E_SECRETS/$name"
 done
+# The media bucket's stand-in: the same two values as the AWS credentials file the R2 client reads (r2_media_rw).
+printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' \
+  "$(<"$E2E_SECRETS/minio_root_user")" "$(<"$E2E_SECRETS/minio_root_password")" >"$E2E_SECRETS/r2_media_rw"
+chmod 0444 "$E2E_SECRETS/r2_media_rw"
 
 compose() { docker compose -p mjk-e2e -f deploy/e2e/compose.yaml "$@"; }
 
@@ -38,8 +42,11 @@ cleanup() {
 trap cleanup EXIT
 
 compose up -d --wait db
+compose up -d minio
 compose run --rm migrate
 compose run --rm seed
+# The fixture tiles in the bucket stand-in (waits until minio answers).
+compose run --rm tiles
 
 # MJK_PROFILE picks profile-<name>.caddy, and only `prelaunch` ships: an unknown or empty one must fail at
 # start, never serve without the profile's headers.
@@ -94,6 +101,18 @@ playwright() {
 }
 
 playwright --grep-invert @ssr-down "$@"
+
+# A§15.3 "never logged": near-me.spec.ts presses the button at 52.37312, 4.89351 (rounded 52.373, 4.894). Neither the
+# raw nor the rounded position, nor a lat or lon query, is in the api's, ssr's or caddy's log. A number that merely
+# contains the digits (14.894, a duration) is not a hit: the character before it must not be a digit or a dot.
+for service in api ssr caddy; do
+  service_log=$(compose logs --no-color --no-log-prefix "$service")
+  if grep -qE '52\.37312|4\.89351|(^|[^0-9.])(52\.373|4\.894)|[?&](lat|lon)=' <<<"$service_log"; then
+    echo "stack: the $service log holds the near-me position" >&2
+    exit 1
+  fi
+done
+echo "logs: no near-me position in the api, ssr and caddy logs"
 compose run --rm -T --no-deps probe node deploy/e2e/caddy-cases.mjs real
 
 compose stop ssr

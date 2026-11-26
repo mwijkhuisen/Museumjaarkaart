@@ -1,7 +1,13 @@
 import { afterEach, expect, it } from 'vitest';
 import type { Db } from '../../src/db/kysely.ts';
 import { silentLogger } from '../../src/lib/log.ts';
-import { MUSEUM_SYNC_PATTERN, SCHEDULE_TIMEZONE, type Schedule, startSchedule } from '../../src/worker/schedule.ts';
+import {
+  MUSEUM_SYNC_PATTERN,
+  SCHEDULE_TIMEZONE,
+  type Schedule,
+  startSchedule,
+  TILES_REFRESH_PATTERN,
+} from '../../src/worker/schedule.ts';
 
 // The callback never runs here (the next run is days away), so no database is needed.
 let schedule: Schedule | undefined;
@@ -39,6 +45,30 @@ it('runs on Tuesday at 03:17 Amsterdam time on both sides of a DST change', () =
     expect(next?.toISOString()).toBe(expectedUtc);
     expect(amsterdam(next as Date)).toBe('Tue 03:17');
   }
+});
+
+it('runs the tiles refresh on the first Sunday of January, April, July and October at 02:23 Amsterdam time', () => {
+  expect(TILES_REFRESH_PATTERN).toBe('23 2 * 1,4,7,10 0#1');
+  schedule = startSchedule({ db: {} as Db, logger: silentLogger });
+  expect(schedule.tilesCron.name).toBe('tiles_refresh');
+  expect(schedule.tilesCron.options.protect).toBe(true);
+  const runs = schedule.tilesCron.nextRuns(6, new Date('2026-11-22T12:00:00Z'));
+  expect(runs.map((d) => d.toISOString())).toEqual([
+    '2027-01-03T01:23:00.000Z', // winter time, UTC+1
+    '2027-04-04T00:23:00.000Z', // summer time since 2027-03-28, UTC+2
+    '2027-07-04T00:23:00.000Z',
+    '2027-10-03T00:23:00.000Z', // still summer time (the clocks go back on 2027-10-31)
+    '2028-01-02T01:23:00.000Z',
+    '2028-04-02T00:23:00.000Z',
+  ]);
+  for (const d of runs) expect(amsterdam(d)).toBe('Sun 02:23');
+  // Always the first Sunday: never later than the 7th.
+  expect(runs.every((d) => d.getUTCDate() <= 7)).toBe(true);
+});
+
+it('skips the months outside the four', () => {
+  schedule = startSchedule({ db: {} as Db, logger: silentLogger });
+  expect(schedule.tilesCron.nextRun(new Date('2027-01-03T02:00:00Z'))?.toISOString()).toBe('2027-04-04T00:23:00.000Z');
 });
 
 it('runs once a week', () => {

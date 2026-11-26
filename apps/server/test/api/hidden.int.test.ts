@@ -1,4 +1,4 @@
-import { ErrorBody, MuseumList, NearList, Provinces, Q, Suggest } from '@mjk/contracts';
+import { ErrorBody, MuseumList, MuseumPoints, NearList, Provinces, Q, Suggest } from '@mjk/contracts';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openSweep, report, type Sweep, V1, walk } from './sweep.ts';
@@ -128,6 +128,24 @@ describe('hidden museums', () => {
       }
     }
   }, 300_000);
+
+  it('the map points hold none', async () => {
+    const r = await s.req(`${V1}/museums/points`);
+    expect(r.status).toBe(200);
+    const { items } = MuseumPoints.parse(await r.json());
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.filter((i) => hiddenIds.has(i.id) || hiddenSlugs.has(i.slug))).toEqual([]);
+    for (const h of hidden.slice(0, 30)) {
+      for (const q of queries(h).slice(0, 3)) {
+        const p = await s.req(`${V1}/museums/points?q=${encodeURIComponent(q)}`);
+        expect(p.status, h.slug).toBe(200);
+        expect(
+          MuseumPoints.parse(await p.json()).items.filter((i) => hiddenIds.has(i.id)),
+          h.slug,
+        ).toEqual([]);
+      }
+    }
+  });
 
   it('near-me at the exact coordinates holds none', async () => {
     let asked = 0;

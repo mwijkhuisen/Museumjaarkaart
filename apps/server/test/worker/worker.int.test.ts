@@ -8,7 +8,7 @@ import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger } from '../../src/lib/log.ts';
 import { backoff } from '../../src/worker/backoff.ts';
-import { enqueue } from '../../src/worker/queue.ts';
+import { claim, enqueue, reap, touchLease } from '../../src/worker/queue.ts';
 import { JobError, type JobHandler } from '../../src/worker/types.ts';
 import { runWorker } from '../../src/worker/worker.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
@@ -255,6 +255,91 @@ it('stores `internal` for any other error and logs neither its message nor the a
   expect(text).not.toContain('someone@example.invalid');
   expect(text).not.toContain('mail to');
   expect(w.lines().find((l) => l.msg === 'job_failed')).toMatchObject({ id, code: 'internal' });
+});
+
+// The lease (a tiles extract and upload outlive LEASE_SECONDS): the worker touches the lease of the job it runs
+// on its heartbeat ping. The control, with a ping slower than the lease, shows the job is then up for grabs.
+async function runLong(over: Partial<Parameters<typeof runWorker>[0]>) {
+  const gate = deferred();
+  const started = deferred();
+  const w = start(
+    {
+      museum_sync: async () => {
+        started.resolve();
+        await gate.promise;
+      },
+    },
+    over,
+  );
+  const id = await enqueue(db, 'museum_sync');
+  await started.promise;
+  return { w, id, gate };
+}
+
+it('keeps the lease of a running job fresh, so a job longer than the lease is neither taken over nor reaped', async () => {
+  const { w, id, gate } = await runLong({ leaseSeconds: 1, heartbeatMs: 100 });
+  const first = (await row(id)).locked_at as Date;
+  await new Promise((r) => setTimeout(r, 2_500)); // two and a half leases
+  expect(((await row(id)).locked_at as Date).getTime()).toBeGreaterThan(first.getTime() + 1_500);
+  expect(await claim(db, 'w-other', { leaseSeconds: 1 })).toBeUndefined();
+  expect(await reap(db, { leaseSeconds: 1 })).toBe(0);
+  gate.resolve();
+  await vi.waitFor(async () => expect((await row(id)).state).toBe('done'), { timeout: 3_000 });
+  expect(await row(id)).toMatchObject({ attempts: 1, last_error: null });
+  expect(w.lines().some((l) => l.msg === 'job_lease_lost')).toBe(false);
+});
+
+it('without a touch inside the lease another worker takes the job over (the control of the test above)', async () => {
+  const { id, gate } = await runLong({ leaseSeconds: 1, heartbeatMs: 60_000 });
+  await new Promise((r) => setTimeout(r, 1_500));
+  expect(await claim(db, 'w-other', { leaseSeconds: 1 })).toMatchObject({ id, locked_by: 'w-other' });
+  gate.resolve();
+});
+
+it('a lease touch still in flight when its job ends logs no job_lease_lost', async () => {
+  // A pool whose lease touches wait 300 ms before they reach the database: the job is done by then.
+  const pool = poolFor(testDb.urls.mjk_worker);
+  const connect = pool.connect.bind(pool);
+  const patched = new WeakSet<object>();
+  const slow = new Proxy(pool, {
+    get: (target, key) =>
+      key === 'connect'
+        ? async () => {
+            const client = await connect();
+            if (patched.has(client)) return client;
+            patched.add(client);
+            const query = client.query.bind(client) as (...a: unknown[]) => Promise<unknown>;
+            (client as { query: unknown }).query = async (...a: unknown[]) => {
+              const text = typeof a[0] === 'string' ? a[0] : (a[0] as { text?: string }).text;
+              if (text?.startsWith('update "job" set "locked_at"')) await new Promise((r) => setTimeout(r, 300));
+              return query(...a);
+            };
+            return client;
+          }
+        : Reflect.get(target, key),
+  });
+  const w = start(
+    { museum_sync: () => new Promise((r) => setTimeout(r, 150)) },
+    { db: createDb(slow), heartbeatMs: 50 },
+  );
+  const id = await enqueue(db, 'museum_sync');
+  await vi.waitFor(async () => expect((await row(id)).state).toBe('done'), { timeout: 3_000, interval: 20 });
+  await new Promise((r) => setTimeout(r, 500)); // every touch in flight has answered
+  expect(w.lines().some((l) => l.msg === 'job_lease_lost')).toBe(false);
+});
+
+it('touchLease holds only for the owner of a running job', async () => {
+  const id = await enqueue(db, 'museum_sync');
+  const job = await claim(db, 'w-a', { leaseSeconds: 60 });
+  expect(job?.id).toBe(id);
+  const before = (await row(id)).locked_at as Date;
+  await new Promise((r) => setTimeout(r, 20));
+  expect(await touchLease(db, { id }, 'w-b')).toBe(false);
+  expect(((await row(id)).locked_at as Date).getTime()).toBe(before.getTime());
+  expect(await touchLease(db, { id }, 'w-a')).toBe(true);
+  expect(((await row(id)).locked_at as Date).getTime()).toBeGreaterThan(before.getTime());
+  await admin.query(`UPDATE job SET state = 'done' WHERE id = $1`, [id]);
+  expect(await touchLease(db, { id }, 'w-a')).toBe(false);
 });
 
 it('logs no payload', async () => {

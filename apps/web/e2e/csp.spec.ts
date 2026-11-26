@@ -23,6 +23,9 @@ for (const locale of LOCALES) {
       expect(res?.status(), kind).toBe(status);
       expect(res?.headers()['content-security-policy'], kind).toContain("script-src 'self'");
       await page.waitForLoadState('networkidle');
+      // The map loads its chunk, tiles and glyphs after hydration, and leaving the page mid-load aborts them (WebKit
+      // reports that as a page error): the map settles first, under the same guard.
+      if (kind === 'map') await expect(page.locator('#museum-map')).toHaveAttribute('data-map-state', 'ready');
       const inline = await page.$$eval('script:not([src])', (els) =>
         els.map((e) => `script[type="${e.getAttribute('type')}"]#${e.id}`),
       );

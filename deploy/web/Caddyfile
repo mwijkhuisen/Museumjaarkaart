@@ -88,11 +88,12 @@ import profile-{$MJK_PROFILE}.caddy
 	header_up -True-Client-Ip
 }
 
-# Files under /srv/web/assets only (not a directory). Headers set before file_server would stay on its own
-# 404s (Caddy 2.11), so the asset route has a `file` matcher and a missing one is our own 404.
+# Files under /srv/web at the given path patterns (args after the first; not a directory). Headers set
+# before file_server would stay on its own 404s (Caddy 2.11), so the route has a `file` matcher and a
+# missing one is our own 404. The public host adds /map/* (P1d: glyphs and sprites); the admin host gets none.
 (assets) {
 	@asset {
-		path /assets/*
+		path {args[1:]}
 		not path */
 		file {
 			root /srv/web
@@ -104,7 +105,8 @@ import profile-{$MJK_PROFILE}.caddy
 		root * /srv/web
 		file_server
 	}
-	handle /assets/* {
+	@asset_missing path {args[1:]}
+	handle @asset_missing {
 		header Cache-Control no-store
 		respond 404
 	}
@@ -121,7 +123,7 @@ import profile-{$MJK_PROFILE}.caddy
 		header @http Cache-Control no-store
 		redir @http https://{$MJK_DOMAIN}{uri} 308
 
-		import assets "public, max-age=31536000, immutable"
+		import assets "public, max-age=31536000, immutable" /assets/* /map/*
 
 		# Invariant 3: admin exists only on admin.<domain>. The bare path too: an inline matcher takes
 		# one path (Caddy 2.11), and these paths overlap no other route, so a re-sort cannot reorder them.
@@ -175,7 +177,7 @@ import profile-{$MJK_PROFILE}.caddy
 			max_size 64KiB
 		}
 
-		import assets "private, no-store"
+		import assets "private, no-store" /assets/*
 
 		@admin_api path /api/admin /api/admin/*
 		handle @admin_api {

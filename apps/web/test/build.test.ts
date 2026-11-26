@@ -14,6 +14,7 @@ import {
 } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildWeb } from '../build.ts';
+import { parseHex } from '../src/lib/map/museumLayer.ts';
 
 // P1c criterion 3: the built client and the rendered HTML of every page kind make no inline script,
 // style, handler or third-party fetch (A§15.6, A§18). The scan output goes into the PR as evidence.
@@ -36,6 +37,23 @@ const ALLOWED_URLS = [
   'http://fallback.com',
   'http://example.com',
   'http://[${',
+  // MapLibre's and pmtiles' bundles (A§15.3; inspected in P1d, all inert: none is fetched by code we run).
+  // The href of MapLibre's opt-in logo control and of its default attribution text: we pass
+  // `attributionControl: { compact: true }` and never `maplibreLogo`, so neither renders, and an
+  // <a href> is a navigation, not a request.
+  'https://maplibre.org/',
+  // A licence header, a console warning and a console error: text, never fetched.
+  'https://github.com/maplibre/maplibre-gl-js/blob/',
+  'https://github.com/mapbox/mapbox-gl-js/issues/',
+  'https://github.com/protomaps/PMTiles/',
+  // The message of MapLibre's GPUInitializationError (no WebGL2): text, never fetched (allowed by
+  // name in test/forbidden-hosts.test.ts).
+  'https://wiki.openstreetmap.org/wiki/This_map_requires_WebGL',
+  // Our own media origin, `https://media.${hostname}` (the tiles; the CSP's connect-src): built at
+  // run time from the page's own hostname, in the lazy map chunk only.
+  'https://media.${',
+  // The base of a `new URL(attribute, base)` that only reads the protocol of an attribute value.
+  'https://maplibre.invalid/',
 ];
 
 const item = {
@@ -103,7 +121,7 @@ const KINDS: Kind[] = [
   ['province', '/provincie/noord-holland', '/en/province/noord-holland'],
   ['museum', '/musea/voorbeeld-museum', '/en/museums/voorbeeld-museum'],
   ['search', '/zoeken?q=haarlem', '/en/search?q=haarlem'],
-  ['map', '/kaart', '/en/map'],
+  ['map', '/kaart?province=NL-NH', '/en/map'],
   ['legal', '/privacy', '/en/privacy'],
   ['shell', '/paspoort', '/en/passport'],
   ['404', '/nergens/naartoe', '/en/nowhere/at/all'],
@@ -118,6 +136,17 @@ const PAGES = KINDS.flatMap(([name, nl, en, failure]) => [
 let tmp: string;
 const htmls: { name: string; status: number; html: string }[] = [];
 const assets: { file: string; text: string }[] = [];
+type ManifestChunk = {
+  file: string;
+  imports?: string[];
+  dynamicImports?: string[];
+  css?: string[];
+  assets?: string[];
+  isDynamicEntry?: boolean;
+};
+let manifest: Record<string, ManifestChunk> = {};
+const ENTRY = 'src/entry-client.tsx';
+const MAP_CHUNK = 'src/lib/map/createMap.ts';
 
 beforeAll(async () => {
   tmp = mkdtempSync(join(tmpdir(), 'mjk-build-'));
@@ -127,6 +156,7 @@ beforeAll(async () => {
     const r = await bundle.render(p.path, fake(p.failure), CONFIG);
     htmls.push({ name: p.name, status: r.status, html: r.body });
   }
+  manifest = JSON.parse(readFileSync(join(tmp, 'client', '.vite', 'manifest.json'), 'utf8')) as typeof manifest;
   const dir = join(tmp, 'client', 'assets');
   for (const file of readdirSync(dir)) assets.push({ file, text: readFileSync(join(dir, file), 'utf8') });
 }, 300_000);
@@ -187,14 +217,41 @@ describe('the rendered HTML of every page kind', () => {
   });
 });
 
+describe('the map page', () => {
+  it('is server-rendered with its filters and its list, and holds no map code', () => {
+    for (const name of ['map nl', 'map en']) {
+      const html = htmls.find((h) => h.name === name)?.html ?? '';
+      expect(html, name).toContain('class="filters"');
+      expect(html, name).toContain('class="card-list"');
+      expect(html, name).toContain('Voorbeeldmuseum');
+      expect(html, name).not.toMatch(/maplibre|pmtiles|createMap|museum-map|<canvas/i);
+    }
+    expect(htmls.find((h) => h.name === 'map nl')?.html).toContain('<option value="NL-NH" selected="">');
+  });
+});
+
 describe('the client assets', () => {
-  it('holds no data: or blob: in CSS and only inert absolute URLs in JS and CSS', () => {
+  /** MapLibre's own stylesheet: the CSS of the lazy map chunk (by the manifest) that holds `.maplibregl-` rules. */
+  const isMaplibreCss = (file: string, text: string) =>
+    (manifest[MAP_CHUNK]?.css ?? []).includes(`assets/${file}`) && /\.maplibregl-/.test(text);
+
+  it("holds no data: or blob: in CSS (MapLibre's own SVG icons excepted) and only inert absolute URLs in JS and CSS", () => {
     const found: Record<string, number> = Object.fromEntries(ALLOWED_URLS.map((u) => [u, 0]));
     const other: string[] = [];
+    let maplibreData = 0;
+    let maplibreCss = 0;
     for (const { file, text } of assets) {
       if (file.endsWith('.css')) {
-        expect(text, file).not.toMatch(/\b(?:data|blob):/i);
+        expect(text, file).not.toMatch(/\bblob:/i);
         expect(text, file).not.toMatch(/@import/i);
+        if (isMaplibreCss(file, text)) {
+          // The one exception (A§15.6 `img-src data:`): MapLibre's control icons, each an inline SVG.
+          maplibreCss++;
+          maplibreData = (text.match(/\bdata:image\/svg\+xml[,;]/gi) ?? []).length;
+          expect(text.match(/\bdata:/gi)?.length, `${file}: every data: URL is an SVG image`).toBe(maplibreData);
+        } else {
+          expect(text, file).not.toMatch(/\bdata:/i);
+        }
       }
       for (const m of text.matchAll(/https?:\/\/[^\s"'`)<>\\]+/g)) {
         const hit = ALLOWED_URLS.find((u) => m[0].startsWith(u));
@@ -202,8 +259,9 @@ describe('the client assets', () => {
         else found[hit] = (found[hit] ?? 0) + 1;
       }
     }
+    expect(maplibreCss, "MapLibre's stylesheet is found").toBe(1);
     console.log(
-      `build scan: ${assets.length} client assets; absolute URLs per allow-list entry ${JSON.stringify(found)}; findings ${other.length}`,
+      `build scan: ${assets.length} client assets; MapLibre's CSS holds ${maplibreData} data:image/svg+xml URLs, the only data: in any CSS; absolute URLs per allow-list entry ${JSON.stringify(found)}; findings ${other.length}`,
     );
     expect(other).toEqual([]);
   });
@@ -219,11 +277,78 @@ describe('the client assets', () => {
     for (const { file, text } of assets) {
       for (const re of positions) {
         for (const m of text.matchAll(re)) {
+          // MapLibre's stylesheet draws its icons with inline SVG data: URLs (checked above).
+          if (isMaplibreCss(file, text) && /^data:image\/svg\+xml[,;]/i.test(m[2] ?? '')) continue;
           n++;
           expect(m[2], `${file}: ${m[0]}`).not.toMatch(/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i);
         }
       }
     }
     console.log(`build scan: ${n} fetch/import/url/new URL positions, all same-origin`);
+  });
+});
+
+describe('the map marker tokens in the built stylesheet', () => {
+  // The CSS minifier rewrites colours (`#ffffff` becomes `#fff`): the map reads them at mount.
+  it('still parse after minification', () => {
+    const css = assets
+      .filter((a) => a.file.endsWith('.css'))
+      .map((a) => a.text)
+      .join('\n');
+    for (const name of ['mk', 'other', 'cluster', 'outline']) {
+      const value = new RegExp(`--color-map-${name}:\\s*([^;}]+)`).exec(css)?.[1];
+      expect(value, name).toBeDefined();
+      expect(() => parseHex((value ?? '').trim()), `${name}: ${value}`).not.toThrow();
+    }
+  });
+});
+
+describe('the lazy map chunk (A§15.3)', () => {
+  /** Every chunk key the key reaches through static `imports` (the key itself included). */
+  const staticKeys = (key: string, seen = new Set<string>()): Set<string> => {
+    if (seen.has(key)) return seen;
+    seen.add(key);
+    for (const dep of manifest[key]?.imports ?? []) staticKeys(dep, seen);
+    return seen;
+  };
+  const text = (key: string) => readFileSync(join(tmp, 'client', manifest[key]?.file ?? 'missing'), 'utf8');
+
+  it('keeps maplibre-gl and pmtiles out of everything the entry imports, and puts them in the createMap chunk', () => {
+    const entry = manifest[ENTRY];
+    expect(entry?.dynamicImports, 'the entry reaches createMap only through import()').toContain(MAP_CHUNK);
+    expect(entry?.imports ?? [], 'the entry has no static import of the map chunk').not.toContain(MAP_CHUNK);
+
+    const entryKeys = staticKeys(ENTRY);
+    expect(entryKeys.has(MAP_CHUNK)).toBe(false);
+    for (const key of entryKeys) {
+      expect(text(key), `entry chunk ${manifest[key]?.file}`).not.toMatch(/maplibre|pmtiles/i);
+    }
+
+    // The map chunk, plus any chunk only it reaches statically, holds both libraries.
+    const lazyKeys = [...staticKeys(MAP_CHUNK)].filter((key) => !entryKeys.has(key));
+    expect(lazyKeys).toContain(MAP_CHUNK);
+    const lazyText = lazyKeys.map(text).join('\n');
+    expect(lazyText).toMatch(/maplibregl-ctrl/);
+    expect(lazyText).toMatch(/PMTiles/);
+    expect(manifest[MAP_CHUNK]?.isDynamicEntry).toBe(true);
+    expect(
+      manifest[MAP_CHUNK]?.assets?.some((a) => /maplibre-gl-worker/.test(a)),
+      'the worker is a same-origin file',
+    ).toBe(true);
+
+    // The entry's stylesheets (what the server links) are not the map's.
+    const entryCss = new Set([...entryKeys].flatMap((key) => manifest[key]?.css ?? []));
+    for (const css of manifest[MAP_CHUNK]?.css ?? []) expect(entryCss.has(css), css).toBe(false);
+
+    const dir = join(tmp, 'client');
+    const listing = [...entryKeys, ...Object.keys(manifest).filter((k) => !entryKeys.has(k))].map((key) => {
+      const chunk = manifest[key] as ManifestChunk;
+      const where = entryKeys.has(key) ? 'entry (static)' : key === MAP_CHUNK ? 'lazy: maplibre-gl + pmtiles' : 'lazy';
+      const sizes = [chunk.file, ...(chunk.css ?? []), ...(chunk.assets ?? [])].map(
+        (f) => `${f} ${(readFileSync(join(dir, f)).length / 1024).toFixed(1)} kB`,
+      );
+      return `  ${where.padEnd(28)} ${key}: ${sizes.join(', ')}`;
+    });
+    console.log(`build scan: client chunks (the entry imports no map code)\n${listing.join('\n')}`);
   });
 });

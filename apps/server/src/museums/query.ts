@@ -1,4 +1,4 @@
-import type { MuseumList, MuseumListItem, MuseumListQuery } from '@mjk/contracts';
+import type { MuseumList, MuseumListItem, MuseumListQuery, MuseumPoint, MuseumPoints } from '@mjk/contracts';
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
 import { decodeCursor, encodeCursor, type PageCursor } from './cursor.ts';
@@ -43,7 +43,7 @@ const COLUMNS = sql`m.id, m.slug, m.name, m.name_en, m.place, m.municipality_cod
   m.province_code, m.lat, m.lon, m.categories, m.museumkaart_status, m.registered, m.closed_on,
   m.temp_closed, m.sort_name`;
 
-function filters(p: ListParams): RawBuilder<unknown> {
+function filters(p: Omit<ListParams, 'limit' | 'cursor'>): RawBuilder<unknown> {
   const parts: RawBuilder<unknown>[] = [];
   if (p.province !== undefined) parts.push(sql`m.province_code = ${p.province}`);
   if (p.municipality !== undefined) parts.push(sql`m.municipality_code = ${p.municipality}`);
@@ -75,6 +75,25 @@ const item = (r: Row): MuseumListItem => ({
   closed_on: r.closed_on,
   temp_closed: r.temp_closed,
 });
+
+/** Every visible museum with coordinates that the filters match: the map's points, ordered by id. */
+export async function listPoints(db: Db, p: Omit<ListParams, 'limit' | 'cursor'>): Promise<MuseumPoints> {
+  const where = filters(p);
+  const { q } = p;
+  const cols = sql`m.id, m.slug, m.name, m.name_en, m.lat, m.lon, m.museumkaart_status, m.categories`;
+  const { rows } = await db
+    .transaction()
+    .setAccessMode('read only')
+    .execute((trx) =>
+      q === undefined
+        ? sql<MuseumPoint>`SELECT ${cols} FROM pub_museum m
+            WHERE ${where} AND m.lat IS NOT NULL AND m.lon IS NOT NULL ORDER BY m.id`.execute(trx)
+        : sql<MuseumPoint>`WITH best AS (${matches(q)})
+            SELECT ${cols} FROM best b JOIN pub_museum m ON m.id = b.id
+            WHERE ${where} AND m.lat IS NOT NULL AND m.lon IS NOT NULL ORDER BY m.id`.execute(trx),
+    );
+  return { items: rows };
+}
 
 /** One page and the total. `limit + 1` rows are read to know whether another page follows. */
 export async function listMuseums(db: Db, p: ListParams): Promise<MuseumList> {

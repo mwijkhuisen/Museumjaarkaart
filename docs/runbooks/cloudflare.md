@@ -63,7 +63,15 @@ Jurisdiction European Union for both buckets, chosen when they are created (it c
 | `mjk-backup` | private | the lock rule and the tokens of `docs/runbooks/backup.md` §1 and §2 |
 | `mjk-media` | public through `media.<domain>` only | custom domain `media.<domain>`; the `r2.dev` public URL off; CORS for GET only, origin `https://<domain>` (the tiles of P1d); a Transform Rule on `media.<domain>` adding `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox` to every object; objects carry their own `Cache-Control` (A§12) |
 
-Tokens, one per bucket, Object Read & Write, none account-wide: one for `mjk-media` (arrives with P3b as `r2_media_rw`), one for `mjk-backup` (`r2_backup_put`, on the VM), one workstation token on `mjk-backup` (never on the VM). The Admin token that can change lock rules stays in your password manager.
+The media bucket, step by step (the tiles of P1d; `docs/runbooks/tiles-refresh.md` §2 has the checks):
+
+1. R2 → Create bucket `mjk-media`, jurisdiction European Union. Settings → Public access: connect the custom domain `media.<domain>` and leave the `r2.dev` URL disabled.
+2. Settings → CORS policy, JSON editor: `[{"AllowedOrigins": ["https://<domain>"], "AllowedMethods": ["GET", "HEAD"], "AllowedHeaders": ["range"], "ExposeHeaders": ["ETag"], "MaxAgeSeconds": 86400}]`. Only `https://<domain>`, only read methods. `range` and `ETag` are [U] until the P1d [box] run shows the map loading. That is the dashboard's form; the R2 API and `wrangler` take `{"rules": [{"allowed": {"origins": […], "methods": […], "headers": […]}, "exposeHeaders": […], "maxAgeSeconds": N}]}` (`docs/runbooks/tiles-refresh.md` §2 has both). Cached objects keep the CORS headers they were cached with until purged.
+3. The Transform Rule of the table above on `media.<domain>`.
+4. A lifecycle rule that aborts incomplete multipart uploads after 7 days (a killed worker leaves one behind).
+5. **Never a cache-eligible rule that covers `tiles/` while the tile file is over 512 MB** (it is 1–2 GB [U]). Free, Pro and Business cache objects up to 512 MB only, judged by the whole size from `Content-Range`, so the file is never stored at the edge; and on a cacheable miss Cloudflare may drop the browser's `Range` and pull the complete file from R2. Without a rule `.pmtiles` is not eligible, Cloudflare passes the `Range` on, and R2 answers 206: the [box] run expects `cf-cache-status` `DYNAMIC` or `MISS` on cold and warm reads alike (`tiles-refresh.md` §8 items 4 and 5). Each such read is an R2 Class B operation (10 million a month free).
+
+Tokens, one per bucket, Object Read & Write, none account-wide: one for `mjk-media` (the worker's `r2_media_rw`, P1d), one for `mjk-backup` (`r2_backup_put`, on the VM), one workstation token on `mjk-backup` (never on the VM). The Admin token that can change lock rules stays in your password manager.
 
 ## 5. Rules
 

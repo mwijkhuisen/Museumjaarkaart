@@ -35,7 +35,7 @@ export function Home({ route }: { route: Extract<Route, { page: 'home' }> }) {
           <Link href={pathOf({ page: 'museums', locale, query: 'mk=participating' })}>{m.home_mk_museums()}</Link>
         </li>
         <li>
-          <Link href={pathOf({ page: 'map', locale })}>{m.home_map()}</Link>
+          <Link href={pathOf({ page: 'map', locale, query: '' })}>{m.home_map()}</Link>
         </li>
       </ul>
       {mkList.list === null ? null : (

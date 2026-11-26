@@ -16,6 +16,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
+    "@maplibre/maplibre-gl-style-spec": "26.4.4",
+    "@protomaps/basemaps": "5.7.2",
     "@types/node": "26.6.5",
     "fast-check": "4.10.2",
     "msw": "3.0.3",

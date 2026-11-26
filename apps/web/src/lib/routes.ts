@@ -32,7 +32,7 @@ export type Route =
   | { page: 'museum'; locale: Locale; slug: string }
   | { page: 'province'; locale: Locale; province: ProvinceSlug; query: string }
   | { page: 'search'; locale: Locale; query: string }
-  | { page: 'map'; locale: Locale }
+  | { page: 'map'; locale: Locale; query: string }
   | { page: 'legal'; locale: Locale; doc: LegalDoc }
   | { page: 'shell'; locale: Locale; app: ShellApp }
   | { page: 'not_found'; locale: Locale };
@@ -69,9 +69,14 @@ const SHELL: Record<ShellApp, Record<Locale, string>> = {
  */
 const KEPT = {
   museums: ['q', 'province', 'municipality', 'category', 'mk', 'sort', 'limit', 'cursor'],
+  // The map page shows the list's filters and the same list.
+  map: ['q', 'province', 'municipality', 'category', 'mk', 'sort', 'limit', 'cursor'],
   province: ['cursor'],
   search: ['q', 'cursor'],
 } as const;
+
+/** The parameters of `GET /museums/points` (the contract's PointsQuery: any other one is a 400). */
+const POINTS = ['q', 'province', 'municipality', 'category', 'mk'] as const;
 
 function keep(search: string, names: readonly string[]): string {
   const given = new URLSearchParams(search);
@@ -124,7 +129,7 @@ export function routeOf(path: string): Resolved {
   if (more.length > 0) return route({ page: 'not_found', locale });
   if (second === undefined) {
     if (first === SEGMENT.museums[locale]) return route({ page: 'museums', locale, query: keep(search, KEPT.museums) });
-    if (first === SEGMENT.map[locale]) return route({ page: 'map', locale });
+    if (first === SEGMENT.map[locale]) return route({ page: 'map', locale, query: keep(search, KEPT.map) });
     if (first === SEGMENT.search[locale]) return route({ page: 'search', locale, query: keep(search, KEPT.search) });
     const doc = find(LEGAL, locale, first);
     if (doc !== undefined) return route({ page: 'legal', locale, doc });
@@ -157,7 +162,7 @@ export function pathOf(route: Route): string {
     case 'search':
       return withQuery(`${prefix}/${SEGMENT.search[locale]}`, route.query);
     case 'map':
-      return `${prefix}/${SEGMENT.map[locale]}`;
+      return withQuery(`${prefix}/${SEGMENT.map[locale]}`, route.query);
     case 'legal':
       return `${prefix}/${LEGAL[route.doc][locale]}`;
     case 'shell':
@@ -174,6 +179,12 @@ export const apiPath = {
   mkList: '/api/v1/mk-list',
   museum: (slug: string) => `/api/v1/museums/${slug}`,
   museums: (query: string) => (query === '' ? '/api/v1/museums' : `/api/v1/museums?${query}`),
+  /** The map's points: the list's filters without the paging and sorting parameters. */
+  points: (query: string) => {
+    const points = keep(query === '' ? '' : `?${query}`, POINTS);
+    return points === '' ? '/api/v1/museums/points' : `/api/v1/museums/points?${points}`;
+  },
+  near: (lat: string, lon: string) => `/api/v1/museums/near?lat=${lat}&lon=${lon}`,
 };
 
 /** The province list query: the province first, then the kept parameters. */
@@ -189,6 +200,7 @@ export function apiPathsOf(route: Route): readonly string[] {
     case 'home':
       return [apiPath.provinces, apiPath.mkList];
     case 'museums':
+    case 'map':
       return [apiPath.museums(route.query), apiPath.provinces];
     case 'museum':
       return [apiPath.museum(route.slug)];

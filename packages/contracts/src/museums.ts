@@ -95,6 +95,21 @@ export type NearItem = z.infer<typeof NearItem>;
 export const NearList = z.strictObject({ items: z.array(NearItem).max(50) });
 export type NearList = z.infer<typeof NearList>;
 
+export const MuseumPoint = z.strictObject({
+  id: MuseumListItem.shape.id,
+  slug: MuseumListItem.shape.slug,
+  name: MuseumListItem.shape.name,
+  name_en: MuseumListItem.shape.name_en,
+  lat: Lat,
+  lon: Lon,
+  museumkaart_status: MuseumListItem.shape.museumkaart_status,
+  categories: MuseumListItem.shape.categories,
+});
+export type MuseumPoint = z.infer<typeof MuseumPoint>;
+
+export const MuseumPoints = z.strictObject({ items: z.array(MuseumPoint).max(5000) });
+export type MuseumPoints = z.infer<typeof MuseumPoints>;
+
 export const Provinces = z.strictObject({
   items: z
     .array(

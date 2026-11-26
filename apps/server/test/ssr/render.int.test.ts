@@ -132,7 +132,7 @@ describe('loaders equal the API answers', () => {
   });
 
   it('pages without data carry an empty state', async () => {
-    for (const path of ['/kaart', '/privacy', '/paspoort', '/zoeken']) {
+    for (const path of ['/privacy', '/paspoort', '/zoeken']) {
       expect(state(await (await get(path)).text()), path).toEqual({});
     }
   });

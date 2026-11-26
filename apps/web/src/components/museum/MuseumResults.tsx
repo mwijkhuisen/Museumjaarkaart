@@ -6,7 +6,7 @@ import { m } from '../../paraglide/messages.js';
 import { IconChevronRight } from '../ui/icons.tsx';
 import { MuseumCard } from './MuseumCard.tsx';
 
-type ListRoute = Extract<Route, { page: 'museums' | 'province' | 'search' }>;
+type ListRoute = Extract<Route, { page: 'museums' | 'map' | 'province' | 'search' }>;
 
 /** The "next page" link: the route's own query, with `cursor` set. */
 export function Pager({ route, nextCursor }: { route: ListRoute; nextCursor: string | null }) {

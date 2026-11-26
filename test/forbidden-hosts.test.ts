@@ -92,6 +92,12 @@ const ALLOWED: readonly Allowed[] = [
     why: 'host_not_allowed: an OSM URL is refused',
   },
   {
+    path: 'apps/web/test/build.test.ts',
+    pattern: 'openstreetmap',
+    count: 1,
+    why: "the text of MapLibre's GPUInitializationError in its bundle, allowed by the build scan; never fetched",
+  },
+  {
     path: 'apps/server/test/museums/sources/wikidata.test.ts',
     pattern: 'museum.nl',
     count: 1,

@@ -296,6 +296,20 @@ async function echoCases() {
     statusIs(expect, res, 404, 'missing asset');
     headersAre(expect, res, { ...PUBLIC, 'cache-control': 'no-store' }, 'missing asset');
   });
+  // P1d: the map's glyphs and sprites, files under /srv/web/map only.
+  const glyph = '/map/028c18f/fonts/Noto%20Sans%20Regular/0-255.pbf';
+  await check('a map file is immutable with the public headers', async (expect) => {
+    const res = await send('edge', glyph);
+    statusIs(expect, res, 200, glyph);
+    headersAre(expect, res, { ...PUBLIC, 'cache-control': 'public, max-age=31536000, immutable' }, glyph);
+  });
+  for (const path of ['/map/028c18f/nope.pbf', '/map/028c18f/fonts/', '/map/028c18f/fonts']) {
+    await check(`${path} is Caddy's no-store 404`, async (expect) => {
+      const res = await send('edge', path);
+      statusIs(expect, res, 404, path);
+      headersAre(expect, res, { ...PUBLIC, 'cache-control': 'no-store' }, path);
+    });
+  }
   for (const path of ['/api/v1/x', '/']) {
     await check(`a body over 64 KiB to ${path} is a no-store 413 with noindex`, async (expect) => {
       const res = await send('edge', path, { method: 'POST', body: Buffer.alloc(64 * 1024 + 1, 'a') });
@@ -328,6 +342,12 @@ async function echoCases() {
     const res = await send('edge', '/assets/nope.js', { host: ADMIN });
     statusIs(expect, res, 404, 'missing asset');
     headersAre(expect, res, ADMIN_HEADERS, 'missing asset');
+  });
+  await check('admin: /map/* is not served (the placeholder page, never the file)', async (expect) => {
+    const res = await send('edge', glyph, { host: ADMIN });
+    statusIs(expect, res, 200, glyph);
+    expect(res.body.startsWith('<!doctype html>'), 'not the placeholder');
+    headersAre(expect, res, ADMIN_HEADERS, glyph);
   });
   for (const path of ['/api', '/api/', '/api/v1', '/api/v1/healthz', '/api/v1/museums', '/api/x']) {
     await check(`admin: ${path} is a 404 that reaches no upstream`, async (expect) => {

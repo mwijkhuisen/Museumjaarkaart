@@ -6,7 +6,8 @@ import { defineConfig } from 'vite';
 // hashed files through the manifest. `vite build` builds both environments (`builder`).
 export default defineConfig({
   root: import.meta.dirname,
-  publicDir: false,
+  // public/ holds the self-hosted map glyphs and sprites (/map/...); the client build copies it.
+  publicDir: 'public',
   plugins: [react()],
   builder: {},
   environments: {
@@ -27,6 +28,7 @@ export default defineConfig({
       resolve: { noExternal: true },
       build: {
         outDir: 'dist/server',
+        copyPublicDir: false,
         assetsInlineLimit: 0,
         rolldownOptions: { input: 'src/entry-server.tsx', output: { entryFileNames: 'entry-server.js' } },
       },

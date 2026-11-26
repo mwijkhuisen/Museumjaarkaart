@@ -10,6 +10,7 @@ import type { Source } from './museums/fields.ts';
 import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
 import { runSsr } from './ssr/server.ts';
+import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB, tilesRefreshJob, tilesRollbackJob } from './tiles/job.ts';
 import { runWorkerRole } from './worker/role.ts';
 
 /** Roles of the single server image (A§5); the first argument picks one. */
@@ -114,7 +115,13 @@ async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promis
   const logger = createLogger({ role: 'worker' });
   const fetchers = deps.fetchers ?? liveFetchers(env);
   return runWorkerRole(env, {
-    handlers: (db) => ({ [MUSEUM_SYNC_JOB]: museumSyncJob(db, fetchers, logger) }),
+    handlers: (db) => ({
+      [MUSEUM_SYNC_JOB]: museumSyncJob(db, fetchers, logger),
+      // MJK_R2_* are read when a tiles job runs, so a worker without them still runs the rest. The secret
+      // file r2_media_rw is not optional: Compose does not start the worker without it.
+      [TILES_REFRESH_JOB]: tilesRefreshJob({ logger, env }),
+      [TILES_ROLLBACK_JOB]: tilesRollbackJob({ logger, env }),
+    }),
     logger,
     signal: stopSignal(deps),
     heartbeatPath,

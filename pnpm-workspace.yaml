@@ -13,3 +13,8 @@ strictDepBuilds: true
 # 12.5.1 still lets a transitive plain https tarball URL through; the lockfile
 # review covers that gap.
 blockExoticSubdeps: true
+
+# One style spec (P1d): maplibre-gl 6.15.0 asks for ^26.4.4, and the map styles are validated against the
+# pinned 26.4.4 (scripts/build-map-style.ts), so the browser runs the spec the styles were checked with.
+overrides:
+  '@maplibre/maplibre-gl-style-spec': 26.4.4

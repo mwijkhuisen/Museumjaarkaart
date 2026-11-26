@@ -65,9 +65,10 @@ Each secret is one file in `/etc/mjk/secrets`, owned `root:<gid>`, mode `0440`, 
 | `cf_tunnel_token` | `mjk_cf_tunnel_token` (63007) | cloudflared | the tunnel token from the Cloudflare dashboard (one line) |
 | `r2_backup_put` | `mjk_r2_backup_put` (63010) | backup | an AWS credentials file for the Object Read & Write token on `mjk-backup` only: `[default]`, then `aws_access_key_id = …` and `aws_secret_access_key = …` |
 | `restic_password` | `mjk_restic_password` (63011) | backup | a long random password (one line) |
+| `r2_media_rw` | `mjk_r2_media_rw` (63009) | worker (the quarterly tiles job, P1d) | an AWS credentials file for the Object Read & Write token on `mjk-media` only, the format of `r2_backup_put` |
 | `hc_ping_key` | `mjk_hc_ping_key` (63013) | worker, and the host unit `mjk-backup.service` as root | the healthchecks.io project's ping key: 16 to 64 characters of `A-Za-z0-9_-` |
 
-`lettermint_api_token` (63008), `r2_media_rw` (63009) and `app_keys` (63012) come with P2a and P3b; their groups already exist and nothing needs them now. The database passwords are read by `roles.sql` on the first start of the `db` volume only (§5), so they must exist before the first deploy. A database password with any other character fails with `roles.sql: cannot set up login …`.
+`lettermint_api_token` (63008) and `app_keys` (63012) come with P2a and P3b; their groups already exist and nothing needs them now. `r2_media_rw` needs the media bucket and its token (`docs/runbooks/tiles-refresh.md` §2): Compose will not start the `worker` without the file. On a first install `mjk-install` lists it as missing and leaves the timers off until it exists. **On a host that already runs P1e** the timers are on: create `r2_media_rw` and set `MJK_R2_BUCKET_MEDIA` in `mjk.env` first, before the `mjk-install` that brings P1d (§11); `mjk-update` refuses a compose file whose secret files are missing (`config_missing: secret file(s) missing: …`, exit 78, the running stack untouched) until they exist. The database passwords are read by `roles.sql` on the first start of the `db` volume only (§5), so they must exist before the first deploy. A database password with any other character fails with `roles.sql: cannot set up login …`.
 
 How to create them without a secret entering the shell history, a process list or a log (run in the root shell; `read -rs` and `printf` are shell builtins, so the value is never an argument of a program; `HISTFILE=` keeps this shell's history off the disk):
 
@@ -83,10 +84,13 @@ done
 read -rs -p 'tunnel token: ' v; echo; printf '%s' "$v" > cf_tunnel_token; unset v
 read -rs -p 'healthchecks ping key: ' v; echo; printf '%s' "$v" > hc_ping_key; unset v
 
-# The R2 key file: two silent prompts, written as the AWS credentials format restic reads.
+# The R2 key files: two silent prompts each, written as the AWS credentials format restic reads.
 read -rs -p 'R2 access key id (mjk-backup): ' id; echo
 read -rs -p 'R2 secret access key: ' key; echo
 printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$id" "$key" > r2_backup_put; unset id key
+read -rs -p 'R2 access key id (mjk-media): ' id; echo
+read -rs -p 'R2 secret access key: ' key; echo
+printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$id" "$key" > r2_media_rw; unset id key
 ```
 
 Then the exact owner and mode of each, and a check by name (this prints names and modes only, never a value):
@@ -94,7 +98,7 @@ Then the exact owner and mode of each, and a check by name (this prints names an
 ```bash
 cd /etc/mjk/secrets
 for pair in db_postgres:63001 db_mjk_migrator:63002 db_mjk_api:63003 db_mjk_ssr:63004 db_mjk_worker:63005 \
-  db_mjk_backup:63006 cf_tunnel_token:63007 r2_backup_put:63010 restic_password:63011 hc_ping_key:63013; do
+  db_mjk_backup:63006 cf_tunnel_token:63007 r2_media_rw:63009 r2_backup_put:63010 restic_password:63011 hc_ping_key:63013; do
   chown "root:${pair##*:}" "${pair%%:*}" && chmod 0440 "${pair%%:*}"
 done
 stat -c '%U:%g %a %n' /etc/mjk/secrets/*
@@ -104,7 +108,7 @@ Expected: every line `root:<gid> 440`. Put each value (not the file) into your p
 
 ### mjk.env
 
-`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_R2_BUCKET_MEDIA`, `MJK_MAIL_CAP` and `MJK_SIGNUP` (later phases) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value. The check is `/usr/local/bin/mjk-envcheck`, and `mjk-update` runs it again before every deploy, so an edit after the install is refused there too (exit 78).
+`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_MAIL_CAP` and `MJK_SIGNUP` (later phases) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value. The check is `/usr/local/bin/mjk-envcheck`, and `mjk-update` runs it again before every deploy, so an edit after the install is refused there too (exit 78).
 
 ```bash
 cat > /etc/mjk/mjk.env <<'EOF'
@@ -118,6 +122,7 @@ MJK_CONTROLLER_NAME=<your name as the controller of /privacy>
 MJK_CONTACT_EMAIL=<the contact address of /privacy and /contact>
 MJK_R2_ENDPOINT=https://<account id>.eu.r2.cloudflarestorage.com
 MJK_R2_BUCKET_BACKUP=mjk-backup
+MJK_R2_BUCKET_MEDIA=mjk-media
 EOF
 chmod 0644 /etc/mjk/mjk.env
 ```
@@ -125,7 +130,7 @@ chmod 0644 /etc/mjk/mjk.env
 - `MJK_PROFILE` is `prelaunch` in P1e; any other value, or none, makes Caddy fail to start (only `profile-prelaunch.caddy` ships).
 - A missing or malformed value makes the role log the variable's name and exit 78 (`MJK_CONTROLLER_NAME` 1 to 100 characters; `CF_ACCESS_AUD` exactly 64 hex characters; `CF_ACCESS_TEAM` one label of lowercase letters, digits and hyphens).
 - The endpoint must be the `.eu.` form for the EU jurisdiction bucket; the jurisdiction cannot change later (`docs/runbooks/backup.md` §1).
-- `MJK_R2_BUCKET_MEDIA` joins with P3b.
+- `MJK_R2_BUCKET_MEDIA` is the bucket of the worker's tiles job (P1d, `docs/runbooks/tiles-refresh.md`); P3b's photo variants use it too.
 
 ## 5. Second install: timers, and the idempotence proof
 
@@ -309,6 +314,8 @@ nft list tables                                                  # table inet mj
 Container uptimes in `docker compose ps` can differ if a stack restarted for its own reasons; compare the project, service and image columns. Then open the Waterheight and F1 sites in a browser (criterion 14, [owner]) and note in the PR that both work, after the install and again after the first `mjk-update`.
 
 ## 11. Updating the host side later
+
+**First, on a host that runs P1e and is about to get P1d:** create `/etc/mjk/secrets/r2_media_rw` (§4, `docs/runbooks/tiles-refresh.md` §2 items 1 to 3) and add `MJK_R2_BUCKET_MEDIA=mjk-media` to `mjk.env`, before the `git pull` and `mjk-install` below. Without the file `mjk-update` refuses every deploy with `config_missing: secret file(s) missing: /etc/mjk/secrets/r2_media_rw` and leaves the running stack as it is.
 
 After a change to the compose file, the Caddyfile (it is in the web image), `mjk.nft`, a unit or a script: `git pull` in the checkout, then `deploy/bin/mjk-install`. It reloads the firewall only when `mjk.nft` changed and reloads systemd only when a unit changed. New images arrive through `mjk-update`, not through the installer (`docs/runbooks/update.md`). The installer only copies a changed compose file; the next `mjk-update` run sees its new sha256 and deploys the same images with it, with the health wait, the smoke test and the rollback. Start it at once and watch it:
 

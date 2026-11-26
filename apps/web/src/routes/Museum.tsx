@@ -128,7 +128,7 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
         </dl>
       </section>
       <p>
-        <Link href={pathOf({ page: 'map', locale })}>
+        <Link href={pathOf({ page: 'map', locale, query: '' })}>
           <IconMapPin /> {m.museum_on_map()}
         </Link>
       </p>

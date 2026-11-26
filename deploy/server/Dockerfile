@@ -13,7 +13,9 @@
 # Hand-kept sha256 pins of the binaries (ARCHITECTURE.md §16; Dependabot does not bump them), fetched by
 # `ADD --checksum`, so no curl or apt is needed for them:
 #   dbmate v2.36.0: the same version and sha256 as .github/workflows/ci.yml;
-#   restic 0.19.1: the release tarball (the sha256 matches the release's SHA256SUMS), built from source.
+#   restic 0.19.1: the release tarball (the sha256 matches the release's SHA256SUMS), built from source;
+#   go-pmtiles 1.31.2: the release tarball (the sha256 is Waterheight's pin of the same release; the archive
+#   holds LICENSE, README.md and pmtiles), a static Go binary.
 ARG RESTIC_VERSION=0.19.1
 
 # ---------------------------------------------------------------------------------------------
@@ -69,6 +71,13 @@ RUN set -eu; \
     done; \
     ls /out/usr/lib/x86_64-linux-gnu
 
+# go-pmtiles for the worker's quarterly `tiles_refresh` job (A§15.3, P1d): the tarball is checked by BuildKit,
+# and only the binary leaves this stage.
+FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS pmtiles
+ADD --checksum=sha256:3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f \
+    https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz /tmp/go-pmtiles.tar.gz
+RUN mkdir /out && tar -xzf /tmp/go-pmtiles.tar.gz -C /out pmtiles
+
 # The revision gate: a build without a git sha fails here, and the sha is also kept in the image.
 FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS gate
 ARG REVISION
@@ -85,6 +94,8 @@ COPY --from=node-rt /out/ /
 # dbmate, sha256-checked by BuildKit (the `migrate` role runs it as mjk_migrator).
 ADD --checksum=sha256:47e284b3d8cbad1ba5f090495aa05afd1bbd5f35e2ed5577aad06da74ce780ce --chmod=0555 \
     https://github.com/amacneil/dbmate/releases/download/v2.36.0/dbmate-linux-amd64 /usr/local/bin/dbmate
+# go-pmtiles 1.31.2, sha256-checked in its stage (the worker's `tiles_refresh` runs it as /usr/local/bin/pmtiles).
+COPY --from=pmtiles --chown=0:0 --chmod=0555 /out/pmtiles /usr/local/bin/pmtiles
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/server/node_modules /app/apps/server/node_modules
 COPY --from=prod-deps /app/packages/contracts/node_modules /app/packages/contracts/node_modules
