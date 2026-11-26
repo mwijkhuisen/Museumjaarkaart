@@ -28,7 +28,8 @@
 #      healthchecks.io, Wikidata or RCE), and a probe that table inet mjk lets through is counted there.
 #      Where the sandbox does not allow loading a table, the steps that need it are skipped with a
 #      message: a skip is a failure under CI.
-#   3. deploy: mjk-update --server --web --backup with the local images and a stand-in for cloudflared at
+#   3. deploy: mjk-update --server --web --backup on a pseudo-terminal (as an owner's manual run, so a
+#      compose step that reads the terminal hangs here), with the local images and a stand-in for cloudflared at
 #      10.63.6.10 (a compose override beside the installed compose file): every daemon healthy, current.env
 #      holds the three refs and the compose sha256, the site answers on 127.0.0.1:8280 and through the
 #      tunnel network, only 127.0.0.1:8280 is published, a second run is "up to date", a held lock makes it
@@ -83,7 +84,7 @@ step() { echo "e2e: --- $1"; }
 indent() { sed 's/^/    /'; }
 
 [[ $EUID -eq 0 ]] || fail "run as root (sudo deploy/tests/e2e.sh)"
-for cmd in docker jq curl flock python3 sha256sum; do command -v "$cmd" >/dev/null || fail "$cmd is required"; done
+for cmd in docker jq curl flock python3 sha256sum script; do command -v "$cmd" >/dev/null || fail "$cmd is required"; done
 docker compose version >/dev/null 2>&1 || fail "docker compose is required"
 
 # --- preflight: never on a host that has an mjk stack ------------------------------------------------
@@ -172,6 +173,11 @@ sink_packets() {
 }
 
 run_update() { "$BIN/mjk-update" "$@"; }
+# On a pseudo-terminal with job control, as from an owner's shell (util-linux script); bounded, because a
+# compose step that reads the terminal stops there.
+run_update_tty() {
+  timeout -k 10 600 script -qec "$(printf '%q ' "$BIN/mjk-update" "$@")" /dev/null </dev/null | tr -d '\r'
+}
 
 # --- images ------------------------------------------------------------------------------------------
 REVISION=$(git -C "$REPO" rev-parse HEAD 2>/dev/null || true)
@@ -370,7 +376,7 @@ fi
 
 # --- 3. deploy ---------------------------------------------------------------------------------------
 step "3. deploy with mjk-update"
-if ! deploy_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1); then
+if ! deploy_out=$(run_update_tty --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1); then
   echo "$deploy_out" >&2
   fail "the first mjk-update failed"
 fi

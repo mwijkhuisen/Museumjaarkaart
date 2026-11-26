@@ -42,6 +42,10 @@ set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export LC_ALL=C
 umask 0022
+# Nothing here reads stdin, and `compose run` must not either: `timeout` gives compose its own process
+# group, and from a terminal its stdin read was stopped by SIGTTIN until the 300 s timeout, the deploy
+# lock held (a manual run on the VM, 2026-11-26; the unit, whose stdin is /dev/null, deployed in seconds).
+exec </dev/null
 
 ROOT=${MJK_ROOT:-}
 if [[ -n $ROOT ]]; then
