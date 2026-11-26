@@ -24,8 +24,11 @@
 #   2. table inet mjk loaded from the installed /etc/mjk/mjk.nft in the host's network namespace (the
 #      real boundary), and mjk-resolvers filled. Then the test's own `table inet mjk_e2e_sink`, which
 #      drops every packet that leaves an mjk-* bridge for another interface after table inet mjk has
-#      judged it: the run reaches no host outside this machine (invariant 9: no R2, Cloudflare,
-#      healthchecks.io, Wikidata or RCE), and a probe that table inet mjk lets through is counted there.
+#      judged it: no packet from a container reaches a host outside this machine (invariant 9: no R2,
+#      Cloudflare, healthchecks.io, Wikidata or RCE), and a probe that table inet mjk lets through is
+#      counted there. Container DNS is the exception the sink cannot see: Docker's embedded DNS asks the
+#      runner's resolver from the host's namespace (step 4), so a container in this run may only ever
+#      look up reserved `.invalid` names (step 4's control, step 7's backup endpoint).
 #      Where the sandbox does not allow loading a table, the steps that need it are skipped with a
 #      message: a skip is a failure under CI.
 #   3. deploy: mjk-update --server --web --backup on a pseudo-terminal (as an owner's manual run, so a
@@ -504,7 +507,7 @@ fi
 # table inet mjk does not look, so the table cannot stop it (proven on the VM, 2026-11-26). What a
 # container gets for a reserved name that no resolver knows (RFC 6761): NXDOMAIN when Docker forwarded
 # it, SERVFAIL when it did not. The worker is the control: its NXDOMAIN shows this host can forward
-# (that one query leaves through the runner's resolver and names no service).
+# (its A and AAAA queries leave through the runner's resolver; a reserved name, no service).
 embedded_dns() { # <container> <name>
   docker run --rm --network "container:$1" --user 63532:63532 --read-only --cap-drop ALL --security-opt no-new-privileges \
     "$STANDIN_IMAGE" timeout 10 nslookup "$2" 127.0.0.11 2>&1 || true

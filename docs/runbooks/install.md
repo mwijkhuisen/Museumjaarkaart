@@ -254,7 +254,7 @@ probe mjk-caddy-1 nc -w 3 -z 9.9.9.9 443               # fails: caddy has no ext
 
 If a container name differs (`docker ps --format '{{.Names}}'` lists them), use that name. Paste the output of all probes into the PR. If `104.16.0.1` is refused by Cloudflare with no drop counter moved, the rule still passed: the counters are the proof. `cf4` was written from the agent's knowledge, not fetched; compare it with the live list now (`docs/runbooks/cloudflare.md` §6).
 
-**DNS from the containers (P1e review S13, A§17.4; proven on the VM, 2026-11-26).** Docker's embedded DNS (`127.0.0.11` in each container) asks the host's resolvers from the host's own namespace, past `resolvers4` and the DNS rule, whatever resolver the host uses (A§16.2). `caddy` has `dns: 127.0.0.1` for that reason, and `ssr` is internal-only, so both must get SERVFAIL for an outside name; `api`, `worker` and `backup` resolve it, and no counter moves for any of them. Check it again after a Docker upgrade or a change to the networks:
+**DNS from the containers (P1e review S13, A§17.4; proven on the VM, 2026-11-26).** Docker's embedded DNS (`127.0.0.11` in each container) asks the host's resolvers from the host's own namespace, past `resolvers4` and the DNS rule, whatever resolver the host uses (A§16.2). `caddy` has `dns: 127.0.0.1` for that reason, and `ssr` is internal-only, so both must get SERVFAIL for an outside name; `api`, `worker`, `sync-museums` and `backup` resolve it, and no counter moves for any of them. Check it again after a Docker upgrade or a change to the networks:
 
 ```bash
 for c in mjk-ssr-1 mjk-caddy-1 mjk-api-1 mjk-worker-1; do probe "$c" nslookup example.org 127.0.0.11; done   # ssr and caddy: SERVFAIL
