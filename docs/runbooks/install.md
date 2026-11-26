@@ -254,16 +254,16 @@ probe mjk-caddy-1 nc -w 3 -z 9.9.9.9 443               # fails: caddy has no ext
 
 If a container name differs (`docker ps --format '{{.Names}}'` lists them), use that name. Paste the output of all probes into the PR. If `104.16.0.1` is refused by Cloudflare with no drop counter moved, the rule still passed: the counters are the proof. `cf4` was written from the agent's knowledge, not fetched; compare it with the live list now (`docs/runbooks/cloudflare.md` §6).
 
-**[U box] DNS from the containers (P1e review S13, A§17.4).** When the host's resolver is the systemd-resolved stub on loopback, Docker's embedded DNS (`127.0.0.11` in each container) may forward from the host's namespace, past `resolvers4` and the DNS rule, so it is not known yet whether a container without egress (`ssr`, `caddy`) can still resolve outside names, or whether `api` and `backup` resolve outside the table. That would be a DNS channel out of the stack. Check it from each service's namespace:
+**DNS from the containers (P1e review S13, A§17.4; proven on the VM, 2026-11-26).** Docker's embedded DNS (`127.0.0.11` in each container) asks the host's resolvers from the host's own namespace, past `resolvers4` and the DNS rule, whatever resolver the host uses (A§16.2). `caddy` has `dns: 127.0.0.1` for that reason, and `ssr` is internal-only, so both must get SERVFAIL for an outside name; `api`, `worker` and `backup` resolve it, and no counter moves for any of them. Check it again after a Docker upgrade or a change to the networks:
 
 ```bash
-resolvectl status | head -5; grep nameserver /etc/resolv.conf         # is the host on the 127.0.0.53 stub?
-for c in mjk-ssr-1 mjk-caddy-1 mjk-api-1 mjk-worker-1; do probe "$c" nslookup example.org 127.0.0.11; done
+for c in mjk-ssr-1 mjk-caddy-1 mjk-api-1 mjk-worker-1; do probe "$c" nslookup example.org 127.0.0.11; done   # ssr and caddy: SERVFAIL
+probe mjk-caddy-1 nslookup api 127.0.0.11                                                                     # caddy still finds api
 mjkc --profile backup run -d --rm --name mjk-probe-backup --entrypoint /usr/local/bin/node backup -e 'setTimeout(()=>{},120000)'
 probe mjk-probe-backup nslookup example.org 127.0.0.11; docker rm -f mjk-probe-backup
 ```
 
-Write the answer into A§17.4: for each service, whether `example.org` resolved and whether a counter moved. If `ssr` or `caddy` resolve, record the channel in A§16.2 and give the internal services a `dns:` that cannot answer, through a PR.
+If `caddy` or `ssr` resolves an outside name, the channel is open again: stop and fix it through a PR (A§16.2).
 
 **[U box] cloudflared's log (P1e review S14, invariant 8, A§17.7).** `--loglevel error` drops the info and warning lines, but cloudflared's origin errors are error lines and may carry the request URL (`dest=`), query string included. Check while nobody uses the site:
 

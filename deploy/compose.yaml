@@ -207,6 +207,13 @@ services:
         required: true
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 80
+    # Docker's embedded DNS asks the host's resolvers from the host's own namespace, past table inet
+    # mjk, so caddy, which has no egress, could otherwise resolve any name (proven on the VM,
+    # 2026-11-26; A§16.2). An explicit dns: is asked from the container's namespace, and 127.0.0.1 is
+    # caddy's own loopback, where nothing listens: an outside name gets SERVFAIL at once. The embedded
+    # DNS still answers api and ssr itself (deploy/tests/e2e.sh step 4).
+    dns:
+      - 127.0.0.1
     tmpfs:
       - /tmp
       - /data:uid=63532,gid=63532,mode=0700
