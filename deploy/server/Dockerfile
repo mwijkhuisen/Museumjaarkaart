@@ -133,7 +133,7 @@ RUN set -eu; \
     ls /out/usr/lib/x86_64-linux-gnu
 
 # restic from the release tarball: pinned sha256, a static binary (CGO off), local toolchain only.
-FROM golang:1.25.14-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73 AS restic
+FROM golang:1.27.3-trixie@sha256:af1bfc2614ebb1dbd31af514b78740fd678850e76498762b425ecee4c5c6ea80 AS restic
 ARG RESTIC_VERSION
 ENV GOTOOLCHAIN=local CGO_ENABLED=0
 WORKDIR /src
