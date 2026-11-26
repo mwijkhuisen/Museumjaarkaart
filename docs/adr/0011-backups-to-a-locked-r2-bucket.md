@@ -26,6 +26,7 @@
 
 ## Consequences
 
+- A lock rule is no WORM: the Admin token can remove it, and R2 has no compliance mode (Cloudflare's bucket-lock docs, 2026-11-22). That is also the way to erase one file that cannot wait 35 days (CSAM, a court order): `docs/runbooks/backup-erasure.md` (P3c; owner, 2026-11-22) lifts the rules on `data/`, `index/` and `snapshots/`, runs `restic rewrite --exclude … --forget` and `restic prune`, and puts the rules back (A§17.6).
 - RPO ≤ 24 h for the database and the originals. Once the lock is proven, ransomware on the VM cannot erase the last 28 days of history, nor the repository's `config` and keys that decrypt it.
 - A restic key can be added but never removed (its object is locked for good). Rotating `restic_password` therefore leaves the old key file in place; after a leaked password the remedy is a new repository (a new bucket, `docs/runbooks/secrets-rotation.md` §4), because restic's master key does not change with a key rotation. The Admin token could remove the rule, so it never sits on the VM.
 - **Accepted risk** (owner, 2026-11-01): media and backups sit with one vendor in one account, so losing or compromising that account hits both. The originals on the VM survive that case.

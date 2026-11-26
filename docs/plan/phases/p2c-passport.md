@@ -25,6 +25,8 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 | Q5 | Exports cost a mail each against the free plan's 300 a month (A§17.7) | One open export per member and at most 3 a day [U] (→ A§9's limit table) |
 | Q6 | The numbers A§ leaves [U]: a note ≤ 2,000 characters, bulk ≤ 200 museums, imports ≤ 5,000 rows and 2 MB, the export link 24 h | Keep them as stated and still marked [U]; P4 tunes them |
 | Q7 | Does progress follow `visits_visibility`? A§10 has no setting of its own for it | Yes: progress is public exactly when the visit log is |
+| Q8 | The stale-price rule (A§7.5; owner, 2026-11-22): a price last verified more than 18 months ago [U] counts as no price. Measured against today, or against the visit date? | Against today, with the one price column A§8 has: it keeps a neglected price from producing a wrong figure, and the January re-check keeps the list short. A price history per year would make old years exact, but it is a new table and more curation; revisit after the beta |
+| Q9 | The card price (A§7.5, checked 2026-11-22): €75 from 19 years, €39 up to and including 18, €69 for a renewal; and a card runs 365 days from its activation, not a calendar year (A§10) | Keep `card_type` as `adult` · `under_19` with the new-card price, and say on the page that the figure is an estimate per calendar year. A renewal price can join later as a third value |
 
 ## 2. What the plan settles
 

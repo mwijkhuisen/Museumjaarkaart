@@ -10,16 +10,16 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
   - P3a: `review`, `review_revision`, `museum_stats` and its job, the "voormalig lid" rendering, the page "Hoe wij reviews controleren"
   - P3b: media, the quarantine and originals, the SigV4 client's DELETE, `blocked_hash`
   - P1e: the interim `/privacy` (replaced here), the `backup` role, restic on the CI S3 stand-in, the restore-drill runbook; P1a: `museum_change.reporter_id`
-- **Owner actions:** A9 (the paid hour of Dutch legal advice). It does not block the build: the texts are drafted from A§13 and checked in that hour. It blocks the [owner] criterion, and so P4.
+- **Owner actions:** A9 (the owner's own legal assessment; no paid advice: owner, 2026-11-22). It does not block the build: the texts are drafted from A§13, and the lead prepares `docs/legal/assessment.md` with the A9 list (PHASES §4) and the sources the plan already holds, one item per section, each to be marked by the owner as settled, with its source, or as an accepted risk. It blocks the [owner] criterion, and so P4.
 - **Workflow:** no change expected; the restore test runs in the CI compose stack with restic on the S3 stand-in, which P1e set up. If it needs a tool or a job that CI lacks, the lead hands that diff to the owner.
-- **During the phase:** the owner answers §1 in plan mode, takes the legal hour (A9), and approves the texts, the Art. 30 register, `processors.md` and the breach runbook in NL and EN.
+- **During the phase:** the owner answers §1 in plan mode, completes the A9 assessment in `docs/legal/assessment.md`, and approves the texts, the Art. 30 register, `processors.md` and the breach runbook in NL and EN.
 
 ## 1. Questions for the owner (plan mode)
 
 | # | Question | Recommendation |
 |---|---|---|
 | Q1 | Run the recommended code review (Sonnet 5.5 `high`) as a sub-agent after the PR opens? | Yes: the deletion walk, the export and the purges are wide and easy to get subtly wrong |
-| Q2 | Does the PR wait for A9's legal hour? | No. It merges when green and reviewed; the texts carry a "concept" line until the owner approves them after A9, recorded in a small follow-up PR that ticks the [owner] criterion. P4 starts only after that approval |
+| Q2 | Does the PR wait for the owner's A9 assessment? | No. It merges when green and reviewed; the texts carry a "concept" line until the owner approves them after A9, recorded in a small follow-up PR that ticks the [owner] criterion. P4 starts only after that approval |
 | Q3 | The full IP of content-creating requests: 30 days [U the owner confirms here] | Keep 30 days (A§13.4: disclosure on a court order); A9 may revise it, and the value is one constant |
 | Q4 | The deletion job mails the owner "<account id> deleted <time>" (ids only) [U] | Yes, to the owner's address (the one P1e's `/contact` reads from config): an id and a UTC time, nothing else. It is the fallback list for the restore replay when `audit_log` is lost |
 | Q5 | The restore re-apply step and "the site stays in maintenance" [U] | `admin deletion replay --since <time> [--ids-file <file>]` re-runs the deletion job per id, idempotently, before derivatives are rebuilt. The restore runbook keeps `cloudflared` stopped until the replay has run, so no new maintenance mode is needed |
@@ -46,7 +46,7 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 - **Restore re-apply** (Q5): the replay CLI, its steps in the restore runbook (A§17.6; `restore-drill.md` until P1e splits one out), and the CI test: back up, delete a test account, restore the earlier snapshot into a throw-away database and originals directory, replay, and find no row, original or variant of that account.
 - **`docs/legal/`:** the Art. 30 register; `processors.md` (per processor: service, data, location, transfer basis, DPA version and date: Cloudflare from A2, Lettermint from A4); `docs/runbooks/breach.md` (the AP within 72 h).
 - **Gotchas:** long legal texts are still messages, chosen by name, never `m[key]`; no `style=` in the server markup of the legal pages; the deletion code is validated with zod before SQL (22P02); job payloads stay ids-only except the sealed address; no email, handle or id-to-email pair in a log line.
-- **Not in P3d:** the moderation flows (P3c); the legal hour itself (A9, owner); a cookie banner (not needed, A§13.2); the PWA outbox's line on `/privacy` (P5a, if it ships); P6's comments, votes and follows (they join the walk in P6).
+- **Not in P3d:** the moderation flows (P3c); the A9 assessment itself (the owner writes it; the lead only prepares the file); a cookie banner (not needed, A§13.2); the PWA outbox's line on `/privacy` (P5a, if it ships); P6's comments, votes and follows (they join the walk in P6).
 
 ## 3. Work packages
 
@@ -121,7 +121,8 @@ Goal: the legal texts and every GDPR right in place before any invited stranger 
 and /voorwaarden in NL and EN, terms versions with re-acceptance, the export completed, deletion
 with the D10 choice, the A§13.2 retention purges, the restore step that re-applies deletions, and
 the Art. 30 register, processors.md and the breach runbook. Scope in and out: issue #23. Not the
-moderation flows (P3c), not the legal hour itself (A9, the owner), no cookie banner, nothing of
+moderation flows (P3c), not the A9 assessment itself (the owner writes it in
+docs/legal/assessment.md, which you prepare with the list and its sources), no cookie banner, nothing of
 P5a's outbox or P6's tables beyond keeping the deletion walk ready for them.
 
 Plan mode: settle the design points of the phases file's §2 against the code on main, put its §1
@@ -145,7 +146,7 @@ line per new dependency (or "none"), the docs/legal/ changes flagged for the own
 write-backs and the work packages. Then start the security review as a fresh sub-agent (Opus 5.5
 xhigh), and the code review (Sonnet 5.5 high) too if the owner asked for it in plan mode, then the
 Opus fix sub-agent, and watch CI until ci and security are green. The [owner] criterion waits for
-A9's legal hour (§1 Q2). Never merge, never push to main, never edit .github/workflows (hand such
+the owner's A9 assessment (§1 Q2). Never merge, never push to main, never edit .github/workflows (hand such
 a diff to the owner).
 
 When reality differs from the plan (a pin fails the 7-day rule, an earlier phase stored a user id

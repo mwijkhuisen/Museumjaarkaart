@@ -172,7 +172,7 @@ node apps/server/src/main.ts sync-museums --accept-changes
 
 ## 7. Curation
 
-**The rule:** the Museumkaart flag comes from each museum's own website and members' moderated reports. **Never** from museum.nl's list or filter, and never copied from them (A§7.5, A§13.3). The sync never sets it. A9's database-right answer comes before you curate real flags (A6).
+**The rule:** the Museumkaart flag comes from each museum's own website and members' moderated reports. **Never** from museum.nl's list or filter, and never copied from them (A§7.5, A§13.3). The sync never sets it. The Museumvereniging's public member directory (museumvereniging.nl/leden) is under the same rule until A5 brings its permission. Before you curate real flags (A6): the A5 mail is answered, or three weeks old without an answer, and the database-right item of your A9 assessment is written down (PHASES §4; owner, 2026-11-22). Start with the `registered` museums. Re-check the prices each January: a price last verified more than 18 months ago counts as none in € saved (A§7.5).
 
 ```bash
 node apps/server/src/main.ts admin museum flag <museum> participating|left|unknown [--since D] [--until D] [--verified D]

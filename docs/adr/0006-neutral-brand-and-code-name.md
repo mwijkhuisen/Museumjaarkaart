@@ -24,7 +24,7 @@
   - the compose project `mjk`, paths `/etc/mjk` and `/srv/mjk`, units `mjk-*`, config prefix `MJK_`
   - images `ghcr.io/mwijkhuisen/mjk-server`, `mjk-web` (later `mjk-media`)
   - it is never shown to visitors.
-- The brand lives only in config (`MJK_BRAND_NAME`, `MJK_DOMAIN`) and the i18n messages (ADR-0013). The plan writes `<brand>` and `<domain>`. The repository keeps its name.
+- The brand lives only in config (`MJK_BRAND_NAME`, `MJK_DOMAIN`) and the i18n messages (ADR-0013). The plan writes `<brand>` and `<domain>`. The public repository is renamed to `mjk` before the first VM install (owner, 2026-11-22, replacing "the repository keeps its name"): "Museumkaart" is reported to be a registered EU word mark of Stichting Museumkaart (its attorneys' case page; the registers themselves refused automated queries), and the Museumvereniging still calls "Museumjaarkaart" its brand. GitHub redirects the old links; the clone URL in the install runbook and the cloud sessions' repository setting change with the rename, and the images are `mjk-*` already.
 
 ## Consequences
 
