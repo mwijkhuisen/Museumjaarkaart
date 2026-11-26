@@ -25,6 +25,80 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AppUser {
+  age_confirmed_at: Timestamp;
+  ban_reason: string | null;
+  banned_until: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  display_name: string;
+  email: string;
+  email_verified_at: Timestamp;
+  handle: string;
+  id: Generated<string>;
+  invite_id: string | null;
+  password_hash: string | null;
+  role: Generated<string>;
+  settings: Generated<Json>;
+  status: Generated<string>;
+  terms_accepted_at: Timestamp;
+  terms_version: string;
+  trusted_at: Timestamp | null;
+}
+
+export interface AuditLog {
+  action: string;
+  actor_id: string | null;
+  actor_kind: string;
+  at: Generated<Timestamp>;
+  detail: Generated<Json>;
+  id: Generated<Int8>;
+  target_id: string | null;
+  target_kind: string | null;
+}
+
+export interface AuthChallenge {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  host: string;
+  id: Generated<string>;
+  purpose: string;
+  used_at: Timestamp | null;
+  value_hash: Buffer;
+}
+
+export interface ContentIpLog {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  ip: string;
+  target_id: string;
+  target_kind: string;
+  user_id: string | null;
+}
+
+export interface EmailCode {
+  attempts: Generated<number>;
+  code_hmac: Buffer;
+  created_at: Generated<Timestamp>;
+  email: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  pending: Json | null;
+  purpose: string;
+  used_at: Timestamp | null;
+}
+
+export interface Invite {
+  code_hmac: Buffer;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Generated<Timestamp>;
+  id: Generated<string>;
+  max_uses: Generated<number>;
+  note: string | null;
+  used_at: Timestamp | null;
+  uses: Generated<number>;
+}
+
 export interface Job {
   attempts: Generated<number>;
   created_at: Generated<Timestamp>;
@@ -227,7 +301,34 @@ export interface PubSlugRedirect {
   slug: string | null;
 }
 
+export interface RateLimit {
+  bucket: string;
+  count: number;
+  key: string;
+  window_end: Timestamp;
+  window_start: Timestamp;
+}
+
+export interface Session {
+  absolute_expires_at: Timestamp;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  host: string;
+  id: Buffer;
+  last_used_at: Generated<Timestamp>;
+  method: string;
+  reauth_at: Generated<Timestamp>;
+  ref: Generated<string>;
+  user_id: string;
+}
+
 export interface DB {
+  app_user: AppUser;
+  audit_log: AuditLog;
+  auth_challenge: AuthChallenge;
+  content_ip_log: ContentIpLog;
+  email_code: EmailCode;
+  invite: Invite;
   job: Job;
   mk_list: MkList;
   mk_list_member: MkListMember;
@@ -245,4 +346,6 @@ export interface DB {
   pub_museum_alias: PubMuseumAlias;
   pub_province: PubProvince;
   pub_slug_redirect: PubSlugRedirect;
+  rate_limit: RateLimit;
+  session: Session;
 }
