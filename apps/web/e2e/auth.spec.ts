@@ -48,7 +48,10 @@ test('sign up by invite, sign in by code, set a password, sign in by password', 
   // Signed out, the app goes home; the header's Account link then leads a signed-out visitor to /inloggen. In-page
   // navigation, not page.goto: a full load would abort the home page's fetch, which WebKit logs as "Load failed".
   await expect(page).toHaveURL(/^https:\/\/mjk\.test\/$/);
-  await page.getByRole('banner').getByRole('link', { name: t('nav_account') }).click();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: t('nav_account') })
+    .click();
   await expect(page).toHaveURL(/\/inloggen$/);
   const byCode = page.getByRole('region', { name: t('auth_code_heading') });
   await byCode.getByLabel(t('field_email')).fill(email);
@@ -67,7 +70,10 @@ test('sign up by invite, sign in by code, set a password, sign in by password', 
   // Signed out, the app goes home; the header's Account link then leads a signed-out visitor to /inloggen. In-page
   // navigation, not page.goto: a full load would abort the home page's fetch, which WebKit logs as "Load failed".
   await expect(page).toHaveURL(/^https:\/\/mjk\.test\/$/);
-  await page.getByRole('banner').getByRole('link', { name: t('nav_account') }).click();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: t('nav_account') })
+    .click();
   await expect(page).toHaveURL(/\/inloggen$/);
   const byPassword = page.getByRole('region', { name: t('auth_password_heading') });
   await byPassword.getByLabel(t('field_email')).fill(email);

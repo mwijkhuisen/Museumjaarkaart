@@ -1,4 +1,4 @@
-import type { Context, MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { decode, verifyWithJwks } from 'hono/utils/jwt/jwt';
 import {
   JwtPayloadRequiresAud,
