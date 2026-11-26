@@ -2,7 +2,7 @@
 
 Research input (2026-11-01). Superseded by ARCHITECTURE.md where they differ.
 
-Sub-agent report plus the session's own follow-up checks for the owner's shortlist. Domains were checked by RDAP (SIDN for .nl, Verisign for .com) on 2026-11-01 and show availability on that day only. **No name has been cleared as a trademark:** the BOIP, EUIPO/TMview and WIPO registers could not be reached (captchas, "Request Rejected", 503). Conflict ratings come from web, app-store and domain searches only. Outcome: D5, D23, A§1, ADR-0006, owner action A1.
+Sub-agent report plus the session's own follow-up checks for the owner's shortlist. Domains were checked by RDAP (SIDN for .nl, Verisign for .com) on 2026-11-01 and show availability on that day only. **No name has been cleared as a trademark:** the BOIP, EUIPO/TMview and WIPO registers could not be reached (captchas, "Request Rejected", 503). Conflict ratings come from web, app-store and domain searches only. Outcome: D5, D23, A§1, ADR-0006, owner action A1. Re-checked on 2026-11-26, when the owner chose **Muzelog** (`muzelog.nl`): §4.
 
 Hard constraints for every candidate: no "kaart", no diacritics, a stem of 16 letters or fewer, sayable in Dutch and English. The closest competitor, MuseoTrack for Museumkaart, resembles none of the names.
 
@@ -54,3 +54,22 @@ The owner asked for Muselog, Museumvink and, if free, Museumlog.
 4. **Test it out loud:** ~5 Dutch and ~5 English speakers say the name and spell it after hearing it once; drop any name that fails.
 
 The code never depends on the choice: the brand lives in config (`MJK_BRAND_NAME`, `MJK_DOMAIN`) and the i18n messages; the code name is `mjk` (D23). A1 is due before P1c (brand strings) and P1e (domain).
+
+## 4. Re-check and the owner's choice (2026-11-26)
+
+Domains by RDAP on 2026-11-26 (SIDN for .nl, Verisign for .com, Google Registry for .app); conflicts by web search; handles by `github.com/<name>` (404) and Bluesky's `resolveHandle` for `<name>.bsky.social`. **Trademarks are still unchecked**: no agent queried BOIP, EUIPO/TMview or the KvK (they refuse automated queries; see the introduction).
+
+| Name | .nl | .com | .app | GitHub, Bluesky | Since 2026-11-01 | Verdict |
+|---|---|---|---|---|---|---|
+| **Muzelog** | free | free | free | free | Still no exact hit. Nearest: the muselog Python library, MULOG (a Korean music-diary iOS app), Muzea.io | Clean |
+| **Museumvink** | free (`museum-vink` too) | free | free | free | Still no hit; the Vinkenmuseum (Belgium, finch-singing) shares only the word | Clean |
+| **Muselog** | free | taken since 2017-08-11, parked for sale (HugeDomains) | taken since 2026-06-28: behind Cloudflare, answers 525 (origin TLS failure), so someone is setting something up | free | The .app is new to this table: unknown owner | Weak |
+| **Museumlog** | free | taken since 2025-02-10, no answer | museumlog.app still "Museum Log — A logbook for your museum visits … Letterboxd, but for museums" | not checked | Unchanged | Out |
+
+Muzelog's one weakness: heard once, many people will write "Muselog", and muselog.com is a for-sale page.
+
+**Choice (owner, 2026-11-26): Muzelog, domain `muzelog.nl`.** On the VM: `MJK_BRAND_NAME=Muzelog` and `MJK_DOMAIN=muzelog.nl` in `/etc/mjk/mjk.env`. The code keeps reading config, and `test/brand-names.test.ts` still keeps the name out of `apps/`. Still open in A1:
+
+1. The trademark check by hand (§3.1) for "Muzelog" and the look-alike "Muselog": BOIP and TMview, classes 35, 41 and 42 (+9 for an app), and the KvK Handelsregister.
+2. ~~Register `muzelog.nl`~~ done: registered by the owner on 2026-11-26 (SIDN RDAP: `registration` 2026-11-26, `active`). The Access application, the R2 custom domain, the mail DNS and, from P2b, the passkeys' RP ID bind to it (ADR-0006). `muzelog.com` was free on 2026-11-26; A1 suggests taking it too.
+3. Claim the handles (§3.3) and run the sound test (§3.4).

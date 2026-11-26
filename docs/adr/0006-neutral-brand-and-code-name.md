@@ -3,7 +3,7 @@
 - **Status:** Accepted (owner, 2026-11-01)
 - **Date:** 2026-11-01
 - **Source:** `docs/plan/ARCHITECTURE.md` (planning session 2026-11-01)
-- **Revisit:** when the owner picks the brand (owner action A1).
+- **Revisit:** if the trademark check by hand (owner action A1) finds a conflict with Muzelog.
 
 ## Context
 
@@ -19,6 +19,7 @@
 
 - The public brand and domain never contain "Museum(jaar)kaart" (D5, A§1). "Museumkaart geldig" appears only as a description, and the footer says the site is not affiliated with the Museumvereniging or the Museumkaart (A§13.3).
 - The owner picks from the shortlist after a BOIP and EUIPO/TMview check (classes 35, 41 and 42; +9 if an app ships) and registers `<domain>` .nl (+ .com) with WHOIS privacy: owner action A1, before P1c (brand strings) and P1e (domain).
+- **The brand** (owner, 2026-11-26): **Muzelog**, domain `muzelog.nl` (`docs/plan/research/naming.md` §4). `muzelog.nl` is registered (2026-11-26); the trademark check by hand stays open in A1. The plan keeps writing `<brand>` and `<domain>`, and `test/brand-names.test.ts` keeps the name out of `apps/`.
 - **Code name `mjk`** (D23; A§6, A§17.3) for everything internal:
   - packages `@mjk/server`, `@mjk/web`, `@mjk/contracts`, and the export condition `mjk-dist`
   - the compose project `mjk`, paths `/etc/mjk` and `/srv/mjk`, units `mjk-*`, config prefix `MJK_`

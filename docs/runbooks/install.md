@@ -112,8 +112,8 @@ Expected: every line `root:<gid> 440`. Put each value (not the file) into your p
 
 ```bash
 cat > /etc/mjk/mjk.env <<'EOF'
-MJK_BRAND_NAME=<brand>
-MJK_DOMAIN=<domain, no scheme, for example example.nl>
+MJK_BRAND_NAME=Muzelog
+MJK_DOMAIN=muzelog.nl
 MJK_PROFILE=prelaunch
 MJK_SYNC_CONTACT=<an email address or an https URL for Wikimedia's user agent>
 CF_ACCESS_TEAM=<the team name: the label before .cloudflareaccess.com>
