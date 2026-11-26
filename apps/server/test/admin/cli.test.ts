@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type AdminIo, clean, runAdmin } from '../../src/admin/cli.ts';
+import { type AdminIo, clean, GROUPS, NOT_BUILT, runAdmin } from '../../src/admin/cli.ts';
 
 // A URL whose host nothing listens on: every case below stops before a query, or fails to connect.
 const SECRET_URL = 'postgres://mjk_api:s3cret-pw@127.0.0.1:1/none';
@@ -19,11 +19,23 @@ function harness() {
 }
 
 describe('runAdmin', () => {
-  it.each([['invite'], ['user']])('%s is not built yet: exit 2', async (group) => {
-    const h = harness();
-    expect(await runAdmin([group, 'list'], {}, h.io)).toBe(2);
-    expect(h.err).toEqual([`admin ${group} is not built yet`]);
+  it('every group is built: none is left for a later phase, and the usage names them all', async () => {
+    expect(NOT_BUILT).toEqual([]);
+    expect(Object.keys(GROUPS)).toEqual(['museum', 'list', 'match', 'change', 'tiles', 'invite', 'user']);
+    for (const group of ['invite', 'user']) {
+      const h = harness();
+      expect(await runAdmin([group, 'nope'], {}, h.io)).toBe(64);
+      expect(h.err[0]).toContain('invite create | user role');
+    }
   });
+
+  it.each([[['user', 'role']], [['user', 'role', 'ann']], [['invite', 'create', 'extra']], [['invite']]])(
+    'usage error %j exits 64 before app_keys or a connection',
+    async (argv) => {
+      const h = harness();
+      expect(await runAdmin(argv, {}, h.io, '/nonexistent')).toBe(64);
+    },
+  );
 
   it.each([
     [[]],

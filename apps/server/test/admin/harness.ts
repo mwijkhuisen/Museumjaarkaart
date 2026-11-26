@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { type AdminIo, runAdmin } from '../../src/admin/cli.ts';
+import { writeTestKeys } from '../auth/test-keys.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 
 // Shared by the curation integration tests: a migrated database, museums inserted as mjk_api with
@@ -19,6 +20,10 @@ export type Harness = {
   db: TestDb;
   api: pg.Client;
   files: Map<string, string>;
+  /** The directory holding a test `app_keys`. */
+  keysDir: string;
+  /** `admin` with another secrets directory. */
+  adminWith(secretsDir: string, ...argv: string[]): Promise<{ code: number; out: string[]; err: string[] }>;
   /** Runs `admin <argv>` as mjk_api; returns the exit code and the output lines. */
   admin(...argv: string[]): Promise<{ code: number; out: string[]; err: string[] }>;
   seed(rows: readonly Seed[]): Promise<string[]>;
@@ -30,11 +35,9 @@ export async function openHarness(): Promise<Harness> {
   const api = new pg.Client({ connectionString: db.urls.mjk_api });
   await api.connect();
   const files = new Map<string, string>();
-  return {
-    db,
-    api,
-    files,
-    async admin(...argv) {
+  const { dir: keysDir } = writeTestKeys();
+  const run = async (secretsDir: string, argv: string[]) => {
+    {
       const out: string[] = [];
       const err: string[] = [];
       const io: AdminIo = {
@@ -49,9 +52,17 @@ export async function openHarness(): Promise<Harness> {
           files.set(p, t);
         },
       };
-      const code = await runAdmin(argv, { DATABASE_URL: db.urls.mjk_api }, io);
+      const code = await runAdmin(argv, { DATABASE_URL: db.urls.mjk_api }, io, secretsDir);
       return { code, out, err };
-    },
+    }
+  };
+  return {
+    db,
+    api,
+    files,
+    keysDir,
+    admin: (...argv) => run(keysDir, argv),
+    adminWith: (dir, ...argv) => run(dir, argv),
     async seed(rows) {
       const ids: string[] = [];
       for (const r of rows) {

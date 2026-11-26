@@ -37,11 +37,11 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it('admin groups of later phases are not built yet', async () => {
+  it('admin invite and user are built (no app_keys: 78; a usage error: 64)', async () => {
     const lines: string[] = [];
     const io = { out: (l: string) => lines.push(l) };
-    expect(await run(['admin', 'invite', 'create'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_NOT_BUILT);
-    expect(await run(['admin', 'user', 'role'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_NOT_BUILT);
+    expect(await run(['admin', 'invite', 'create'], {}, (l) => lines.push(l), undefined, io)).toBe(78);
+    expect(await run(['admin', 'user', 'role'], {}, (l) => lines.push(l), undefined, io)).toBe(EXIT_USAGE);
   });
 
   it.each([

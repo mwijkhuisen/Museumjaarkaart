@@ -207,7 +207,7 @@ export async function run(
     case 'sync-museums':
       return runSyncRole(rest, env, log, deps);
     case 'admin':
-      return runAdmin(rest, env, deps.out ? { ...nodeIo(), out: deps.out, err: log } : nodeIo());
+      return runAdmin(rest, env, deps.out ? { ...nodeIo(), out: deps.out, err: log } : nodeIo(), deps.secretsDir);
     default:
       log(`role ${role} is not built yet`);
       return EXIT_NOT_BUILT;

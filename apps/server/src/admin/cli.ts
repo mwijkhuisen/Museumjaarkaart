@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { type AppKeys, readAppKeys } from '../auth/keys.ts';
 import { createDb, type Db } from '../db/kysely.ts';
 import { EXIT_CONFIG } from '../db/migrate.ts';
 import { ADMIN_POOL_MAX, createPool } from '../db/pool.ts';
@@ -33,6 +34,8 @@ import {
 import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB } from '../tiles/job.ts';
 import { enqueueUnique } from '../worker/queue.ts';
 import { TILES_REFRESH_ATTEMPTS } from '../worker/schedule.ts';
+import { inviteCreate } from './invite.ts';
+import { userRole } from './user.ts';
 
 // The `admin` role (A§5, plan §2.6): the owner's curation tool, run as `mjk_api`. Exit codes:
 // 0 ok · 64 usage · 65 bad data · 66 not found · 78 config · 2 a command a later phase builds.
@@ -70,9 +73,11 @@ type Spec = {
   values?: readonly string[];
   bools?: readonly string[];
   required?: readonly string[];
+  /** The command needs the `app_keys` secret. */
+  keys?: true;
 };
 type Parsed = { pos: string[]; flags: Map<string, string | true> };
-export type Ctx = { pos: string[]; flags: Map<string, string | true>; db: Db; io: AdminIo };
+export type Ctx = { pos: string[]; flags: Map<string, string | true>; db: Db; io: AdminIo; keys?: AppKeys };
 export type Command = { spec: Spec; run(ctx: Ctx): Promise<number> };
 export type Group = Record<string, Command>;
 
@@ -304,17 +309,26 @@ const tiles: Group = {
   rollback: queueTiles(TILES_ROLLBACK_JOB, 'tiles_rollback queued', 1),
 };
 
+const invite: Group = {
+  create: {
+    spec: { min: 0, max: 0, values: ['uses', 'days', 'email', 'locale', 'note'], keys: true },
+    run: (ctx) => inviteCreate(ctx, (n) => flag(ctx, n)),
+  },
+};
+
+const user: Group = { role: { spec: { min: 2, max: 2 }, run: userRole } };
+
 /** The groups that are built. */
-export const GROUPS: Record<string, Group> = { museum, list, match, change, tiles };
-/** Groups of later phases: exit 2. */
-export const NOT_BUILT: readonly string[] = ['invite', 'user'];
+export const GROUPS: Record<string, Group> = { museum, list, match, change, tiles, invite, user };
+/** Groups of later phases: exit 2 (none is left after P2a). */
+export const NOT_BUILT: readonly string[] = [];
 
 const USAGE =
-  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback> …';
+  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback | invite create | user role> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 
-export async function runAdmin(argv: readonly string[], env: Env, io: AdminIo): Promise<number> {
+export async function runAdmin(argv: readonly string[], env: Env, io: AdminIo, secretsDir?: string): Promise<number> {
   const [group, sub, ...rest] = argv;
   if (group !== undefined && NOT_BUILT.includes(group) && GROUPS[group] === undefined) {
     io.err(`admin ${group} is not built yet`);
@@ -330,6 +344,16 @@ export async function runAdmin(argv: readonly string[], env: Env, io: AdminIo): 
     io.err(USAGE);
     return EXIT_USAGE;
   }
+  // Only the command that seals or hashes a secret value reads the keys; the error is a fixed string.
+  let keys: AppKeys | undefined;
+  if (cmd.spec.keys) {
+    const k = readAppKeys(secretsDir);
+    if (typeof k === 'string') {
+      io.err(`admin: ${k}`);
+      return EXIT_CONFIG;
+    }
+    keys = k;
+  }
   const pool = createPool('mjk_api', env, { max: ADMIN_POOL_MAX });
   if (typeof pool === 'string') {
     // The text names a secret file, never its content; a fixed line is still all that is printed.
@@ -338,7 +362,7 @@ export async function runAdmin(argv: readonly string[], env: Env, io: AdminIo): 
   }
   const db = createDb(pool);
   try {
-    return await cmd.run({ ...parsed, db, io });
+    return await cmd.run({ ...parsed, db, io, ...(keys === undefined ? {} : { keys }) });
   } catch (err) {
     if (err instanceof ImportRefused) {
       io.err(`admin: ${err.code}`);
