@@ -47,7 +47,7 @@ RUN test -n "${REVISION}" && printf '%s' "${REVISION}" | grep -Eq '^[0-9a-f]{7,6
 FROM caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0 AS web
 ARG REVISION
 LABEL org.opencontainers.image.revision=${REVISION} \
-      org.opencontainers.image.source=https://github.com/mwijkhuisen/Museumjaarkaart \
+      org.opencontainers.image.source=https://github.com/mwijkhuisen/mjk \
       org.opencontainers.image.title=mjk-web
 # The stock image's /usr/bin/caddy carries a file capability (cap_net_bind_service) that makes exec
 # fail under `cap_drop: ALL`. A copy has no extended attributes: Compose binds :80 through

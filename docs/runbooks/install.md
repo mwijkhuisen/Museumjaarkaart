@@ -24,8 +24,8 @@ On the VM: Docker 29 with Compose 5, `nft`, `curl`, `jq`, `flock` (util-linux), 
 `mjk-install` is run from a checkout of the repository. It copies files into `/etc/mjk`, `/usr/local/bin` and `/etc/systemd/system`; the timers then run those copies, never a file of the checkout.
 
 ```bash
-cd /root && git clone https://github.com/mwijkhuisen/Museumjaarkaart.git mjk-checkout
-cd mjk-checkout && git switch claude/p1e-deploy      # the PR branch; `main` after the merge
+cd /root && git clone https://github.com/mwijkhuisen/mjk.git mjk-checkout
+cd mjk-checkout                                      # on `main`: P1e and P1d are merged
 ```
 
 ## 3. Before: list the other two stacks (criterion 6)
@@ -112,8 +112,8 @@ Expected: every line `root:<gid> 440`. Put each value (not the file) into your p
 
 ```bash
 cat > /etc/mjk/mjk.env <<'EOF'
-MJK_BRAND_NAME=<brand>
-MJK_DOMAIN=<domain, no scheme, for example example.nl>
+MJK_BRAND_NAME=Muzelog
+MJK_DOMAIN=muzelog.nl
 MJK_PROFILE=prelaunch
 MJK_SYNC_CONTACT=<an email address or an https URL for Wikimedia's user agent>
 CF_ACCESS_TEAM=<the team name: the label before .cloudflareaccess.com>

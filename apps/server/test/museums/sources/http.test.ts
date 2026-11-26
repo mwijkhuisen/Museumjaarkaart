@@ -115,7 +115,7 @@ describe('User-Agent', () => {
       `mjk-museum-sync/1.0 (+${REPO_URL})`,
       `mjk-museum-sync/1.0 (+${REPO_URL})`,
     ]);
-    expect(REPO_URL).toBe('https://github.com/mwijkhuisen/Museumjaarkaart');
+    expect(REPO_URL).toBe('https://github.com/mwijkhuisen/mjk');
   });
 
   it('validates the contact', () => {

@@ -581,7 +581,7 @@ describe('the run itself', () => {
     };
     const r = await runSync(db, fetchers, logger, { mode: 'sync' }, CFG);
     expect(r.outcome).toBe('applied');
-    expect(agents).toEqual(Array(3).fill('mjk-museum-sync/1.0 (+https://github.com/mwijkhuisen/Museumjaarkaart)'));
+    expect(agents).toEqual(Array(3).fill('mjk-museum-sync/1.0 (+https://github.com/mwijkhuisen/mjk)'));
     const out = lines();
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({

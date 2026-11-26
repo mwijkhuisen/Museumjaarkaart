@@ -1,6 +1,6 @@
 # P3a build prompts: ratings and reviews
 
-Status: draft for the owner's approval (2026-11-01). It holds the questions, design points, work packages and prompts for issue [#20](https://github.com/mwijkhuisen/Museumjaarkaart/issues/20) (PHASES §3 P3a), written before the phase starts, and cites ARCHITECTURE.md as A§x. It is not a full build plan like [P1a's](p1a-museum-sources.md): the build lead drafts the design in plan mode from §2, and the owner approves it before any code. Names from earlier phases are the ones their plans propose; where the code on `main`, or a merged change to ARCHITECTURE.md, PHASES.md, CLAUDE.md or an ADR, says otherwise, that wins, and the lead's plan names the difference.
+Status: draft for the owner's approval (2026-11-01). It holds the questions, design points, work packages and prompts for issue [#20](https://github.com/mwijkhuisen/mjk/issues/20) (PHASES §3 P3a), written before the phase starts, and cites ARCHITECTURE.md as A§x. It is not a full build plan like [P1a's](p1a-museum-sources.md): the build lead drafts the design in plan mode from §2, and the owner approves it before any code. Names from earlier phases are the ones their plans propose; where the code on `main`, or a merged change to ARCHITECTURE.md, PHASES.md, CLAUDE.md or an ADR, says otherwise, that wins, and the lead's plan names the difference.
 
 ## 0. Before the build starts
 

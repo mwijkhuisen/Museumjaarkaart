@@ -88,7 +88,7 @@ RUN test -n "${REVISION}" && printf '%s' "${REVISION}" | grep -Eq '^[0-9a-f]{7,6
 FROM runtime AS server
 ARG REVISION
 LABEL org.opencontainers.image.revision=${REVISION} \
-      org.opencontainers.image.source=https://github.com/mwijkhuisen/Museumjaarkaart \
+      org.opencontainers.image.source=https://github.com/mwijkhuisen/mjk \
       org.opencontainers.image.title=mjk-server
 COPY --from=node-rt /out/ /
 # dbmate, sha256-checked by BuildKit (the `migrate` role runs it as mjk_migrator).

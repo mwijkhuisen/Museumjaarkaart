@@ -5,7 +5,7 @@ title: 'P<N><x>: <name>'
 labels: []
 ---
 
-> [docs/plan/PHASES.md §3 P<N><x>](https://github.com/mwijkhuisen/Museumjaarkaart/blob/main/docs/plan/PHASES.md) · Milestone M<n> · Depends on: <phases> · Owner actions ([PHASES §4](https://github.com/mwijkhuisen/Museumjaarkaart/blob/main/docs/plan/PHASES.md#4-owner-actions)): <A#, or none> · Branch: `claude/p<N><x>-<slug>`
+> [docs/plan/PHASES.md §3 P<N><x>](https://github.com/mwijkhuisen/mjk/blob/main/docs/plan/PHASES.md) · Milestone M<n> · Depends on: <phases> · Owner actions ([PHASES §4](https://github.com/mwijkhuisen/mjk/blob/main/docs/plan/PHASES.md#4-owner-actions)): <A#, or none> · Branch: `claude/p<N><x>-<slug>`
 
 ## Goal
 <From PHASES §3.>
