@@ -9,6 +9,7 @@ import { createPool } from '../src/db/pool.ts';
 import { EXIT_REFUSED, run } from '../src/main.ts';
 import type { Fetchers } from '../src/museums/sync.ts';
 import { enqueue } from '../src/worker/queue.ts';
+import { writeTestKeys } from './auth/test-keys.ts';
 import { createMigratedDb, type TestDb } from './db.ts';
 
 // The role wiring (A§5): sync-museums, worker and admin dispatch through main.ts
@@ -80,6 +81,7 @@ it('worker runs a queued museum_sync job with the sync handler, then stops on th
     const exit = run(['worker'], asWorker(), () => {}, hb, {
       fetchers: fixtures('wikidata/normal', 'rce/normal'),
       signal: stop.signal,
+      secretsDir: writeTestKeys().dir,
     });
     // The table is empty, so the weekly mode refuses: not_seeded is final, after one attempt.
     let job: { state: string; last_error: string | null; attempts: number } | undefined;

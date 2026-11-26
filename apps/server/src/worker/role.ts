@@ -39,7 +39,7 @@ export async function runWorkerRole(
   }
   const db = createDb(pool);
   const schedule = startSchedule({ db, logger });
-  const healthPing = startHealthPing({ db, logger, pinger: opts.pinger ?? createPinger({ logger }) });
+  const healthPing = startHealthPing({ db, logger, env, pinger: opts.pinger ?? createPinger({ logger }) });
   try {
     await runWorker({
       db,
