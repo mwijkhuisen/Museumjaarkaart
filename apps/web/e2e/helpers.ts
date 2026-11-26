@@ -64,6 +64,39 @@ export const pageKinds = (locale: Locale, slug: string): Record<string, string> 
 
 export const mapPath = (locale: Locale, query = '') => `${locale === 'en' ? '/en/map' : '/kaart'}${query}`;
 
+/** One NL message by key, for the specs that click and read the screens. */
+export const t = (key: string): string => messages('nl')[key] as string;
+
+/**
+ * The mail sink (deploy/e2e/mail-sink.mjs, Lettermint's stand-in) as the specs read it: the 6-digit code of the
+ * next mail to `to`. Each call waits for a mail newer than the last one it returned, so the second sign-in of an
+ * address never reads the first one's code. The runner asks, not the page: no page request leaves the host.
+ */
+export function mailbox(request: APIRequestContext, to: string) {
+  const url = process.env.E2E_MAIL_URL;
+  if (!url) throw new Error('E2E_MAIL_URL is required: run deploy/e2e/stack.sh');
+  let seen = 0;
+  return {
+    async code(): Promise<string> {
+      let code = '';
+      await expect
+        .poll(
+          async () => {
+            const res = await request.get(`${url}/messages`, { params: { to } });
+            const list = (await res.json()) as { text: string }[];
+            if (list.length <= seen) return '';
+            seen = list.length;
+            code = /\b(\d{6})\b/.exec(list[0]?.text ?? '')?.[1] ?? '';
+            return code;
+          },
+          { message: 'a mail with a code', timeout: 30_000 },
+        )
+        .toMatch(/^\d{6}$/);
+      return code;
+    },
+  };
+}
+
 /** Opens the map page and waits for the lazy chunk, the tiles and the points: `data-map-state="ready"`. */
 export async function openMap(page: Page, path: string): Promise<void> {
   await page.goto(path);

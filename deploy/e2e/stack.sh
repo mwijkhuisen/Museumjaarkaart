@@ -3,7 +3,9 @@
 # pinned image on the stack's network, then again with `ssr` stopped (the @ssr-down specs: a 502). Then
 # the Caddy cases (deploy/e2e/caddy-cases.mjs, p1e criteria 3 and 4): against the real api and ssr, then
 # with both replaced by an echo server (caddy-cases.yaml), then with the echo servers stopped, and last
-# Caddy's own log, which must hold no client address, URI or query.
+# Caddy's own log, which must hold no client address, URI or query. P2a: the sign-up and sign-in specs (mail
+# through the sink, the admin host through the Access stand-in), the log checks after them and, last, the
+# @load pass (50 parallel password sign-ins, then the api's restart count and cgroup memory events).
 # Run from the repository root, after `pnpm --filter @mjk/web build`.
 #   DBMATE_BIN=/path/to/dbmate deploy/e2e/stack.sh [playwright arguments, e.g. headers.spec.ts]
 # DBMATE_BIN is a dbmate 2.36.0 binary (the workflow installs it, sha256-checked). PLAYWRIGHT_IMAGE
@@ -28,6 +30,29 @@ done
 printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' \
   "$(<"$E2E_SECRETS/minio_root_user")" "$(<"$E2E_SECRETS/minio_root_password")" >"$E2E_SECRETS/r2_media_rw"
 chmod 0444 "$E2E_SECRETS/r2_media_rw"
+# P2a: a valid app_keys (four lines, each 32 random bytes as base64url without padding: apps/server/src/auth/keys.ts)
+# and a random Lettermint token (the sink only checks that the header is there).
+for name in otp_pepper invite_pepper code_seal altcha_hmac; do
+  printf '%s=%s\n' "$name" "$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+done >"$E2E_SECRETS/app_keys"
+head -c 24 /dev/urandom | base64 | tr '+/' '-_' >"$E2E_SECRETS/lettermint_api_token"
+chmod 0444 "$E2E_SECRETS/app_keys" "$E2E_SECRETS/lettermint_api_token"
+
+# A throw-away CA and one leaf certificate for each outside name the api and the worker dial: Cloudflare Access's
+# certs host (CF_ACCESS_TEAM=test-team) and Lettermint's API. The edge answers both (edge.Caddyfile) and `api` and
+# `worker` trust the CA through NODE_EXTRA_CA_CERTS (compose.yaml); nothing in production code changes.
+E2E_PKI=$(mktemp -d)
+export E2E_PKI
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 2 -subj /CN=mjk-e2e-ca \
+  -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign \
+  -keyout "$E2E_PKI/ca.key" -out "$E2E_PKI/ca.pem" 2>/dev/null
+for host in test-team.cloudflareaccess.com api.lettermint.co; do
+  openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj "/CN=$host" \
+    -keyout "$E2E_PKI/$host.key" -out "$E2E_PKI/$host.csr" 2>/dev/null
+  openssl x509 -req -in "$E2E_PKI/$host.csr" -CA "$E2E_PKI/ca.pem" -CAkey "$E2E_PKI/ca.key" -CAcreateserial -days 2 \
+    -extfile <(printf 'subjectAltName=DNS:%s\nextendedKeyUsage=serverAuth\n' "$host") -out "$E2E_PKI/$host.pem" 2>/dev/null
+done
+chmod 0444 "$E2E_PKI"/*
 
 compose() { docker compose -p mjk-e2e -f deploy/e2e/compose.yaml "$@"; }
 
@@ -36,7 +61,7 @@ cleanup() {
   trap - EXIT
   if ((rc != 0)); then compose logs --no-color --tail 200 >&2 || true; fi
   compose down -v --remove-orphans >&2 || true
-  rm -rf "$E2E_SECRETS"
+  rm -rf "$E2E_SECRETS" "$E2E_PKI"
   exit "$rc"
 }
 trap cleanup EXIT
@@ -45,6 +70,20 @@ compose up -d --wait db
 compose up -d minio
 compose run --rm migrate
 compose run --rm seed
+# P2a, through the production CLI (`admin`, as mjk_api): the specs' invite (its code is the only thing parsed from
+# the output, and never printed) and the owners' roles (one owner per engine, one of each role). seed-e2e.ts made the
+# accounts; their emails are the ones in the Access JWTs. Then the Access stand-in: jwks.json for the edge, one JWT
+# per owner, as the runner's user.
+E2E_INVITE=$(compose run --rm -T admin invite create --uses 10 --days 1 | sed -n 's/^invite \([0-9A-Z]\{16\}\) valid until .*/\1/p')
+[[ -n $E2E_INVITE ]] || { echo "stack: admin invite create printed no invite code" >&2; exit 1; }
+compose run --rm -T admin user role owner_chromium admin >/dev/null
+compose run --rm -T admin user role owner_webkit moderator >/dev/null
+access_jwts=$(compose run --rm -T --user "$(id -u):$(id -g)" -v "$E2E_PKI:/pki" access-stub)
+{ read -r E2E_ACCESS_JWT_CHROMIUM; read -r E2E_ACCESS_JWT_WEBKIT; } <<<"$access_jwts"
+for jwt in "$E2E_ACCESS_JWT_CHROMIUM" "$E2E_ACCESS_JWT_WEBKIT"; do
+  [[ $jwt =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]] || { echo "stack: no Access JWT" >&2; exit 1; }
+done
+export E2E_INVITE E2E_ACCESS_JWT_CHROMIUM E2E_ACCESS_JWT_WEBKIT
 # The fixture tiles in the bucket stand-in (waits until minio answers).
 compose run --rm tiles
 
@@ -91,16 +130,17 @@ compose run --rm -T --no-deps caddy caddy adapt --config /etc/caddy/Caddyfile |
     console.log("caddy adapt: every reverse_proxy keeps idle upstream connections 30 s and retries 5 s");
   '
 
-compose up -d --wait api ssr caddy edge
+compose up -d --wait api worker mailsink ssr caddy edge
 
 playwright() {
   docker run --rm --init --ipc=host --network mjk-e2e_default --user "$(id -u):$(id -g)" \
-    -e HOME=/tmp -e CI -e E2E_BASE_URL=https://mjk.test \
+    -e HOME=/tmp -e CI -e E2E_BASE_URL=https://mjk.test -e E2E_MAIL_URL=http://mailsink:8025 \
+    -e E2E_INVITE -e E2E_ACCESS_JWT_CHROMIUM -e E2E_ACCESS_JWT_WEBKIT \
     -v "$PWD:/work" -w /work/apps/web "$PLAYWRIGHT_IMAGE" \
     node_modules/.bin/playwright test -c e2e/playwright.config.ts "$@"
 }
 
-playwright --grep-invert @ssr-down "$@"
+playwright --grep-invert '@ssr-down|@load' "$@"
 
 # A§15.3 "never logged": near-me.spec.ts presses the button at 52.37312, 4.89351 (rounded 52.373, 4.894). Neither the
 # raw nor the rounded position, nor a lat or lon query, is in the api's, ssr's or caddy's log. A number that merely
@@ -113,10 +153,53 @@ for service in api ssr caddy; do
   fi
 done
 echo "logs: no near-me position in the api, ssr and caddy logs"
+
+# Invariant 8: the specs signed up and in with owner-*@mjk.test and e2e-*@mjk.test, a password (E2e-Pass-Zq7-Long,
+# auth.spec.ts), the invite, the owners' Access JWTs and the codes in the sink. None of them is in any log. The
+# codes are read back from the sink, and there must be some, or the check proves nothing. Called after each pass
+# that sends them.
+mail_codes() {
+  compose exec -T mailsink node -e 'fetch("http://127.0.0.1:8025/messages").then((r) => r.json()).then((ms) => console.log(ms.map((m) => m.text).join("\n")))' |
+    grep -oE '\b[0-9]{6}\b' | sort -u || true
+}
+check_auth_logs() {
+  local codes service service_log needle
+  codes=$(mail_codes)
+  [[ -n $codes ]] || { echo "stack: the mail sink holds no code" >&2; exit 1; }
+  for service in api worker ssr caddy db mailsink; do
+    service_log=$(compose logs --no-color --no-log-prefix "$service")
+    for needle in @mjk.test E2e-Pass-Zq7-Long "${E2E_ACCESS_JWT_CHROMIUM##*.}" "${E2E_ACCESS_JWT_WEBKIT##*.}" "$E2E_INVITE"; do
+      if grep -qF -- "$needle" <<<"$service_log"; then
+        echo "stack: the $service log holds a spec's address, password, invite or JWT signature" >&2
+        exit 1
+      fi
+    done
+    while read -r needle; do
+      if grep -qwF -- "$needle" <<<"$service_log"; then
+        echo "stack: the $service log holds a sign-in code" >&2
+        exit 1
+      fi
+    done <<<"$codes"
+  done
+}
+check_auth_logs
+echo "logs: no address, password, invite, JWT signature or code in the api, worker, ssr, caddy, db and mailsink logs"
 compose run --rm -T --no-deps probe node deploy/e2e/caddy-cases.mjs real
 
 compose stop ssr
 playwright --grep @ssr-down --pass-with-no-tests "$@"
+
+# A§17.2: 50 parallel password sign-ins (Chromium only; most answer 429) must not restart, OOM-kill or
+# push the api past its 384 MB. Before the Caddy cases, which replace the api with an echo server.
+playwright --project chromium --grep @load --pass-with-no-tests "$@"
+api_id=$(compose ps -q api)
+read -r restarts oom_killed < <(docker inspect -f '{{.RestartCount}} {{.State.OOMKilled}}' "$api_id")
+[[ "$restarts $oom_killed" == '0 false' ]] || { echo "stack: the api restarted ($restarts) or was OOM-killed ($oom_killed)" >&2; exit 1; }
+grep -qx 'oom_kill 0' < <(docker exec "$api_id" cat /sys/fs/cgroup/memory.events) ||
+  { echo "stack: the api's cgroup logged an OOM kill" >&2; exit 1; }
+peak=$(docker exec "$api_id" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo unavailable)
+echo "load: the api restarted 0 times, no OOM kill, memory.peak $peak bytes (limit 384 MB)"
+check_auth_logs
 
 # The Caddy cases against the echo upstreams (caddy recreated with its log at DEBUG), then with them
 # stopped (the 502s after lb_try_duration).
@@ -133,6 +216,9 @@ caddy_log=$(compose logs --no-color --no-log-prefix caddy)
 grep -q '"logger":"http.log.error"' <<<"$caddy_log" || { echo "stack: caddy logged no error for the 502s" >&2; exit 1; }
 grep -q '"logger":"http.handlers.reverse_proxy"' <<<"$caddy_log" ||
   { echo "stack: caddy logged no proxied request" >&2; exit 1; }
+# The admin SPA's route (`rewrite * /admin.html`, deploy/web/Caddyfile) logs its constant target at DEBUG, as
+# "uri":"/admin.html": not a request URI. That exact line is set aside; any other "uri", a query included, fails.
+caddy_log=$(grep -vF '"msg":"rewrote request","method":"GET","uri":"/admin.html"}' <<<"$caddy_log")
 for needle in mjk-probe-marker-7f3a 10.63.2.20 10.63.6.20 203.0.113. '"request"' '"uri"' remote_ip client_ip; do
   if grep -qF -- "$needle" <<<"$caddy_log"; then
     echo "stack: caddy's log holds $needle" >&2

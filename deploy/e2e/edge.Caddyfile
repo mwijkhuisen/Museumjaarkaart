@@ -76,6 +76,27 @@ media.mjk.test {
 	}
 }
 
+# The two outside names the api and the worker dial (P2a), answered under the throw-away CA that stack.sh makes
+# (compose.yaml gives `api` and `worker` its file in NODE_EXTRA_CA_CERTS): Cloudflare Access's certs for
+# CF_ACCESS_TEAM=test-team (deploy/e2e/access-stub.mjs wrote the file), and Lettermint's send API in front of the
+# mail sink. The production code dials the real URLs unchanged.
+test-team.cloudflareaccess.com {
+	tls /pki/test-team.cloudflareaccess.com.pem /pki/test-team.cloudflareaccess.com.key
+	handle /cdn-cgi/access/certs {
+		root * /pki
+		rewrite * /jwks.json
+		file_server
+	}
+	handle {
+		respond 404
+	}
+}
+
+api.lettermint.co {
+	tls /pki/api.lettermint.co.pem /pki/api.lettermint.co.key
+	reverse_proxy mailsink:8025
+}
+
 # A visitor on plain http, as Cloudflare forwards it without "Always Use HTTPS": caddy answers with the 308.
 http://mjk.test, http://admin.mjk.test {
 	reverse_proxy caddy:80 {
