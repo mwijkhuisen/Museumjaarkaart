@@ -174,6 +174,43 @@ describe('POST /auth/password: criterion 10', () => {
     );
     expect(hi - lo).toBeLessThanOrEqual(Math.max(25, lo * 0.5));
   }, 60_000);
+
+  it('every failed path runs exactly one hash through the gate (the dummy where there is no hash)', async () => {
+    const inner = createHashGate();
+    let runs = 0;
+    const counting = {
+      run<T>(fn: () => Promise<T>) {
+        runs += 1;
+        return inner.run(fn);
+      },
+      inFlight: 0,
+      maxInFlight: 0,
+    };
+    const prev = app;
+    app = makeApp({ hashGate: counting });
+    try {
+      const noPw = await a.newUser();
+      const withPw = await member();
+      const deleted = await member({ status: 'deleted' });
+      const badHash = await member({ password_hash: '$argon2id$v=19$garbage' });
+      const cases: Record<string, () => Response | Promise<Response>> = {
+        unknown: () => signIn(`nobody.gate.${process.pid}@example.org`, PW),
+        nopassword: () => signIn(noPw.email, PW),
+        wrong: () => signIn(withPw.email, `${PW}!`),
+        deleted: () => signIn(deleted.email, PW),
+        unparseable: () => signIn(badHash.email, PW),
+        adminOtherEmail: () => signIn(withPw.email, PW, { host: 'admin.mjk.test', access: 'other@example.org' }),
+      };
+      for (const [name, run] of Object.entries(cases)) {
+        runs = 0;
+        const r = await run();
+        expect(r.status, name).toBe(401);
+        expect(runs, name).toBe(1);
+      }
+    } finally {
+      app = prev;
+    }
+  });
 });
 
 describe('POST /auth/password: a correct password', () => {
@@ -341,6 +378,17 @@ describe('POST /auth/password: the admin host', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.host).toBe('admin');
     expect(rows[0]?.id.equals(idOf(token))).toBe(true);
+  });
+});
+
+describe('POST /auth/password: the per-email limit by host', () => {
+  it('a full public-host bucket for an email leaves the admin-host sign-in of that email working', async () => {
+    const u = await member();
+    for (let i = 0; i < 5; i++) expect((await signIn(u.email, `${PW}${i}`)).status).toBe(401);
+    expect((await signIn(u.email, PW)).status).toBe(429);
+    const own = await signIn(u.email, PW, { host: 'admin.mjk.test', access: u.email });
+    expect(own.status).toBe(200);
+    tokenOf(own);
   });
 });
 
