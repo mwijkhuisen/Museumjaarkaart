@@ -134,4 +134,4 @@ If the token was ever exposed, rotate it at once, and check the recent versions 
 
 ## 8. Secrets that arrive later
 
-`lettermint_api_token` (63008) and `app_keys` (63012) come with P2a and P3b; their rotation is added to this runbook then. A new `app_keys` pepper invalidates only pending codes and unused invites [U overlap window, A§17.3].
+`app_keys` (63012) and `lettermint_api_token` (63008) arrived with P2a; their rotation is added to this runbook with the P2a docs. A new `app_keys` pepper invalidates only pending codes and unused invites [U overlap window, A§17.3].

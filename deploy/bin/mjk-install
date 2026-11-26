@@ -17,9 +17,10 @@
 #   3. Installs the compose file, roles.sql, the nftables file, the units, /etc/tmpfiles.d/mjk.conf (the
 #      lock directory /run/mjk, root 0700; /run/lock is never touched), and mjk-update, mjk-tick,
 #      mjk-resolvers and mjk-ping into /usr/local/bin (root-owned copies).
-#   4. Checks the eleven secrets of P1e and P1d and mjk.env, by name only: it never writes a secret and never reads
-#      one (only whether the file exists, is root:<gid> 0440 and is not empty). Names and GIDs of the
-#      others (lettermint_api_token, app_keys) come back with P2a and P3b. r2_media_rw is the worker's from P1d.
+#   4. Checks the thirteen secrets of P1e, P1d and P2a and mjk.env, by name only: it never writes a secret and never reads
+#      one (only whether the file exists, is root:<gid> 0440 and is not empty). r2_media_rw is the worker's
+#      from P1d; from P2a, app_keys is the api's, the worker's and admin's, lettermint_api_token the worker's.
+#      MJK_MAIL_FROM and MJK_MAIL_CAP are not required: the worker treats a missing mail setting as unconfigured.
 #   5. Enables mjk-firewall.service (and starts it), and, only when every secret and mjk.env are in
 #      place, mjk-update.timer, mjk-tick.timer and mjk-backup.timer. Until then it lists what is missing
 #      and leaves the timers off.
@@ -76,7 +77,7 @@ fi
 docker info >/dev/null 2>&1 || die "the Docker daemon does not answer"
 
 # --- the tables of A§17.3 ----------------------------------------------------------------------------
-# secret name : GID. All thirteen groups exist after the install; the compose file uses the eleven
+# secret name : GID. All thirteen groups exist after the install; the compose file uses the thirteen
 # listed under CHECKED (hc_ping_key is read by root's backup unit and by the worker; r2_media_rw is
 # the worker's, from P1d).
 GROUPS_GID=(
@@ -85,7 +86,7 @@ GROUPS_GID=(
   r2_backup_put:63010 restic_password:63011 app_keys:63012 hc_ping_key:63013
 )
 CHECKED=(db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token
-  r2_backup_put restic_password hc_ping_key r2_media_rw)
+  r2_backup_put restic_password hc_ping_key r2_media_rw app_keys lettermint_api_token)
 declare -A GID_OF=()
 for pair in "${GROUPS_GID[@]}"; do GID_OF[${pair%%:*}]=${pair##*:}; done
 

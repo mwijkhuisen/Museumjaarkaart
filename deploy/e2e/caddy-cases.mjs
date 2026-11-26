@@ -318,17 +318,17 @@ async function echoCases() {
     });
   }
 
-  // The admin host until P2a (A§5, A§15.6, ADR-0004).
+  // The admin host (A§5, A§15.6, ADR-0004): the SPA's one page for every path that is not an asset or an api route.
   for (const via of ['edge', CADDY_EDGE]) {
-    await check(`admin: the placeholder page with the admin headers (via ${via})`, async (expect) => {
-      for (const path of ['/', '/moderation/queue']) {
+    await check(`admin: the SPA page with the admin headers (via ${via})`, async (expect) => {
+      for (const path of ['/', '/moderation/queue', '/x']) {
         const res = await send(via, path, { host: ADMIN });
         statusIs(expect, res, 200, path);
         expect(
           (res.headers['content-type'] ?? '').startsWith('text/html'),
           `content-type ${res.headers['content-type']}`,
         );
-        expect(res.body.startsWith('<!doctype html>'), 'not the placeholder');
+        expect(res.body.includes('<div id="admin"></div>'), `${path}: not the admin SPA page`);
         headersAre(expect, res, ADMIN_HEADERS, path);
       }
     });
@@ -343,13 +343,25 @@ async function echoCases() {
     statusIs(expect, res, 404, 'missing asset');
     headersAre(expect, res, ADMIN_HEADERS, 'missing asset');
   });
-  await check('admin: /map/* is not served (the placeholder page, never the file)', async (expect) => {
+  await check('admin: /map/* is not served (the SPA page, never the file)', async (expect) => {
     const res = await send('edge', glyph, { host: ADMIN });
     statusIs(expect, res, 200, glyph);
-    expect(res.body.startsWith('<!doctype html>'), 'not the placeholder');
+    expect(res.body.includes('<div id="admin"></div>'), 'not the admin SPA page');
     headersAre(expect, res, ADMIN_HEADERS, glyph);
   });
-  for (const path of ['/api', '/api/', '/api/v1', '/api/v1/healthz', '/api/v1/museums', '/api/x']) {
+  // Signup is a public-host route, uploads and the other api paths are not the admin SPA's, and /api/v1/meow
+  // is not /api/v1/me.
+  for (const path of [
+    '/api',
+    '/api/',
+    '/api/v1',
+    '/api/v1/healthz',
+    '/api/x',
+    '/api/v1/auth/signup',
+    '/api/v1/auth/signup/x',
+    '/api/v1/uploads',
+    '/api/v1/meow',
+  ]) {
     await check(`admin: ${path} is a 404 that reaches no upstream`, async (expect) => {
       const res = await send('edge', path, { host: ADMIN });
       statusIs(expect, res, 404, path);
@@ -357,7 +369,23 @@ async function echoCases() {
       expect(echoOf(res) === null, 'reached an upstream');
     });
   }
-  for (const path of ['/api/admin', '/api/admin/x?y=1']) {
+  // Only GET and HEAD reach the api on the museums routes.
+  for (const method of ['POST', 'PUT', 'DELETE']) {
+    await check(`admin: ${method} /api/v1/museums is a 404 that reaches no upstream`, async (expect) => {
+      const res = await send('edge', '/api/v1/museums', { host: ADMIN, method });
+      statusIs(expect, res, 404, method);
+      headersAre(expect, res, ADMIN_HEADERS, method);
+      expect(echoOf(res) === null, 'reached an upstream');
+    });
+  }
+  for (const path of [
+    '/api/admin',
+    '/api/admin/x?y=1',
+    '/api/v1/auth/code',
+    '/api/v1/me',
+    '/api/v1/me/x',
+    '/api/v1/museums',
+  ]) {
     await check(`admin: ${path} goes to the api with the Access JWT and the client address`, async (expect) => {
       const res = await send('edge', path, {
         host: ADMIN,
