@@ -45,3 +45,13 @@
 - **Resend:** account data and logs in the US [U].
 - **Amazon SES:** AWS's large, changing IP ranges defeat an egress allowlist.
 - **The Lettermint SDK:** failed the 7-day rule, and `fetch` needs no dependency.
+
+## Implementation (P2a, 2026-11-26)
+
+Lettermint's API as read on 2026-11-26 from https://lettermint.co/docs/api-reference/sending/send and its OpenAPI (https://lettermint.co/docs/api-reference/sending/0.0.1/lettermint-sending-openapi.json):
+
+- The call: `POST https://api.lettermint.co/v1/send`, header `x-lettermint-token`, JSON `{from, to: [...], subject, text}` (`apps/server/src/mail/lettermint.ts`).
+- Tracking is off per mail: `settings: {track_opens: false, track_clicks: false}`. Mails are plain text only, so there is no pixel and no link to rewrite.
+- Answers: 202 `{message_id, status}`; errors 401, 403, 422, 429 (with `Retry-After`) and 500.
+- Our handling: the answer body is never read (it is cancelled unread, so nothing the provider says reaches a log); the token file is read on each send; a status maps to a fixed code: 401 and 403 `mail_refused`, 408, 409, 429, 5xx, a timeout and a network failure `mail_unavailable`, any other `mail_invalid`. A missing token, sender or brand is `mail_unconfigured`.
+- The monthly budget: the worker counts `mail_sent` in the calendar month (Europe/Amsterdam). At 80 % of `MJK_MAIL_CAP` it logs `mail_cap_near` and its health ping fails.
