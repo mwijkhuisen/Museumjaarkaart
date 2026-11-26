@@ -29,6 +29,7 @@ P4 (A12 = go) + P3b ► P7
 ```
 
 - **Box first** (owner, 2026-11-22): P2a starts only once the stack runs on the VM and the [box] and [owner] criteria of P1e and P1d are ticked, with their results written back; so A1, A2, A3 and A8 are done first. P2a onward adds security checks that need the box, and three designs rest on box facts that are still [U]: restic under the bucket lock (A§17.6), range requests on R2's custom domain (A§15.3) and request lengths through the tunnel (A§14).
+  - **Waived for P2a** (owner, 2026-11-26): P2a is built while the P1e and P1d [box] items are finished on the VM in parallel. Its own [box] checks (the argon2 measurement, a real mail, the Cloudflare rule, the tunnel lengths) run after its merge and deploy, and a follow-up docs PR writes their results back; until then argon2 runs at OWASP's floor. The rule stands for P2b onward.
 - **Dated maintenance** (2026-11-22): the Wikidata Query Service moves from Blazegraph to QLever ("WDQS v2"). The old endpoint may degrade from February 2027 and is switched off on 2027-06-30 (A§7.1). The switch is one small PR with P1a's labels and reviews (the endpoint, the query without its optimizer hint, re-recorded fixtures: A13), merged before February 2027, whatever phase is running then.
 - **Tracking:** a `Roadmap` epic (#1) with every phase issue as a direct sub-issue, and each phase issue assigned to its GitHub milestone M0–M7 (milestones 1–8). The milestone issues the planning session opened first (#2, #4–#10) were closed as not planned once the owner created the real milestones.
 

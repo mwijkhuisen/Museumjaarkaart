@@ -9,6 +9,7 @@
   "dependencies": {
     "@mjk/contracts": "workspace:*",
     "@tanstack/react-query": "5.104.5",
+    "altcha": "3.5.0",
     "maplibre-gl": "6.15.0",
     "pmtiles": "4.5.0",
     "react": "19.3.1",
