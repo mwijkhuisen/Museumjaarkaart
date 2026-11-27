@@ -18,7 +18,12 @@ import { setLocale } from '../src/paraglide/runtime.js';
 // directly (a server render never gets past "Loading": the member is not known until the browser
 // asks `GET /api/v1/me`, A§15.1).
 
-const config = { brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
+const config = {
+  brand: 'Testmerk',
+  controller: 'Test Beheerder',
+  contactEmail: 'info@mjk.test',
+  media: 'https://media.mjk.test',
+};
 
 function page(path: string, locale: Locale): string {
   setLocale(locale, { reload: false });

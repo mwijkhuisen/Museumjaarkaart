@@ -33,8 +33,8 @@ const HOSTILE_REVIEW_BODY = '</script><b>x</b> [x](y)\nTweede regel 🦊';
 // P3b (photos, for photo-upload.spec.ts): two museums after R4, neither reviewed: P (`seed.photo`, photo_policy
 // `allowed`) and PF (`seed.photo.forbidden`, `forbidden`: the form warns and still allows, owner Q4). Members
 // `photo_<engine>` (stack.sh trusts them through the production `admin user trust`, so an attached photo is
-// published) and `photo_pending_<engine>` (untrusted: "wacht op controle"), emails `photo[-pending]-<engine>@mjk.test`,
-// each with a dated visit to P and PF.
+// published), `photo_pending_<engine>` (untrusted: "wacht op controle") and `photo_bomb_<engine>` (the decompression
+// bomb), emails `photo[-pending|-bomb]-<engine>@mjk.test`, each with a dated visit to P and PF.
 //   - Last, one stats recompute as mjk_worker, called directly so no spec races the worker's job.
 // The seed prints the slugs (`seed-e2e: reviewed hostile=… rich=… plain=… prompt=…`, `seed-e2e: photo plain=…
 // forbidden=…`).
@@ -157,6 +157,8 @@ async function seedPhotos(
     for (const [handle, email] of [
       [`photo_${engine}`, `photo-${engine}@mjk.test`],
       [`photo_pending_${engine}`, `photo-pending-${engine}@mjk.test`],
+      // The decompression bomb's uploader: a member of its own, so no spec signs one address in twice.
+      [`photo_bomb_${engine}`, `photo-bomb-${engine}@mjk.test`],
     ] as const) {
       const id = await user(handle, email, `E2E ${handle}`);
       await visit(id, plain.id, '2026-09-12');

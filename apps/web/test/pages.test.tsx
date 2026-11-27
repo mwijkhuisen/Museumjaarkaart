@@ -117,7 +117,12 @@ function render(
     <App
       path={path}
       queryClient={queryClient}
-      config={{ brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' }}
+      config={{
+        brand: 'Testmerk',
+        controller: 'Test Beheerder',
+        contactEmail: 'info@mjk.test',
+        media: 'https://media.mjk.test',
+      }}
     />,
   );
 }
@@ -303,7 +308,11 @@ describe('the museum page scores and the review pages (P3a)', () => {
     queryClient.setQueryData([apiPath.provinces], provinces);
     setLocale('nl', { reload: false });
     const html = renderToStaticMarkup(
-      <App path="/musea" queryClient={queryClient} config={{ brand: 'T', controller: 'T', contactEmail: 'a@b.nl' }} />,
+      <App
+        path="/musea"
+        queryClient={queryClient}
+        config={{ brand: 'T', controller: 'T', contactEmail: 'a@b.nl', media: 'https://media.mjk.test' }}
+      />,
     );
     expect(html).toContain('class="card-score cluster"');
     expect(html).toContain('<strong>4,0</strong>');
@@ -370,7 +379,12 @@ describe('the list page', () => {
         <App
           path="/musea"
           queryClient={queryClient}
-          config={{ brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' }}
+          config={{
+            brand: 'Testmerk',
+            controller: 'Test Beheerder',
+            contactEmail: 'info@mjk.test',
+            media: 'https://media.mjk.test',
+          }}
         />,
       ),
     ).toContain('Geen musea gevonden');

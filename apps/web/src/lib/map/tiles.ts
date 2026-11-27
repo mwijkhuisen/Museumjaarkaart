@@ -20,8 +20,7 @@ export function parseTilesPointer(text: string): TilesPointer {
   }
 }
 
-/** `https://media.<hostname>`: the one origin the tiles come from (the CSP's `connect-src`). */
-export const mediaOrigin = (hostname: string): string => `https://media.${hostname}`;
+export { mediaOrigin } from '../media.ts';
 
 export const tilesPointerUrl = (media: string): string => `${media}/tiles/current.json`;
 

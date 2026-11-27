@@ -19,6 +19,7 @@ if (root !== null && stateBlock !== null) {
     brand: meta('application-name'),
     controller: meta('mjk-controller'),
     contactEmail: meta('mjk-contact'),
+    media: meta('mjk-media'),
   };
   const queryClient = createQueryClient();
   const state = JSON.parse(stateBlock.textContent ?? '{}') as Record<string, unknown>;

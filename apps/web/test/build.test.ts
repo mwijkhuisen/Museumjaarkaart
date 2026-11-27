@@ -248,6 +248,8 @@ describe('the rendered HTML of every page kind', () => {
           if (!/^(src|href|srcset|action|poster|data|content)$/i.test(attr)) continue;
           if (tag === 'a' && attr === 'href') {
             if (ABSOLUTE.test(v)) linkOuts.set(v, (linkOuts.get(v) ?? 0) + 1);
+          } else if (tag === 'meta' && v === `https://media.${CONFIG.domain}` && /name="mjk-media"/.test(attrs)) {
+            // The photo origin the client reads (P3b): data for the page's own <img>, fetched by nothing.
           } else if (ABSOLUTE.test(v)) {
             expect(v === SELF || v.startsWith(`${SELF}/`), `${name} <${tag} ${attr}>`).toBe(true);
           }
