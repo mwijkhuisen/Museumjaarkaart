@@ -88,3 +88,15 @@ Then paste the `body` field of each line of:
 ```bash
 mjkc logs --since 10m --no-log-prefix api | grep '"msg":"request"'
 ```
+
+### B5. Passkeys (owner)
+
+On the owner's phone and on a desktop browser, after the merge and deploy:
+
+1. Sign in by code, then add a platform passkey on the account page (within 5 minutes of signing in).
+2. Sign out, then sign in with it: the button and, where the browser offers it, the autofill list in the email field.
+3. Check that the session list shows "Passkey", rename the passkey, then remove it (this signs out the other sessions).
+4. Confirm that the removed passkey no longer signs in.
+5. Once on `admin.<domain>` too: the same passkey works there, only for the Access JWT's email.
+
+The result goes into the PR as the [owner] criterion.

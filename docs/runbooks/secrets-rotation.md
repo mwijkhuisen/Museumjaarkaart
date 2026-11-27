@@ -148,7 +148,7 @@ To rotate one key, edit the file as root and keep the other three lines. What ea
 - `otp_pepper`: pending email codes, and the email keys of the open rate-limit windows (those counters start again).
 - `invite_pepper`: every unused invite (create new ones with `admin invite create`).
 - `code_seal`: mail jobs not yet sent; they fail as `seal_invalid` and the member asks for a new code.
-- `altcha_hmac`: open ALTCHA challenges, for at most 5 minutes (the page fetches a new one).
+- `altcha_hmac`: open ALTCHA challenges, for at most 5 minutes (the page fetches a new one). It also signs WebAuthn challenges (label `webauthn`), so a rotation voids open passkey ceremonies for at most 5 minutes (the page fetches new options).
 
 Restart `api` and `worker` (they read the file at start); `admin` reads it on each run. A malformed file makes them exit 78 naming the key, never its value.
 
