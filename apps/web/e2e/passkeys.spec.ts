@@ -51,11 +51,19 @@ async function signOutToSignIn(page: Page) {
 
 test.describe('with a virtual authenticator', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'the virtual authenticator is Chromium-only');
-  // The deleted passkey is refused with a 401, which Chromium logs as a failed resource load.
+  // The deleted passkey is refused with a 401, which Chromium logs as a failed resource load. The allowance covers
+  // the whole test, so the test itself asserts that every 401 is that refusal, in step 5 (below).
   test.use({ allowedConsole: [/status of 401/] }); // one pattern: a two-element array would read as [value, options]
 
   test('add a passkey, sign out, sign in with it, remove it', async ({ page, request, browserName }) => {
     test.slow();
+    // Every 401 of the test, with the step it came in: only step 5's verify call may be one.
+    let step = 0;
+    const refused: { step: number; method: string; path: string }[] = [];
+    page.on('response', (res) => {
+      if (res.status() === 401)
+        refused.push({ step, method: res.request().method(), path: new URL(res.url()).pathname });
+    });
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('WebAuthn.enable');
     const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -74,6 +82,7 @@ test.describe('with a virtual authenticator', () => {
     const signedIn = page.getByText(member.signedInAs);
     const passkeys = page.getByRole('region', { name: t('account_h_passkeys') });
 
+    step = 1;
     // 1. Add one, with a name: the notice, the list item and one resident credential for mjk.test.
     await expect(passkeys.getByText(t('account_passkeys_none'))).toBeVisible();
     await passkeys.getByLabel(t('field_passkey_name_optional')).fill('E2E laptop');
@@ -85,6 +94,7 @@ test.describe('with a virtual authenticator', () => {
     expect(added[0]?.rpId).toBe('mjk.test');
     expect(added[0]?.isResidentCredential).toBe(true);
 
+    step = 2;
     // 2. Out, and to the sign-in page. The page arms the autofill request too: with the virtual authenticator it may
     // sign the member in by itself before the click. Either way the member ends on the account page.
     await signOutToSignIn(page);
@@ -107,11 +117,13 @@ test.describe('with a virtual authenticator', () => {
       `passkey sign-in: the autofill ${autofilled ? 'signed in by itself before the click' : 'did not finish by itself; the button signed in'}`,
     );
 
+    step = 3;
     // 3. The current session's method is the passkey, and the list item shows a use.
     const current = page.getByRole('listitem').filter({ hasText: t('account_session_current') });
     await expect(current.getByText(t('session_method_passkey'), { exact: true })).toBeVisible();
     await expect(passkeys.getByText(t('account_passkey_never_used'))).toHaveCount(0);
 
+    step = 4;
     // 4. Remove it (the sign-in is fresh). "Remove" only asks: "No" keeps it, and nothing is sent.
     const removeButton = passkeys.getByRole('button', {
       name: t('action_remove_passkey').replace('{name}', 'E2E laptop'),
@@ -136,12 +148,17 @@ test.describe('with a virtual authenticator', () => {
     expect(deletes).toHaveLength(1);
     await expect(passkeys.getByText(t('account_passkeys_none'))).toBeVisible();
 
+    step = 5;
     // 5. Out again: the authenticator still holds the credential, the server refuses it.
     await signOutToSignIn(page);
     await expect(page.getByRole('heading', { name: t('auth_passkey_heading') })).toBeVisible();
     await page.getByRole('button', { name: t('action_signin_passkey') }).click();
     await expect(page.getByText(t('auth_err_passkey_failed'))).toBeVisible();
     await expect(signedIn).toHaveCount(0);
+
+    // The only 401s were the refusals of the removed passkey, in step 5; one in steps 1 to 4 fails here.
+    expect(refused.length).toBeGreaterThan(0);
+    expect(refused).toEqual(refused.map(() => ({ step: 5, method: 'POST', path: '/api/v1/auth/passkey/verify' })));
   });
 });
 
