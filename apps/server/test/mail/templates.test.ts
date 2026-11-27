@@ -16,6 +16,7 @@ const cases: [MailKind, Partial<TemplateData>][] = [
   ['code_email_change', { code: CODE }],
   ['invite', { code: INVITE, validUntil: '2026-12-31' }],
   ['email_changed', { contact: 'help@example.test' }],
+  ['passkey_added', { contact: 'help@example.test' }],
 ];
 
 describe.each(['nl', 'en'] as const)('%s', (locale: Locale) => {
@@ -37,7 +38,11 @@ describe.each(['nl', 'en'] as const)('%s', (locale: Locale) => {
       );
       expect(text).toContain('2026-12-31');
     }
-    if (kind === 'email_changed') expect(text).toContain('help@example.test');
+    if (kind === 'email_changed' || kind === 'passkey_added') expect(text).toContain('help@example.test');
+    if (kind === 'passkey_added') {
+      expect(subject).toMatch(/passkey/);
+      expect(text).toMatch(locale === 'nl' ? /verwijder de passkey/ : /remove the passkey/);
+    }
   });
 
   it.each(cases)('%s ignores submitted text it has no field for', (kind, extra) => {
@@ -66,10 +71,20 @@ it('refuses data that is not what the template takes, without quoting it', () =>
   expect(() => render('invite', 'en', { ...base, code: 'short', validUntil: '2026-12-31' })).toThrow();
   expect(() => render('invite', 'en', { ...base, code: INVITE, validUntil: 'soon' })).toThrow();
   expect(() => render('email_changed', 'en', { ...base })).toThrow();
+  expect(() => render('passkey_added', 'en', { ...base })).toThrow();
+  expect(() => render('passkey_added', 'nl', { ...base, contact: 'not an address' })).toThrow();
   expect(() => render('code_signin', 'fr' as Locale, { ...base, code: CODE })).toThrow();
 });
 
 it('the email_changed notice holds no address but the contact', () => {
   const { text } = render('email_changed', 'en', { ...base, contact: 'help@example.test' });
   expect(text.match(/\S+@\S+/g)).toEqual(['help@example.test.']);
+});
+
+it('the passkey_added notice holds no address but the contact, and no link', () => {
+  for (const locale of ['nl', 'en'] as const) {
+    const { subject, text } = render('passkey_added', locale, { ...base, contact: 'help@example.test' });
+    expect(text.match(/\S+@\S+/g)).toEqual(['help@example.test.']);
+    expect(`${subject}\n${text}`).not.toMatch(/https?:\/\//);
+  }
 });

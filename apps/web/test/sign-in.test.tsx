@@ -5,7 +5,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { App } from '../src/App.tsx';
 import { CodeStep } from '../src/components/auth/CodeStep.tsx';
-import { describeError, ReauthCancelled } from '../src/components/auth/errors.ts';
+import { describeError, isCeremonyAborted, ReauthCancelled } from '../src/components/auth/errors.ts';
+import { PasskeySignInView } from '../src/components/auth/PasskeySignIn.tsx';
+import { Reauth } from '../src/components/auth/Reauth.tsx';
+import { SignInMethods } from '../src/components/auth/SignInMethods.tsx';
 import { SignUpForm } from '../src/components/auth/SignUpForm.tsx';
 import { ApiError, createQueryClient } from '../src/lib/api.ts';
 import type { Locale } from '../src/lib/routes.ts';
@@ -205,6 +208,14 @@ describe('every error code has its own text in both languages', () => {
     expect(describeError(new ApiError(429, 'rate_limited', [], 600), 'plain').text).toContain('10 min');
     expect(describeError(new ApiError(429, 'rate_limited', [], 61), 'plain').text).toContain('2 min');
     expect(describeError(new ApiError(429, 'rate_limited', [], 5), 'plain').text).toContain('1 min');
+    expect(describeError(new ApiError(429, 'rate_limited', [], 3_600), 'plain').text).toContain('60 min');
+  });
+
+  it('turns a wait over an hour (a day\u2019s limit) into whole hours', () => {
+    setLocale('nl', { reload: false });
+    expect(describeError(new ApiError(429, 'rate_limited', [], 3_601), 'passkey_add').text).toContain('2 uur');
+    setLocale('en', { reload: false });
+    expect(describeError(new ApiError(429, 'rate_limited', [], 80_000), 'passkey_add').text).toContain('23 hours');
   });
 
   it('names the field a 422 or a taken handle is about', () => {
@@ -218,5 +229,181 @@ describe('every error code has its own text in both languages', () => {
     setLocale('en', { reload: false });
     expect(describeError(new TypeError('Failed to fetch'), 'plain').text).toContain('connection');
     expect(describeError(new ReauthCancelled(), 'plain')).toEqual({ text: '', fields: {} });
+  });
+});
+
+describe('the passkey screens (P2b)', () => {
+  const methods = (locale: Locale) => {
+    setLocale(locale, { reload: false });
+    return renderToStaticMarkup(<SignInMethods locale={locale} onSignedIn={() => {}} />);
+  };
+
+  it.each(['nl', 'en'] as const)('%s: both email fields of the sign-in carry the webauthn autofill token', (locale) => {
+    const html = methods(locale);
+    expect(html).not.toContain('style=');
+    expectLabelled(html);
+    // The code form's field, then the password form's field; no other input has the token.
+    expect(html).toMatch(/<input\b[^>]*autoComplete="email webauthn"/i);
+    expect(html).toMatch(/<input\b[^>]*autoComplete="username webauthn"/i);
+    expect(html.match(/webauthn/gi)).toHaveLength(2);
+    // A password field never autofills passkeys itself.
+    expect(html).toMatch(/<input\b[^>]*type="password"[^>]*autoComplete="current-password"/i);
+    for (const f of html.match(/<form\b[^>]*>/g) ?? []) expect(f).toContain('method="post"');
+  });
+
+  it.each(['nl', 'en'] as const)(
+    '%s: Reauth has no webauthn token and, on the server, no passkey section (it appears client side only)',
+    (locale) => {
+      setLocale(locale, { reload: false });
+      for (const hasPassword of [false, true]) {
+        const html = renderToStaticMarkup(
+          <Reauth
+            locale={locale}
+            email="a@example.org"
+            hasPassword={hasPassword}
+            onDone={() => {}}
+            onCancel={() => {}}
+          />,
+        );
+        expect(html).not.toMatch(/webauthn|passkey/i);
+        expect(html).not.toContain('style=');
+      }
+    },
+  );
+
+  it.each(['nl', 'en'] as const)(
+    '%s: the passkey section is a labelled section with one button and no form',
+    (locale) => {
+      setLocale(locale, { reload: false });
+      const html = renderToStaticMarkup(<PasskeySignInView busy={false} failure={null} onClick={() => {}} />);
+      expect(html).not.toContain('style=');
+      expect(html).toContain('aria-labelledby="signin-passkey"');
+      expect(html.match(/<button\b/g)).toHaveLength(1);
+      expect(html).toContain('type="button"');
+      expect(html).not.toMatch(/<form|<input/);
+      const failed = renderToStaticMarkup(
+        <PasskeySignInView busy failure={{ text: '<b>x</b>', fields: {} }} onClick={() => {}} />,
+      );
+      expect(failed).toContain('role="alert"');
+      expect(failed).toContain('disabled=""');
+      expect(failed).not.toContain('<b>');
+    },
+  );
+
+  it('renders nothing for the passkey section on the server (it appears once the browser is known to support it)', () => {
+    setLocale('nl', { reload: false });
+    expect(methods('nl')).not.toContain('signin-passkey');
+  });
+});
+
+describe('passkey errors have their own text in both languages', () => {
+  const codes = [
+    'bad_request',
+    'unauthorized',
+    'forbidden',
+    'banned',
+    'conflict',
+    'invalid',
+    'not_found',
+    'rate_limited',
+    'reauth_required',
+    'internal',
+  ];
+  // By the exception's name, never its message (the library's WebAuthnError carries its cause's name).
+  const ceremony = [
+    'NotAllowedError',
+    'InvalidStateError',
+    'ConstraintError',
+    'NotSupportedError',
+    'SecurityError',
+    'UnknownError',
+    'PasskeyUnusable',
+  ];
+  const ctxs = ['passkey_signin', 'passkey_add', 'passkey_manage'] as const;
+  const named = (name: string) => Object.assign(new Error('platform text'), { name });
+
+  it.each(['nl', 'en'] as const)(
+    '%s: a non-empty text for every code and ceremony error in every passkey context',
+    (locale) => {
+      setLocale(locale, { reload: false });
+      for (const ctx of ctxs) {
+        for (const code of codes) {
+          const { text } = describeError(new ApiError(400, code, [], null), ctx);
+          expect(text, `${ctx} ${code}`).not.toBe('');
+          expect(text, `${ctx} ${code}`).not.toMatch(/^[a-z_]+$/);
+        }
+        for (const name of ceremony) {
+          const { text } = describeError(named(name), ctx);
+          expect(text, `${ctx} ${name}`).not.toBe('');
+          expect(text, `${ctx} ${name}`).not.toMatch(/^[a-z_]+$/);
+          expect(text, `${ctx} ${name}: never the platform's own message`).not.toContain('platform text');
+        }
+      }
+    },
+  );
+
+  it('says what happened for the cases a member can act on', () => {
+    setLocale('en', { reload: false });
+    expect(describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_signin').text).toContain('did not work');
+    expect(describeError(named('NotAllowedError'), 'passkey_signin').text).toContain('cancelled or timed out');
+    expect(describeError(named('NotAllowedError'), 'passkey_add').text).toContain('cancelled or timed out');
+    expect(describeError(named('InvalidStateError'), 'passkey_add').text).toContain('already has a passkey');
+    expect(describeError(new ApiError(409, 'conflict', [], null), 'passkey_add').text).toContain('20');
+    expect(describeError(new ApiError(422, 'invalid', ['response'], null), 'passkey_add').text).toContain('verify');
+    expect(describeError(new ApiError(404, 'not_found', [], null), 'passkey_manage').text).toContain('no longer');
+    expect(describeError(new ApiError(429, 'rate_limited', [], 125), 'passkey_signin').text).toContain('3 min');
+    expect(describeError(new ApiError(403, 'banned', [], null), 'passkey_signin').text).toContain('blocked');
+    expect(describeError(new TypeError('Failed to fetch'), 'passkey_signin').text).toContain('connection');
+    expect(describeError(new ApiError(422, 'invalid', ['name'], null), 'passkey_manage').fields.name).toContain(
+      '1 to 50',
+    );
+  });
+
+  it.each(['nl', 'en'] as const)('%s: passkey_reauth has its own fixed texts, by status and by ceremony', (locale) => {
+    setLocale(locale, { reload: false });
+    for (const code of codes) {
+      const { text } = describeError(new ApiError(400, code, [], null), 'passkey_reauth');
+      expect(text, code).not.toBe('');
+      expect(text, code).not.toMatch(/^[a-z_]+$/);
+    }
+    for (const name of ceremony) {
+      const { text } = describeError(named(name), 'passkey_reauth');
+      expect(text, name).not.toBe('');
+      expect(text, name).not.toContain('platform text');
+    }
+    expect(describeError(new ApiError(429, 'rate_limited', [], 125), 'passkey_reauth').text).toContain('3');
+    expect(describeError(new TypeError('Failed to fetch'), 'passkey_reauth').text).not.toBe(
+      describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_reauth').text,
+    );
+    // The cancelled text is the reauth one, not the sign-in's.
+    expect(describeError(named('NotAllowedError'), 'passkey_reauth').text).not.toBe(
+      describeError(named('NotAllowedError'), 'passkey_signin').text,
+    );
+    expect(describeError(named('AbortError'), 'passkey_reauth')).toEqual({ text: '', fields: {} });
+    expect(
+      describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_reauth').text,
+      'a 401 is not "wrong code"',
+    ).not.toBe(describeError(new ApiError(401, 'unauthorized', [], null), 'verify').text);
+  });
+
+  it('says what happened for a passkey confirmation (en)', () => {
+    setLocale('en', { reload: false });
+    expect(describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_reauth').text).toBe(
+      "This passkey did not work, or it is not one of this account's passkeys. Try another one or use a code.",
+    );
+    expect(describeError(named('NotAllowedError'), 'passkey_reauth').text).toContain('cancelled or timed out');
+    expect(describeError(new ApiError(429, 'rate_limited', [], 125), 'passkey_reauth').text).toContain('3 min');
+    expect(describeError(new TypeError('Failed to fetch'), 'passkey_reauth').text).toContain('connection');
+  });
+
+  it('is silent for an aborted ceremony, and names it by the library marker or the exception name', () => {
+    setLocale('en', { reload: false });
+    const byCode = Object.assign(new Error('x'), { name: 'AbortError', code: 'ERROR_CEREMONY_ABORTED' });
+    expect(describeError(byCode, 'passkey_signin')).toEqual({ text: '', fields: {} });
+    expect(isCeremonyAborted(byCode)).toBe(true);
+    expect(isCeremonyAborted(named('AbortError'))).toBe(true);
+    expect(isCeremonyAborted(named('NotAllowedError'))).toBe(false);
+    expect(isCeremonyAborted('AbortError')).toBe(false);
+    expect(isCeremonyAborted(new ApiError(401, 'unauthorized', [], null))).toBe(false);
   });
 });

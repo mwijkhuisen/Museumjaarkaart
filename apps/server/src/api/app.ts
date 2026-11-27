@@ -14,14 +14,11 @@ import { type ApiEnv, requestLog } from './middleware/request.ts';
 import { sessionMiddleware } from './middleware/session.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
-import { mountAuth } from './routes/auth.ts';
-import { mountMe } from './routes/me.ts';
 import { mountMkList } from './routes/mk-list.ts';
 import { mountMuseumDetail } from './routes/museum-detail.ts';
 import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountMuseumsPoints } from './routes/museums-points.ts';
-import { mountPassword } from './routes/password.ts';
 import { mountProvinces } from './routes/provinces.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2, P2a design 6):
@@ -154,19 +151,5 @@ export const mountCatalogue: Mount = (v1, d) => {
   mountMuseumDetail(v1, d);
 };
 
-/**
- * The account routes (P2a): only on the `api` role's own app, with its keys and site (runApi), never
- * on the ssr's in-process app, which mounts the catalogue alone.
- */
-export const mountAccounts: Mount = (v1, d) => {
-  mountAuth(v1, d);
-  mountPassword(v1, d);
-  mountMe(v1, d);
-};
-
-export function createApp(deps: ApiDeps): ApiApp {
-  return buildApp(deps, (v1, d) => {
-    mountCatalogue(v1, d);
-    if (d.keys !== undefined && d.site !== undefined) mountAccounts(v1, d);
-  });
-}
+// The api role's own app (the catalogue plus the account routes, mountAccounts and createApp) lives
+// in create-app.ts, which the ssr role never loads (P2b code review).

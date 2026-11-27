@@ -271,6 +271,47 @@ it('sends the notice to the old address and names no other', async () => {
   expect(await jobs()).toEqual([]);
 });
 
+it('sends the passkey notice to the account address; the job holds the address sealed only', async () => {
+  const userId = '019a0000-0000-7000-8000-000000000002';
+  await apiDb
+    .transaction()
+    .execute((trx) => enqueueMailNotice(trx, keys, { userId, to: EMAIL, locale: 'en', notice: 'passkey_added' }));
+  const queued = await jobs();
+  expect(JSON.stringify(queued)).not.toContain('alice');
+  expect(queued).toMatchObject([{ kind: 'mail_notice', payload: { user_id: userId, notice: 'passkey_added' } }]);
+  const { sent } = await drain();
+  expect(sent).toHaveLength(1);
+  expect(sent[0]?.to).toBe(EMAIL);
+  expect(sent[0]?.subject).toMatch(/passkey was added/);
+  expect(sent[0]?.text).toContain('help@example.test');
+  expect(await jobs()).toEqual([]);
+});
+
+it('a notice job of P2a without `notice` is the email-change notice', async () => {
+  const userId = '019a0000-0000-7000-8000-000000000003';
+  await admin.query(`INSERT INTO job (kind, payload) VALUES ('mail_notice', $1)`, [
+    JSON.stringify({ user_id: userId, locale: 'en', sealed_to: seal(keys.code_seal, EMAIL, aad.noticeTo(userId)) }),
+  ]);
+  const { sent } = await drain();
+  expect(sent).toHaveLength(1);
+  expect(sent[0]?.subject).toMatch(/email address .* was changed/);
+});
+
+it('an address sealed for one notice cannot be sent as the other (seal_invalid, nothing sent)', async () => {
+  const userId = '019a0000-0000-7000-8000-000000000004';
+  await admin.query(`INSERT INTO job (kind, payload) VALUES ('mail_notice', $1)`, [
+    JSON.stringify({
+      user_id: userId,
+      locale: 'en',
+      notice: 'passkey_added',
+      sealed_to: seal(keys.code_seal, EMAIL, aad.noticeTo(userId, 'email_changed')),
+    }),
+  ]);
+  const { sent } = await drain();
+  expect(sent).toEqual([]);
+  expect(await jobs()).toMatchObject([{ state: 'failed', last_error: 'seal_invalid' }]);
+});
+
 it('a job rolled back with its transaction never exists', async () => {
   await expect(
     apiDb.transaction().execute(async (trx) => {
@@ -346,7 +387,7 @@ const setSent = (count: number) =>
     [count],
   );
 
-it('at 70 % of the cap only sign-in codes and the change notice still go out; the rest are dropped with mail_cap_reached', async () => {
+it('at 70 % of the cap only sign-in codes and the account notices still go out; the rest are dropped with mail_cap_reached', async () => {
   await addUser(EMAIL);
   await setSent(7);
   await requestCode('signup', { email: 'new.member@example.test', code: '111111' });
@@ -362,9 +403,18 @@ it('at 70 % of the cap only sign-in codes and the change notice still go out; th
     .execute((trx) =>
       enqueueMailNotice(trx, keys, { userId: '019a0000-0000-7000-8000-000000000001', to: EMAIL, locale: 'en' }),
     );
+  await apiDb.transaction().execute((trx) =>
+    enqueueMailNotice(trx, keys, {
+      userId: '019a0000-0000-7000-8000-000000000002',
+      to: EMAIL,
+      locale: 'en',
+      notice: 'passkey_added',
+    }),
+  );
   await requestCode('signin');
   const { sent, lines } = await drain({ env: { MJK_MAIL_CAP: '10' } });
-  expect(sent.map((m) => m.to)).toEqual([EMAIL, EMAIL]);
+  expect(sent.map((m) => m.to)).toEqual([EMAIL, EMAIL, EMAIL]);
+  expect(sent.some((m) => m.subject.includes('passkey'))).toBe(true);
   expect(sent.some((m) => m.text.includes(CODE))).toBe(true);
   // Every dropped job is gone with its sealed values, and so are the dropped codes' rows.
   expect(await jobs()).toEqual([]);

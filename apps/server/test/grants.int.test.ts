@@ -45,6 +45,7 @@ const AUTH_TABLES = [
   'rate_limit',
   'audit_log',
   'content_ip_log',
+  'passkey', // P2b (db/migrations/20261128000001_passkeys.sql)
 ] as const;
 const P1A = [...TABLES, VIEW];
 const ALL = [...P1A, ...AUTH_TABLES];
@@ -91,6 +92,7 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     rate_limit: ['SELECT', 'INSERT', 'UPDATE'],
     audit_log: ['SELECT', 'INSERT'],
     content_ip_log: ['INSERT'],
+    passkey: ['SELECT', 'INSERT', 'DELETE'], // P2b
   },
   mjk_ssr: { ...PUB_SELECT },
   // pg_read_all_data: SELECT on everything and nothing else
@@ -614,8 +616,8 @@ describe('no login can DELETE or TRUNCATE, except the worker on its purge tables
     const c = { mjk_api: api, mjk_worker: worker, mjk_ssr: ssr, mjk_backup: backup }[login];
     for (const t of [...TABLES, ...AUTH_TABLES]) {
       const mayDelete = login === 'mjk_worker' && WORKER_DELETE.includes(t);
-      // mjk_api holds DELETE on session and email_code (sign-out, used codes)
-      const apiDelete = login === 'mjk_api' && ['session', 'email_code'].includes(t);
+      // mjk_api holds DELETE on session and email_code (sign-out, used codes) and passkey (P2b: remove a passkey)
+      const apiDelete = login === 'mjk_api' && ['session', 'email_code', 'passkey'].includes(t);
       expect(await attempt(c, `DELETE FROM ${t}`), `${login} DELETE ${t}`).toBe(mayDelete || apiDelete ? 'ok' : DENIED);
       expect(await attempt(c, `TRUNCATE ${t}`), `${login} TRUNCATE ${t}`).toBe(DENIED);
     }
@@ -639,6 +641,7 @@ describe('P2a: the accounts grants', () => {
       session: ['expires_at', 'last_used_at'],
       email_code: ['attempts', 'used_at'],
       invite: ['uses', 'used_at'],
+      passkey: ['name', 'sign_count', 'backed_up', 'last_used_at'], // P2b
     },
   } as const;
 
@@ -714,6 +717,30 @@ describe('P2a: the accounts grants', () => {
     expect(await attempt(api, 'DELETE FROM app_user')).toBe(DENIED);
     expect(await attempt(api, 'DELETE FROM invite')).toBe(DENIED);
     expect(await attempt(api, 'SELECT 1 FROM content_ip_log')).toBe(DENIED);
+  });
+
+  it('P2b: mjk_api cannot UPDATE webauthn_user_id or the passkey key material, and only mjk_api and mjk_backup read them', async () => {
+    expect(
+      await attempt(api, "UPDATE app_user SET webauthn_user_id = '\\x00112233445566778899aabbccddeeff' WHERE false"),
+    ).toBe(DENIED);
+    expect(await attempt(api, 'UPDATE app_user SET webauthn_user_id = webauthn_user_id WHERE false')).toBe(DENIED);
+    for (const col of ['credential_id', 'user_id', 'public_key', 'ref', 'transports', 'created_at'])
+      expect(await attempt(api, `UPDATE passkey SET ${col} = ${col} WHERE false`), col).toBe(DENIED);
+    for (const col of ['name', 'sign_count', 'backed_up', 'last_used_at'])
+      expect(await attempt(api, `UPDATE passkey SET ${col} = ${col} WHERE false`), col).toBe('ok');
+    expect(await attempt(api, 'SELECT webauthn_user_id FROM app_user')).toBe('ok');
+    for (const [login, c] of [
+      ['mjk_worker', worker],
+      ['mjk_ssr', ssr],
+    ] as const) {
+      expect(await attempt(c, 'SELECT webauthn_user_id FROM app_user'), `${login} webauthn_user_id`).toBe(DENIED);
+      expect(await attempt(c, 'SELECT 1 FROM passkey'), `${login} passkey`).toBe(DENIED);
+      expect(await attempt(c, 'SELECT credential_id FROM passkey'), `${login} passkey.credential_id`).toBe(DENIED);
+      expect(await attempt(c, 'DELETE FROM passkey'), `${login} DELETE passkey`).toBe(DENIED);
+      expect(await attempt(c, 'UPDATE passkey SET sign_count = 0 WHERE false'), `${login} UPDATE passkey`).toBe(DENIED);
+    }
+    // mjk_worker's SELECT on app_user stays (email, status)
+    expect(await attempt(worker, 'SELECT email, status FROM app_user')).toBe('ok');
   });
 
   it('nobody can UPDATE, DELETE or TRUNCATE audit_log', async () => {
@@ -796,6 +823,7 @@ describe('P2a: the accounts grants', () => {
 
   it('mjk_ssr holds nothing on the new tables', async () => {
     for (const t of AUTH_TABLES) expect(await attempt(ssr, `SELECT 1 FROM ${t} LIMIT 1`), t).toBe(DENIED);
+    expect(await attempt(ssr, 'SELECT webauthn_user_id FROM app_user')).toBe(DENIED);
   });
 });
 

@@ -1,6 +1,6 @@
 import { ErrorBody } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '../../src/api/app.ts';
+import { createApp } from '../../src/api/create-app.ts';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger } from '../../src/lib/log.ts';

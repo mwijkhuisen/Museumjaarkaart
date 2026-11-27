@@ -10,7 +10,7 @@ import {
   parsePhc,
   verifyPassword,
 } from '../../auth/argon2.ts';
-import { BUCKETS, enforce, hit, hitIp, hostEmailKey } from '../../auth/limiter.ts';
+import { BUCKETS, enforce, hit, hitIp, hostEmailKey, passkeyUserKey } from '../../auth/limiter.ts';
 import { loadUser, toMeUser } from '../../auth/me.ts';
 import { endUserSessions, readSessionCookie, requireReauth, startSession } from '../../auth/session.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
@@ -119,7 +119,11 @@ export function mountPassword(v1: ApiApp, deps: PasswordDeps): void {
     requireReauth(session);
     const { password } = await readJson(c, PasswordSetRequest);
     // Before the hash: a signed-in member cannot keep both gate permits busy (A§9 table).
-    enforce(deps.logger, BUCKETS.passwordSet, await hit(deps.db, BUCKETS.passwordSet, session.user.id));
+    enforce(
+      deps.logger,
+      BUCKETS.passwordSet,
+      await hit(deps.db, BUCKETS.passwordSet, passkeyUserKey(keys, session.user.id)),
+    );
     const hash = await gated(deps, () => hashPassword(password, undefined, gate));
     await deps.db.transaction().execute(async (trx) => {
       await trx.updateTable('app_user').set({ password_hash: hash }).where('id', '=', session.user.id).execute();
