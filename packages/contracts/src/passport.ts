@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { DISPLAY_NAME_MAX, Handle } from './auth.ts';
-import { Cursor, IsoDate, IsoDateTime, LIMITS, ProvinceCodeSchema, Slug } from './common.ts';
+import { Cursor, IsoDate, IsoDateTime, LIMITS, ProvinceCodeSchema, Slug, StorableText } from './common.ts';
 import { Limit, MuseumListQuery } from './queries.ts';
+import { OwnReview } from './reviews.ts';
 
 // The passport's contracts (P2c): visits, the wishlist, progress and € saved, imports, exports and
 // public profiles. The numbers are Q6's, still [U] until P4 tunes them (A§10, A§14).
@@ -12,13 +13,6 @@ export const VISIT_NOTE_MAX = 2000;
 export const BULK_MAX = 200;
 /** Rows in one import file. */
 export const IMPORT_ROWS_MAX = 5000;
-
-/**
- * Text that can be stored: well-formed UTF-16 (no lone surrogate) and no U+0000. PostgreSQL's jsonb
- * and text refuse a NUL, and a lone surrogate becomes U+FFFD on the way to UTF-8.
- */
-export const isStorable = (s: string): boolean => s.isWellFormed() && !s.includes('\u0000');
-export const StorableText = z.string().refine(isStorable, { message: 'not storable text' });
 
 const Month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 const Year = z.number().int().min(1900).max(2200);
@@ -87,7 +81,13 @@ export type Wishlist = z.infer<typeof Wishlist>;
 
 /** GET /me/marks: null when signed out, like `Me`. */
 export const Marks = z.strictObject({
-  marks: z.strictObject({ visited: z.array(z.uuid()).max(5000), wishlist: z.array(z.uuid()).max(5000) }).nullable(),
+  marks: z
+    .strictObject({
+      visited: z.array(z.uuid()).max(5000),
+      wishlist: z.array(z.uuid()).max(5000),
+      hide_ratings_until_visited: z.boolean(),
+    })
+    .nullable(),
 });
 export type Marks = z.infer<typeof Marks>;
 
@@ -97,7 +97,11 @@ export const MemberMuseumsQuery = MuseumListQuery.extend({ visited: YesNo.option
 export type MemberMuseumsQuery = z.infer<typeof MemberMuseumsQuery>;
 
 /** GET /me/museums/:slug. */
-export const MemberMuseum = z.strictObject({ visits: z.array(Visit).max(5000), wishlist: z.boolean() });
+export const MemberMuseum = z.strictObject({
+  visits: z.array(Visit).max(5000),
+  wishlist: z.boolean(),
+  review: OwnReview.nullable(),
+});
 export type MemberMuseum = z.infer<typeof MemberMuseum>;
 
 // ---- Progress and € saved -------------------------------------------------------------------
@@ -176,7 +180,7 @@ export const ImportConfirm = z.strictObject({
 });
 export type ImportConfirm = z.infer<typeof ImportConfirm>;
 
-export const ImportResult = z.strictObject({ visits: Count, wishlist: Count, skipped: Count });
+export const ImportResult = z.strictObject({ visits: Count, wishlist: Count, reviews: Count, skipped: Count });
 export type ImportResult = z.infer<typeof ImportResult>;
 
 // ---- Exports --------------------------------------------------------------------------------

@@ -58,3 +58,13 @@ export const CbsCode = z.string().regex(CBS_CODE_RE);
 export const Lat = z.number().min(NL_BOX.latMin).max(NL_BOX.latMax);
 export const Lon = z.number().min(NL_BOX.lonMin).max(NL_BOX.lonMax);
 export const Cursor = z.string().regex(/^[A-Za-z0-9_-]{1,4096}$/);
+
+/**
+ * Text that can be stored: well-formed UTF-16 (no lone surrogate) and no U+0000. PostgreSQL's jsonb
+ * and text refuse a NUL, and a lone surrogate becomes U+FFFD on the way to UTF-8.
+ */
+export const isStorable = (s: string): boolean => s.isWellFormed() && !s.includes('\u0000');
+export const StorableText = z.string().refine(isStorable, { message: 'not storable text' });
+
+/** Code points, what PostgreSQL's `char_length` counts (`.length` counts UTF-16 units). */
+export const codePoints = (s: string): number => [...s].length;

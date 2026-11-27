@@ -137,7 +137,7 @@ describe('the data export', () => {
     const preview = (await up.json()) as { id: string; counts: Record<string, number> };
     expect(preview.counts).toEqual({ matched: 6, ambiguous: 0, unmatched: 0, invalid: 0 });
     const done = await app.call(`/me/imports/${preview.id}/confirm`, { token, body: { choose: [], skip: [] } });
-    expect(await done.json()).toEqual({ visits: 4, wishlist: 2, skipped: 0 });
+    expect(await done.json()).toEqual({ visits: 4, wishlist: 2, reviews: 0, skipped: 0 });
 
     const visits = (id: string) =>
       p.owner

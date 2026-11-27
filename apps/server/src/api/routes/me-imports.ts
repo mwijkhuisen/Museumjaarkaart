@@ -237,6 +237,7 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
       return {
         visits: insertedVisits,
         wishlist: insertedWishlist,
+        reviews: 0,
         skipped: visits.length + wishlist.length - insertedVisits - insertedWishlist,
       };
     });

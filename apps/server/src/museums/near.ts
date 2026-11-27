@@ -142,6 +142,8 @@ export async function findNearest(db: Db, q: { lat: number; lon: number; limit: 
               registered: r.registered === true,
               closed_on: r.closed_on,
               temp_closed: r.temp_closed === true,
+              rating_count: 0, // WP4 joins pub_museum_stats
+              rating_mean: null,
               distance_m: Math.round(r.distance),
             })),
           };

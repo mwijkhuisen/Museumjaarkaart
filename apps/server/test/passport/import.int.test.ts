@@ -76,7 +76,7 @@ describe('the CSV import', () => {
     const token = await app.signIn(u.id);
     const file = FILE.replace('{first}', ids.first);
     const first = await post(token, 'csv', file);
-    expect(await confirm(token, first.id)).toEqual({ visits: 2, wishlist: 0, skipped: 0 });
+    expect(await confirm(token, first.id)).toEqual({ visits: 2, wishlist: 0, reviews: 0, skipped: 0 });
     expect(await visitsOf(u.id)).toEqual(
       [
         { museum_id: ids.first, visited_on: '2026-05-01', note: 'eerste', source: 'import' },
@@ -86,7 +86,7 @@ describe('the CSV import', () => {
 
     // The same file again: nothing new, the undated row included.
     const again = await post(token, 'csv', file);
-    expect(await confirm(token, again.id)).toEqual({ visits: 0, wishlist: 0, skipped: 2 });
+    expect(await confirm(token, again.id)).toEqual({ visits: 0, wishlist: 0, reviews: 0, skipped: 2 });
     expect(await visitsOf(u.id)).toHaveLength(2);
   });
 
@@ -101,12 +101,13 @@ describe('the CSV import', () => {
       ],
       skip: [1],
     });
-    expect(result).toEqual({ visits: 3, wishlist: 0, skipped: 0 });
+    expect(result).toEqual({ visits: 3, wishlist: 0, reviews: 0, skipped: 0 });
     expect((await visitsOf(u.id)).map((v) => v.museum_id).sort()).toEqual([ids.unique, ids.twinB, ids.other].sort());
     const twice = await post(token, 'csv', FILE.replace('{first}', ids.first));
     expect(await confirm(token, twice.id, { choose: [{ row: 3, museum_id: ids.twinB }], skip: [] })).toEqual({
       visits: 1,
       wishlist: 0,
+      reviews: 0,
       skipped: 2,
     });
   });
@@ -124,7 +125,7 @@ describe('the CSV import', () => {
     expect(r.status).toBe(422);
     expect(await r.json()).toEqual({ error: 'invalid', fields: ['choose'] });
     // The failed confirm rolled back: the import is still pending and can be confirmed.
-    expect(await confirm(token, preview.id)).toEqual({ visits: 0, wishlist: 0, skipped: 0 });
+    expect(await confirm(token, preview.id)).toEqual({ visits: 0, wishlist: 0, reviews: 0, skipped: 0 });
   });
 });
 
@@ -149,11 +150,11 @@ describe('the mjk import', () => {
     const preview = await post(token, 'mjk', file);
     expect(preview.counts).toEqual({ matched: 4, ambiguous: 0, unmatched: 0, invalid: 0 });
     expect(preview.rows.map((r) => r.kind)).toEqual(['visit', 'visit', 'wishlist', 'wishlist']);
-    expect(await confirm(token, preview.id)).toEqual({ visits: 2, wishlist: 2, skipped: 0 });
+    expect(await confirm(token, preview.id)).toEqual({ visits: 2, wishlist: 2, reviews: 0, skipped: 0 });
     const wished = await p.owner.query('SELECT museum_id FROM wishlist WHERE user_id = $1', [u.id]);
     expect(wished.rows.map((r) => r.museum_id).sort()).toEqual([ids.unique, ids.twinA].sort());
 
     const again = await post(token, 'mjk', file);
-    expect(await confirm(token, again.id)).toEqual({ visits: 0, wishlist: 0, skipped: 4 });
+    expect(await confirm(token, again.id)).toEqual({ visits: 0, wishlist: 0, reviews: 0, skipped: 4 });
   });
 });

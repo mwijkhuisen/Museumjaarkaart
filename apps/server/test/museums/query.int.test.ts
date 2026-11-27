@@ -401,7 +401,8 @@ describe('bad requests', () => {
   it('answers 400 for an unknown, a repeated and an invalid parameter, naming only schema paths', async () => {
     await expectBad({ x: '1' }, { error: 'bad_request', fields: [] });
     await expectBad({ offset: '20' }, { error: 'bad_request', fields: [] });
-    await expectBad({ min_rating: '4' }, { error: 'bad_request', fields: [] });
+    await expectBad({ min_rating: '6' }, { error: 'bad_request', fields: ['min_rating'] });
+    await expectBad({ kid_friendly: 'false' }, { error: 'bad_request', fields: ['kid_friendly'] });
     await expectBad({ province: 'NL-XX' }, { error: 'bad_request', fields: ['province'] });
     await expectBad({ municipality: "GM1' OR 1=1" }, { error: 'bad_request', fields: ['municipality'] });
     await expectBad({ category: 'x' }, { error: 'bad_request', fields: ['category'] });

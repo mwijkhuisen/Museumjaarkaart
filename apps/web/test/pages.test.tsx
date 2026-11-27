@@ -41,6 +41,8 @@ const item = (over: Record<string, unknown> = {}) => ({
   registered: true,
   closed_on: null,
   temp_closed: false,
+  rating_count: 0,
+  rating_mean: null,
   ...over,
 });
 
@@ -62,6 +64,14 @@ const detail = (over: Record<string, unknown> = {}): MuseumDetail =>
     photo_policy: 'unknown',
     temp_closed_until: null,
     mk_list: { published_on: '2026-11-05', n: 512, member: true },
+    aspects: {
+      collection: { mean: null, count: 0 },
+      presentation: { mean: null, count: 0 },
+      kid_friendly: { mean: null, count: 0 },
+      accessibility: { mean: null, count: 0 },
+      facilities: { mean: null, count: 0 },
+      value_for_money: { mean: null, count: 0 },
+    },
     ...over,
   });
 

@@ -1,4 +1,4 @@
-import type { MuseumDetail, ProvinceCode } from '@mjk/contracts';
+import { ASPECTS, type MuseumDetail, type ProvinceCode } from '@mjk/contracts';
 import type { Db } from '../db/kysely.ts';
 import { currentMkList } from './reference.ts';
 
@@ -82,6 +82,9 @@ export async function getMuseumDetail(db: Db, slug: string): Promise<DetailRow |
     photo_policy: r.photo_policy as DetailRow['photo_policy'],
     temp_closed_until: r.temp_closed_until,
     mk_list: list === null ? null : { ...list, member: r.mk_list_member === true },
+    rating_count: 0, // WP4 joins pub_museum_stats
+    rating_mean: null,
+    aspects: Object.fromEntries(ASPECTS.map((a) => [a, { mean: null, count: 0 }])) as MuseumDetail['aspects'],
   };
 }
 

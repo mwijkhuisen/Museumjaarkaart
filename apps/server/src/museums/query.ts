@@ -88,6 +88,8 @@ const item = (r: Row): MuseumListItem => ({
   registered: r.registered,
   closed_on: r.closed_on,
   temp_closed: r.temp_closed,
+  rating_count: 0, // WP4 joins pub_museum_stats
+  rating_mean: null,
 });
 
 /** Every visible museum with coordinates that the filters match: the map's points, ordered by id. */

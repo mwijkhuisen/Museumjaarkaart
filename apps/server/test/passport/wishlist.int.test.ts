@@ -127,7 +127,9 @@ describe('GET /me/marks', () => {
   it('a new member has empty marks; an unknown parameter is 400', async () => {
     const { call, as } = setup();
     const t = await as((await p.newMember()).id);
-    expect(Marks.parse(await (await call('/me/marks', t)).json())).toEqual({ marks: { visited: [], wishlist: [] } });
+    expect(Marks.parse(await (await call('/me/marks', t)).json())).toEqual({
+      marks: { visited: [], wishlist: [], hide_ratings_until_visited: false },
+    });
     expect((await call('/me/marks?x=1', t)).status).toBe(400);
   });
 });

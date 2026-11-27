@@ -39,6 +39,6 @@ export function mountMeMuseums(v1: ApiApp, deps: ApiDeps): void {
       visitsOfMuseum(db, userId, museumId),
       sql`SELECT 1 FROM wishlist WHERE user_id = ${userId}::uuid AND museum_id = ${museumId}::uuid`.execute(db),
     ]);
-    return sendJson(c, MemberMuseum, { visits, wishlist: wished.rows.length > 0 }, CACHE_PRIVATE);
+    return sendJson(c, MemberMuseum, { visits, wishlist: wished.rows.length > 0, review: null }, CACHE_PRIVATE);
   });
 }
