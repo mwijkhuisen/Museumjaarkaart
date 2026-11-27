@@ -1,10 +1,14 @@
+import { randomBytes } from 'node:crypto';
 import { Me, PasskeyRegistrationOptions, PasskeySignInOptions } from '@mjk/contracts';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { sha256 } from '../../src/auth/crypto.ts';
 import { loadSession, startSession } from '../../src/auth/session.ts';
 import {
   mintChallenge,
   registrationOptions,
   signInOptions,
+  spendChallenge,
   verifyRegistration,
   verifySignIn,
   WEBAUTHN_TTL_S,
@@ -226,6 +230,20 @@ describe('criterion 2: another RP ID or origin, a reused or expired challenge, n
     const from = t.lines().length;
     expect((await verify(cred.assert({ challenge: old.toString('base64url') }), { peer: p })).status).toBe(401);
     expect(reasons(from)).toEqual(['challenge']);
+  });
+
+  it('the spend checks the expiry with its own statement’s clock, not the transaction’s start (L4)', async () => {
+    // A transaction that began before the expiry and spends after it: now() would still pass it, and a
+    // purge in between could already have deleted the first spend's row.
+    const bytes = randomBytes(54);
+    const spent = await a.db.transaction().execute(async (trx) => {
+      const { rows } = await sql<{ s: number }>`SELECT extract(epoch from now())::float8 AS s`.execute(trx);
+      const expS = Math.ceil(Number(rows[0]?.s)) + 1;
+      await sql`SELECT pg_sleep(${expS - Number(rows[0]?.s) + 0.2}::float8)`.execute(trx);
+      return spendChallenge(trx, 'public', { bytes, expS });
+    });
+    expect(spent).toBe(false);
+    expect(await countRows('SELECT count(*) AS n FROM auth_challenge WHERE value_hash = $1', [sha256(bytes)])).toBe(0);
   });
 
   it('an expired challenge by the database clock alone: the spend refuses it and nothing is written', async () => {

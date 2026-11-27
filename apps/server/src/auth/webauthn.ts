@@ -117,12 +117,18 @@ export function checkChallenge(
   return { bytes, expS };
 }
 
-/** Spends a checked challenge once (true), inside the caller's transaction; false when spent before or expired by the database's clock. */
+/**
+ * Spends a checked challenge once (true), inside the caller's transaction; false when spent before or
+ * expired by the database's clock. The expiry is checked against statement_timestamp(), not now() (the
+ * transaction's start, which can lie before a purge that already deleted the spent row); the purge
+ * keeps a spent row a minute past its expiry (worker/purge.ts), so a replay never finds it gone
+ * (P2b review L4).
+ */
 export async function spendChallenge(db: Db, host: SessionHost, c: CheckedChallenge): Promise<boolean> {
   const { rows } = await sql<{ id: string }>`
     INSERT INTO auth_challenge (purpose, host, value_hash, expires_at, used_at)
     SELECT 'webauthn', ${host}, ${sha256(c.bytes)}, to_timestamp(${c.expS}::bigint), now()
-    WHERE to_timestamp(${c.expS}::bigint) > now()
+    WHERE to_timestamp(${c.expS}::bigint) > statement_timestamp()
     ON CONFLICT (value_hash) DO NOTHING
     RETURNING id`.execute(db);
   return rows.length === 1;
