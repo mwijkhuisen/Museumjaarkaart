@@ -13,11 +13,13 @@ import { Legal } from './routes/Legal.tsx';
 import { MapPage } from './routes/MapPage.tsx';
 import { Museum } from './routes/Museum.tsx';
 import { Museums } from './routes/Museums.tsx';
+import { Onboarding } from './routes/Onboarding.tsx';
+import { Passport } from './routes/Passport.tsx';
 import { Profile } from './routes/Profile.tsx';
 import { Province } from './routes/Province.tsx';
 import { Search } from './routes/Search.tsx';
-import { Shell } from './routes/Shell.tsx';
 import { SignIn } from './routes/SignIn.tsx';
+import { Wishlist } from './routes/Wishlist.tsx';
 
 // The app, the same tree on the server (entry-server.tsx) and in the browser (entry-client.tsx).
 
@@ -76,7 +78,9 @@ function PageFor({ route }: { route: Route }) {
     case 'shell':
       if (route.app === 'signin') return <SignIn route={route} />;
       if (route.app === 'account') return <Account route={route} />;
-      return <Shell route={route} />;
+      if (route.app === 'passport') return <Passport route={route} />;
+      if (route.app === 'wishlist') return <Wishlist route={route} />;
+      return <Onboarding route={route} />; // welcome
     case 'profile':
       return <Profile route={route} />;
     case 'not_found':

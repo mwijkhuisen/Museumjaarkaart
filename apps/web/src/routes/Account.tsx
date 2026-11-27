@@ -11,6 +11,7 @@ import {
 import { ReauthCancelled } from '../components/auth/errors.ts';
 import { Reauth } from '../components/auth/Reauth.tsx';
 import { Loading } from '../components/layout/Layout.tsx';
+import { ExportSection } from '../components/passport/ExportSection.tsx';
 import { ApiError } from '../lib/api.ts';
 import { useMe } from '../lib/me.ts';
 import { useRouter } from '../lib/router.tsx';
@@ -95,6 +96,7 @@ export function Account({ route }: { route: Extract<Route, { page: 'shell' }> })
       <PassportSettings user={user} locale={locale} onChanged={setMe} />
       <PasswordSection user={user} guard={guard} onChanged={reload} />
       <SessionsSection locale={locale} guard={guard} />
+      <ExportSection locale={locale} />
       <SignOutSection guard={guard} onSignedOut={() => navigate(pathOf({ page: 'home', locale }))} />
     </div>
   );
