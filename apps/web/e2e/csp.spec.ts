@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures.ts';
-import { LOCALES, normalMuseum, pageKinds } from './helpers.ts';
+import { LOCALES, messages, normalMuseum, pageKinds } from './helpers.ts';
 
 // Criterion 3 (A§15.6): a strict CSP on every page kind. The guard fails on any violation and any off-host
 // request; here each document carries the header and holds no inline script besides the data blocks.
@@ -22,7 +22,17 @@ for (const locale of LOCALES) {
       const res = await page.goto(url);
       expect(res?.status(), kind).toBe(status);
       expect(res?.headers()['content-security-policy'], kind).toContain("script-src 'self'");
-      await page.waitForLoadState('networkidle');
+      if (kind === 'shell') {
+        // The app shell (P2c) sends a signed-out visitor to sign-in, whose ALTCHA starts its workers; Chromium under
+        // Playwright loses a worker script's finish event now and then, so `networkidle` may never settle there.
+        // Wait for the proof of work instead: its workers are done once the code button is enabled.
+        const text = messages(locale);
+        await expect(
+          page
+            .getByRole('region', { name: text.auth_code_heading as string })
+            .getByRole('button', { name: text.action_send_code as string }),
+        ).toBeEnabled({ timeout: 30_000 });
+      } else await page.waitForLoadState('networkidle');
       // The map loads its chunk, tiles and glyphs after hydration, and leaving the page mid-load aborts them (WebKit
       // reports that as a page error): the map settles first, under the same guard.
       if (kind === 'map') await expect(page.locator('#museum-map')).toHaveAttribute('data-map-state', 'ready');
