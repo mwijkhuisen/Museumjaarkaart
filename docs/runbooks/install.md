@@ -30,7 +30,7 @@ cd mjk-checkout                                      # on `main`: P1e and P1d ar
 
 ## 3. Before: list the other stacks (criterion 6)
 
-The VM also runs Trilium (compose project `notes`, `/etc/notes`, `table inet notes`; found on 2026-11-26), and invariant 2 covers it like `rws` and `f1`. `docker compose ls` lists every project.
+The VM also runs a third stack, `notes` (compose project `notes`, `/etc/notes`, `table inet notes`; found on 2026-11-26), and invariant 2 covers it like `rws` and `f1`. `docker compose ls` lists every project.
 
 ```bash
 docker compose -p rws ps > /root/rws-before.txt
@@ -281,7 +281,7 @@ probe mjk-probe-backup nslookup example.org 127.0.0.11; docker rm -f mjk-probe-b
 
 If `caddy` or `ssr` resolves an outside name, the channel is open again: stop and fix it through a PR (A§16.2).
 
-**cloudflared's log (P1e review S14, invariant 8, A§17.7; proven on the VM, 2026-11-26).** `--loglevel error` drops the info and warning lines, but cloudflared's origin errors are error lines and might carry the request URL (`dest=`), query string included. On the VM the marker below came back 502 and appeared 0 times in the log (a refused origin). Check it again after a cloudflared upgrade, while nobody uses the site:
+**cloudflared's log (P1e review S14, invariant 8, A§17.7; proven on the VM, 2026-11-26).** `--loglevel error` drops the info and warning lines, but cloudflared's origin errors are error lines and might carry the request URL (`dest=`), query string included. On the VM the marker below came back 502 and appeared 0 times in the log (a refused origin). An origin that times out or resets takes other error paths and is not checked [U]. The case that matters is near-me's `?lat=`/`?lon=` query, a position to about 100 m. Check it again after a cloudflared upgrade, while nobody uses the site:
 
 ```bash
 mjkc stop caddy
@@ -292,7 +292,7 @@ mjkc logs --since 5m cloudflared | grep -c 'e2e-marker' || true       # 0 is the
 
 If the marker appears, record that in A§17.7 (the line, without the marker's value) and decide in a PR: accept it (the Docker log rotates, and only the owner reads it) or move cloudflared's log to `--logfile` on a tmpfs.
 
-**`nftables.service` stays masked (P1e review S3; checked on the VM, 2026-11-26).** Debian's start and reload apply `/etc/nftables.conf`, which empties the whole ruleset: every table on the host, Docker's, Waterheight's, F1's and Trilium's included. Never start or reload it on this shared host, not even to test `ReloadPropagatedFrom=nftables.service` in `mjk-firewall.service`. On the VM it is masked and inactive. Check it, read-only:
+**`nftables.service` stays masked (P1e review S3; checked on the VM, 2026-11-26).** Debian's start and reload apply `/etc/nftables.conf`, which empties the whole ruleset: every table on the host, Docker's, Waterheight's, F1's and the `notes` stack's included. Never start or reload it on this shared host, not even to test `ReloadPropagatedFrom=nftables.service` in `mjk-firewall.service`. On the VM it is masked and inactive. Never run `systemctl stop nftables`, `restart`, `reload` or `mask --now` either: each runs its stop or reload, which empties the ruleset. If you ever find it active, mask it (without `--now`) and leave it running. Check it, read-only:
 
 ```bash
 systemctl is-enabled nftables; systemctl is-active nftables     # masked, inactive
@@ -302,7 +302,7 @@ nft list tables
 
 If it is ever enabled, mask it again (`systemctl mask nftables`). `mjk-tick` reloads `table inet mjk` within 10 minutes if anything empties it.
 
-The host-input drop `containers never open a connection to the host` moves by a few packets now and then at rest (390 to 398 over an evening on 2026-11-26), not on a container start; the source is not identified yet (A§17.4). A probe judges only the counter that its own packets should move.
+The host-input drop `containers never open a connection to the host` moves by a few packets now and then at rest (390 to 398 over an evening on 2026-11-26), not on a container start; the source is not identified yet (A§17.4). A probe judges only the counter that its own packets should move, so this does not matter to the probes. The source stays an open [U] that must be identified before invites go beyond the owner and test accounts: a real container-to-host attempt would move the same counter, and a one-minute log window cannot catch a few packets an evening.
 
 ## 9. A day of `docker stats` (criterion 11)
 
@@ -319,7 +319,7 @@ done
 
 Include a sync run and a backup run inside the day, and one `sync-museums` run (`docs/runbooks/museum-sync.md` §12): the limits must hold at the peak.
 
-**Result (2026-11-26 18:25Z to 2026-11-27, 24 samples):** peaks `ssr` 141 MiB, `worker` 133, `api` 75, `db` 55, `caddy` 29, `cloudflared` 25 (about 0.46 GB together, each under 40 % of its limit); single-sample CPU at most 65 % of a core; PIDs at most 18. The VM afterwards: 6 vCPU, 7.9 GiB of 11.7 GiB available, load about 1.5. A3's resize is not needed for prelaunch (A§17.1, A§17.2). An hourly sample misses a job that runs a few minutes: this day caught neither the backup nor a sync, so their peaks are still open (watch `docker stats` during one, or read them at a monthly drill).
+**Result (2026-11-26 18:25Z to 2026-11-27, 24 samples):** peaks `ssr` 141 MiB, `worker` 133, `api` 75, `db` 55, `caddy` 29, `cloudflared` 25 (about 0.46 GB together, each under 40 % of its limit); single-sample CPU at most 65 % of a core; PIDs at most 18. The VM afterwards: 6 vCPU, 7.9 GiB of 11.7 GiB available, load about 1.5. A3's resize is not needed for prelaunch (A§17.1, A§17.2). An hourly sample misses a job that runs a few minutes: this day probably missed the tiles extract (18:56 to 19:00:37Z) and caught neither the backup nor a sync, so their peaks are still open (watch `docker stats` during one, or read them at a monthly drill).
 
 ## 10. After: the other stacks still work (criteria 6 and 14)
 
@@ -332,7 +332,7 @@ diff /root/networks-before.txt /root/networks-after.txt          # only the eigh
 diff /root/nft-tables-before.txt <(nft list tables)              # only table inet mjk is added (a table its own stack reloaded moves to the end)
 ```
 
-Container uptimes in `docker compose ps` can differ if a stack restarted for its own reasons; compare the project, service and image columns. Images can differ too when a stack deployed itself meanwhile: its own update journal shows it (on 2026-11-26 `f1-update` deployed new images at 18:30Z, and `rws-update` some hours earlier). Then open the Waterheight, F1 and Trilium sites in a browser (criterion 14, [owner]) and note in the PR that all three work, after the install and again after the first `mjk-update`.
+Container uptimes in `docker compose ps` can differ if a stack restarted for its own reasons; compare the project, service and image columns. Images can differ too when a stack deployed itself meanwhile: its own update journal shows it (on 2026-11-26 `f1-update` deployed new images at 18:30Z, and `rws-update` some hours earlier). Then open the Waterheight, F1 and `notes` sites in a browser (criterion 14, [owner]) and note in the PR that all three work, after the install and again after the first `mjk-update`.
 
 ## 11. Updating the host side later
 

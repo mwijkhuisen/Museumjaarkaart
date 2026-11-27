@@ -452,6 +452,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
   - the PWA (A§15.4): manifest, icons, a service worker for the app shell and `/assets/*` only; the offline "log a visit" outbox (A§15.4) [U: decided here and written back]; if it ships, `/privacy` names it as device storage (A§13.2)
   - an accessibility pass (WCAG 2.2 AA, A§15.5): `@axe-core/playwright` 4.14.0 on every page template, keyboard-only flows, a screen-reader spot check
   - SEO checks (titles, descriptions, canonical, `hreflang`, JSON-LD, the sitemap); the public HTML edge cache tuned [U A§15.1]; a `verify-prod` script for `<domain>` with `--profile prelaunch|launch` (headers, robots, no Cloudflare-injected script or cookie; Waterheight ADR-0021)
+  - the deploy gap (one 502, then refused connections, about 5 to 10 s per deploy, because every release recreates caddy; A§17.2, `docs/runbooks/update.md` §4): decided here, recreate caddy only when its content changes or run a second caddy, or accept it in writing
 - **Scope out:** production indexing and the announcement (P5b); push notifications (never, A§15.4); social features (P6).
 - **Acceptance:**
   - [CI] with invite-only off, sign-up works without an invite, and ALTCHA, the honeypot and the limits still apply.

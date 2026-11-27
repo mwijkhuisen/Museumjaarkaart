@@ -27,7 +27,7 @@ In the Cloudflare dashboard, R2 → Create bucket: name `mjk-backup`, location j
 Bucket settings → Object lock rules: add one rule per prefix.
 - `data/`, `index/` and `snapshots/`: retain for 28 days (age 2,419,200 s).
 - `keys/` and `config`: retain **indefinitely** (no expiry). restic writes them once, at `init` (and `key add`), and never prunes them. With a 28-day age lock the VM's key could delete them from day 29, and without `config` and a key file every snapshot is undecryptable, the locked ones included (P1e security review S1).
-- Do not add `locks/`: restic must be able to delete its own lock files [U box, §5].
+- Do not add `locks/`: restic must be able to delete its own lock files (proven on the VM, 2026-11-26, §5 c).
 
 R2 has no put-only permission and no object versioning [U box], so these rules are the only thing that stops the VM's key from deleting history.
 
@@ -40,7 +40,9 @@ aws s3 cp --recursive --endpoint-url "https://<account id>.eu.r2.cloudflarestora
 # attach both to the password manager entry of the restic password, then: rm -r ./mjk-restic-config ./mjk-restic-keys
 ```
 
-Without the `aws` CLI or rclone on the workstation, download the two objects in the dashboard instead (R2 → `mjk-backup` → Objects: `config` and the one object under `keys/`), as on 2026-11-26.
+Without the `aws` CLI or rclone on the workstation, download them in the dashboard instead (R2 → `mjk-backup` → Objects: `config` and every object under `keys/` whose name is 64 hex characters; the `keys/lock-test-…` canary of §5 is not one), as on 2026-11-26.
+
+**The key id.** The name of the object under `keys/` that `restic init` wrote (64 hex characters; `restic key list` marks it with `*`) is the real key's id. Write it, in full, into the password manager entry next to the password. The VM's key can add objects under `keys/` that the lock then keeps for good, and restic 0.19.1 tries at most 20 key files and stops at one that does not parse (A§17.6), so a restore passes `--key-hint <id>` (§4): restic tries that key first.
 
 With the password, these files are enough to read the data objects again even if `config` or `keys/` were ever lost.
 
@@ -73,15 +75,27 @@ systemctl status mjk-backup.service --no-pager | head -12
 
 Expected: the unit ends `Succeeded`; the journal shows the role's fixed codes (`dump_done`, `backup_done` with the snapshot id), no command output with a secret; the healthchecks check `mjk-backup` is green (§7); `/srv/mjk/backup-staging` is empty again (`ls -A /srv/mjk/backup-staging`).
 
-- A run that fails with the repository unreachable, a TLS timeout or exit 69 means R2's S3 endpoint is not inside the `cf4` set of `table inet mjk` [U box: A§17.4], or `cf4` is stale. Check with `docs/runbooks/cloudflare.md` §6 and write the answer into A§17.4. Also read `nft list table inet mjk | grep -B1 -A1 'drop'` for a moved counter.
+- A run that fails with the repository unreachable, a TLS timeout or exit 69 means R2's S3 endpoint is not inside the `cf4` set of `table inet mjk` (it was on 2026-11-26, A§17.4), or `cf4` is stale. Check with `docs/runbooks/cloudflare.md` §6 and write the answer into A§17.4. Also read `nft list table inet mjk | grep -B1 -A1 'drop'` for a moved counter.
 - Exit 78: a missing or unreadable secret file, a bad `MJK_R2_ENDPOINT` (it must be https and have no path), a wrong restic password, or `repo_missing` (no `restic init` yet, a wrong bucket, or a lost `config`: restore it from the offline copy, never init again over a bucket that has data). The fixed code names which.
-- If the unit itself fails before the container starts (`Operation not permitted`, a systemd sandbox message), the unit's hardening (ProtectSystem=strict, MemoryDenyWriteExecute, RestrictAddressFamilies) is [U box] with the Go docker CLI: `systemd-analyze security mjk-backup.service` and relax the one setting that the journal names, in `deploy/host/systemd/mjk-backup.service` through a PR, then `deploy/bin/mjk-install`.
+- If the unit itself fails before the container starts (`Operation not permitted`, a systemd sandbox message), the unit's hardening (ProtectSystem=strict, MemoryDenyWriteExecute, RestrictAddressFamilies) clashes with the Go docker CLI (it did not on 2026-11-26: both runs succeeded): `systemd-analyze security mjk-backup.service` and relax the one setting that the journal names, in `deploy/host/systemd/mjk-backup.service` through a PR, then `deploy/bin/mjk-install`.
 
 Run it a second time (two consecutive backups) before the lock tests in §5.
 
 ## 4. The workstation
 
-Install restic 0.19.1 on your workstation (the same version as the image; a release binary from github.com/restic/restic, checked against the release's `SHA256SUMS`). Or copy the static binary out of the deployed backup image, which is the exact build the VM runs (as on 2026-11-26): `id=$(docker create <MJK_BACKUP_IMAGE from current.env>); docker cp "$id:/usr/local/bin/restic" ~/.local/bin/restic; docker rm "$id"`. Keep the workstation key as an AWS credentials file and the restic password as a file, both mode 0600, outside any repository:
+Install restic 0.19.1 on your workstation from the release source tarball, checked against the same sha256 pin as the backup image and CI (`deploy/server/Dockerfile`, stage `restic`), and built with a local Go toolchain (Go 1.27, as that stage; `GOTOOLCHAIN=local` refuses to download another):
+
+```bash
+curl -fsSLo restic-0.19.1.tar.gz https://github.com/restic/restic/releases/download/v0.19.1/restic-0.19.1.tar.gz
+echo 'bb9b1a19040744d26d8a79be029d4e6b189c45ccc9d8831d7fe367d3c33df725  restic-0.19.1.tar.gz' | sha256sum -c -   # must print OK
+mkdir restic-src && tar -xzf restic-0.19.1.tar.gz -C restic-src --strip-components=1
+( cd restic-src && GOTOOLCHAIN=local CGO_ENABLED=0 go build -trimpath -o ~/.local/bin/restic ./cmd/restic )
+~/.local/bin/restic version
+```
+
+Fallback only (as on 2026-11-26): copy the static binary out of the deployed backup image, on the workstation: `id=$(docker create <MJK_BACKUP_IMAGE from current.env>); docker cp "$id:/usr/local/bin/restic" ~/.local/bin/restic; docker rm "$id"`. That binary comes from CI and GHCR, so a compromise of either, which already means code on the VM (A§16.3), would then also run on the workstation that holds the restic password, the workstation key and the password manager. Replace it with the tarball build when you can.
+
+Keep the workstation key as an AWS credentials file and the restic password as a file, both mode 0600, outside any repository:
 
 ```bash
 mkdir -p ~/.config/mjk && chmod 700 ~/.config/mjk
@@ -93,6 +107,7 @@ export RESTIC_REPOSITORY="s3:https://<account id>.eu.r2.cloudflarestorage.com/mj
 export RESTIC_PASSWORD_FILE=$HOME/.config/mjk/restic_password
 export AWS_SHARED_CREDENTIALS_FILE=$HOME/.config/mjk/r2_workstation
 export AWS_DEFAULT_REGION=auto
+export RESTIC_KEY_HINT="<the full key id from the password manager, §1>" # once §3's init has written it; restic tries this key first
 restic snapshots
 ```
 
@@ -125,12 +140,16 @@ r2 PUT "$B" "data/00/lock-test-$S"  --data-binary canary     # 200: a new object
 r2 PUT "$B" "data/00/lock-test-$S"  --data-binary changed    # expect a 4xx (403 or 409): overwrite refused
 r2 DELETE "$B" "data/00/lock-test-$S"                        # expect a 4xx: delete refused
 r2 PUT "$B" "config-lock-test-$S"   --data-binary canary     # 200
+r2 PUT "$B" "config-lock-test-$S"   --data-binary changed    # expect a 4xx: overwrite refused
 r2 DELETE "$B" "config-lock-test-$S"                         # expect a 4xx
 r2 PUT "$B" "keys/lock-test-$S"     --data-binary canary     # 200
+r2 PUT "$B" "keys/lock-test-$S"     --data-binary changed    # expect a 4xx: overwrite refused
 r2 DELETE "$B" "keys/lock-test-$S"                           # expect a 4xx: keys/ is locked for good
 ```
 
-[U box] **After day 28:** repeat the `config-lock-test-$S` and `keys/lock-test-$S` DELETE once both canaries are older than 28 days (note `$S` in the PR). Both must still be refused; that is what the indefinite rule adds over the 28-day one. Also try the real files once the repository is older than 28 days: `r2 DELETE "$B" config` must be refused (a 4xx). If it ever succeeds, stop the backups, restore `config` from the offline copy, fix the rule and record it in A§17.6.
+On 2026-11-26 the two `changed` PUTs for `config-…` and `keys/…` were not run (only the PUT and the DELETE): an overwrite there is shown only under `data/` [U box]. Run them at the day-28 check below (a refused PUT changes nothing; at worst it changes only a canary).
+
+[U box] **After day 28:** repeat the `config-lock-test-$S` and `keys/lock-test-$S` DELETE, and the `changed` PUT, once both canaries are older than 28 days (note `$S` in the PR). All must still be refused; that is what the indefinite rule adds over the 28-day one. Also try the real files once the repository is older than 28 days: `r2 DELETE "$B" config` must be refused (a 4xx). If it ever succeeds, stop the backups, restore `config` from the offline copy, fix the rule and record it in A§17.6.
 
 b. **A real snapshot under `snapshots/` cannot be deleted.** After two backups there are two snapshots. Try to forget the older one with the VM's own credentials (through the `backup` service, so the key stays in its container):
 

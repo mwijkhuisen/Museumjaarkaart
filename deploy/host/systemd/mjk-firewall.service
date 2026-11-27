@@ -10,10 +10,13 @@
 # missing table and, when the load fails, stops every mjk container and writes
 # /srv/mjk/state/firewall-stopped (A§17.7); mjk-update refuses to deploy while the table is missing.
 #
-# PartOf=nftables.service: a stop or restart of nftables.service stops or restarts this unit too, which
-# loads the table again after nftables.service has emptied it. ReloadPropagatedFrom=nftables.service:
-# `systemctl reload nftables` re-applies /etc/nftables.conf, which empties the ruleset, and PartOf does
-# not carry a reload; this does, so the table is loaded again right after (A§17.4, [U box] install.md §8).
+# PartOf=nftables.service: a restart of nftables.service restarts this unit too, after nftables has
+# started again, which loads the table again. ReloadPropagatedFrom=nftables.service: `systemctl reload
+# nftables` re-applies /etc/nftables.conf, which empties the ruleset, and PartOf does not carry a reload;
+# this does, so the table should be loaded again right after. Neither is tested [U, A§17.4]. A stop of
+# nftables.service stops this unit first (no ExecStop: nothing happens), then empties the ruleset, and
+# nothing loads the table until the next mjk-tick (at most about 10 min). On the shared VM nftables.service
+# is masked and must stay so (docs/runbooks/install.md §8), so none of this runs there.
 #
 # Stop: there is no ExecStop. Stopping this unit leaves the table loaded, because an mjk stack without
 # its table has open egress (fail closed). To remove the table on purpose, stop the stack first
