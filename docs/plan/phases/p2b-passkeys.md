@@ -8,6 +8,7 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 - A banned account gets 403 `banned` after its signature verified (P2a's rule for a password), not the unknown-credential answer.
 - The routes take `:ref` (a `passkey.ref` uuid, like `session.ref`), never the credential id.
 - **An added passkey sends a notice** (owner, 2026-11-27, closing the security review's L3): a fixed mail to the account's address, queued with the passkey (`mail_notice`, `notice: passkey_added`; A§9, A§16.2).
+- **Re-authentication with a passkey** (owner, 2026-11-27): the `Reauth` panel offers one of the member's own passkeys (`POST /auth/passkey/reauth/options` · `/verify`): only the member's credentials in the options, a challenge bound to the session, another member's passkey refused, and a new session for the same member (A§9).
 - The e2e has no admin-host leg (its passkey's owner would race `admin-auth.spec.ts`); criterion 3 is proven in `webauthn.int.test.ts` and `admin-host.int.test.ts` with a real JWT.
 
 ## 0. Before the build starts
