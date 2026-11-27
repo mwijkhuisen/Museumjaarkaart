@@ -245,7 +245,7 @@
   "privacy_h_cloudflare": "Cloudflare",
   "privacy_cloudflare": "Elk verzoek loopt via Cloudflare, dat het verkeer doorgeeft en beveiligt. Cloudflare is een Amerikaans bedrijf en onze verwerker; het baseert doorgifte op het EU-VS Data Privacy Framework. Cloudflare verwerkt daarbij technische gegevens zoals je IP-adres.",
   "privacy_h_mail": "E-mail",
-  "privacy_mail": "Codes en uitnodigingen sturen we per e-mail via Lettermint, een e-maildienst in Nederland (EU). Lettermint is onze verwerker en verwerkt daarvoor je e-mailadres.",
+  "privacy_mail": "Codes, uitnodigingen en meldingen over je account (een gewijzigd e-mailadres, een nieuw toegevoegde passkey) sturen we per e-mail via Lettermint, een e-maildienst in Nederland (EU). Lettermint is onze verwerker en verwerkt daarvoor je e-mailadres.",
   "privacy_h_backups": "Back-ups en bewaartermijn",
   "privacy_backups": "We maken elke nacht een back-up van de database. Daar staan ook de gegevens van accounts in (zie “Accounts”). We bewaren de dagelijkse back-ups van de laatste 28 dagen. Oudere worden één keer per week verwijderd, dus geen back-up blijft langer dan ongeveer 35 dagen bewaard.",
   "privacy_h_lost": "Mailbox kwijt",

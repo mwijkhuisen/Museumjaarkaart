@@ -94,6 +94,7 @@ mjkc logs --since 10m --no-log-prefix api | grep '"msg":"request"'
 On the owner's phone and on a desktop browser, after the merge and deploy:
 
 1. Sign in by code, then add a platform passkey on the account page (within 5 minutes of signing in).
+   The account's mailbox gets the notice "A passkey was added to your … account" ("Er is een passkey toegevoegd …"): fixed text, no passkey name, no link.
 2. Sign out, then sign in with it: the button and, where the browser offers it, the autofill list in the email field.
 3. Check that the session list shows "Passkey", rename the passkey, then remove it (this signs out the other sessions).
 4. Confirm that the removed passkey no longer signs in.

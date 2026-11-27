@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { Me, PasskeyRegistrationOptions, PasskeySignInOptions } from '@mjk/contracts';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { sha256 } from '../../src/auth/crypto.ts';
+import { open, sha256 } from '../../src/auth/crypto.ts';
 import { loadSession, startSession } from '../../src/auth/session.ts';
 import {
   mintChallenge,
@@ -15,6 +15,7 @@ import {
   type WebAuthnDeps,
 } from '../../src/auth/webauthn.ts';
 import { memoryLogger } from '../../src/lib/log.ts';
+import { aad, MailNoticePayload } from '../../src/mail/payloads.ts';
 import { accountsApp, SITE, tokenOf } from './app.ts';
 import { type AuthDb, openAuthDb } from './fixtures.ts';
 import { type Attestation, type Cbor, type SoftCredential, softCredential } from './soft-authenticator.ts';
@@ -605,6 +606,77 @@ describe('registration (auth/webauthn.ts; the routes are me-passkeys.int.test.ts
     expect(o.pubKeyCredParams.map((p) => p.alg)).toEqual([-8, -7, -257]);
     expect(o.excludeCredentials).toEqual([]);
     expect(o.timeout).toBe(300_000);
+  });
+
+  /** The member's queued passkey notices, opened with the test keys. */
+  const passkeyNotices = async (userId: string) =>
+    (
+      await a.admin.query<{ payload: unknown }>(
+        "SELECT payload FROM job WHERE kind = 'mail_notice' AND payload->>'user_id' = $1 ORDER BY id",
+        [userId],
+      )
+    ).rows.map(({ payload }) => {
+      const p = MailNoticePayload.parse(payload);
+      return {
+        notice: p.notice,
+        locale: p.locale,
+        to: open(t.keys.code_seal, p.sealed_to ?? '', aad.noticeTo(userId, 'passkey_added')),
+      };
+    });
+
+  it('a stored passkey queues one notice to the account address, in the same transaction; a refused one queues none', async () => {
+    const { user, session, cred } = await signedIn();
+    const refused = await verifyRegistration(wa(), {
+      host: 'public',
+      session,
+      credential: cred.register({ challenge: (await regOptions('public', session)).challenge, uv: false }),
+      name: undefined,
+    });
+    expect(refused).toEqual({ ok: false, code: 'invalid' });
+    expect(await passkeyNotices(user.id)).toEqual([]);
+    const stored = await verifyRegistration(wa(), {
+      host: 'public',
+      session,
+      credential: cred.register({ challenge: (await regOptions('public', session)).challenge }),
+      name: 'Phone',
+    });
+    expect(stored.ok).toBe(true);
+    expect(await passkeyNotices(user.id)).toEqual([{ notice: 'passkey_added', locale: 'nl', to: user.email }]);
+    // The job holds the address sealed only, and nothing the member typed (the passkey's name).
+    const raw = JSON.stringify(
+      (
+        await a.admin.query("SELECT payload FROM job WHERE kind = 'mail_notice' AND payload->>'user_id' = $1", [
+          user.id,
+        ])
+      ).rows,
+    );
+    expect(raw).not.toContain(user.email);
+    expect(raw).not.toContain('Phone');
+  });
+
+  it('a registration that fails on its insert (a stored id) leaves no notice behind', async () => {
+    const first = await signedIn();
+    const second = await signedIn();
+    const o1 = await regOptions('public', first.session);
+    expect(
+      (
+        await verifyRegistration(wa(), {
+          host: 'public',
+          session: first.session,
+          credential: first.cred.register({ challenge: o1.challenge }),
+          name: undefined,
+        })
+      ).ok,
+    ).toBe(true);
+    const squat = softCredential({ userHandle: await handleOf(second.user.id), id: first.cred.id });
+    const result = await verifyRegistration(wa(), {
+      host: 'public',
+      session: second.session,
+      credential: squat.register({ challenge: (await regOptions('public', second.session)).challenge }),
+      name: undefined,
+    });
+    expect(result).toEqual({ ok: false, code: 'conflict' });
+    expect(await passkeyNotices(second.user.id)).toEqual([]);
   });
 
   it('stores a verified credential and then lists it in excludeCredentials', async () => {

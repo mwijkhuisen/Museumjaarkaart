@@ -20,10 +20,11 @@ import { sql } from 'kysely';
 import type { SiteDeps } from '../api/middleware/csrf.ts';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
+import { enqueueMailNotice } from '../mail/payloads.ts';
 import { hmac, safeEqual, sha256 } from './crypto.ts';
 import type { AppKeys } from './keys.ts';
 import { BUCKETS, hit, passkeyUserKey } from './limiter.ts';
-import { loadUser, toMeUser } from './me.ts';
+import { loadUser, settingsOf, toMeUser } from './me.ts';
 import { REAUTH_S, type Session, type SessionHost, startSession } from './session.ts';
 
 // Passkeys (P2b; A§9, ADR-0007): @simplewebauthn/server 14.0.3 with our own challenges, counter rule
@@ -472,6 +473,14 @@ export async function verifyRegistration(
         })
         .returning(['ref', 'name', 'created_at', 'last_used_at', 'backed_up'])
         .executeTakeFirstOrThrow();
+      // The member's alarm for a passkey planted through a stolen session (A§16.2; owner, 2026-11-27): a fixed
+      // notice to the account's address, sealed into the job and committed with the passkey (a rollback drops it).
+      await enqueueMailNotice(trx, d.keys, {
+        userId: session.user.id,
+        to: session.user.email,
+        locale: settingsOf(session.user.settings).locale,
+        notice: 'passkey_added',
+      });
       return { ok: true, item: toPasskeyItem(row) };
     });
   } catch (err) {

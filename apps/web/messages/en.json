@@ -245,7 +245,7 @@
   "privacy_h_cloudflare": "Cloudflare",
   "privacy_cloudflare": "Every request passes through Cloudflare, which relays and protects the traffic. Cloudflare is a US company and our processor; it relies on the EU-US Data Privacy Framework for the transfer. In doing so it processes technical data such as your IP address.",
   "privacy_h_mail": "Email",
-  "privacy_mail": "We send codes and invites by email through Lettermint, an email service in the Netherlands (EU). Lettermint is our processor and processes your email address for this.",
+  "privacy_mail": "We send codes, invites and notices about your account (an email change, a newly added passkey) by email through Lettermint, an email service in the Netherlands (EU). Lettermint is our processor and processes your email address for this.",
   "privacy_h_backups": "Backups and retention",
   "privacy_backups": "We back up the database every night. It also holds the account data (see “Accounts”). We keep the daily backups of the last 28 days. Older ones are deleted once a week, so no backup is kept longer than about 35 days.",
   "privacy_h_lost": "Lost mailbox",

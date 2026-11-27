@@ -140,10 +140,12 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
     const p = parse(MailNoticePayload, payload);
     const contact = env.MJK_CONTACT_EMAIL;
     if (contact === undefined) throw new JobError('mail_unconfigured', { retry: false });
-    // The old address's notice is the member's alarm for a taken-over account (A§16.2): it goes first, like a code.
-    if (await overCap(true, { kind: MAIL_NOTICE_JOB })) return 'consumed';
-    const to = unseal(keys.code_seal, p.sealed_to, aad.noticeTo(p.user_id));
-    return deliver(to, 'email_changed', p.locale, { contact });
+    const notice = p.notice ?? 'email_changed';
+    // The account notices (the old address's email-change notice, an added passkey) are the member's alarm for a
+    // taken-over account (A§16.2): they go first, like a code.
+    if (await overCap(true, { kind: MAIL_NOTICE_JOB, notice })) return 'consumed';
+    const to = unseal(keys.code_seal, p.sealed_to, aad.noticeTo(p.user_id, notice));
+    return deliver(to, notice, p.locale, { contact });
   };
 
   return { [MAIL_CODE_JOB]: mailCode, [MAIL_INVITE_JOB]: mailInvite, [MAIL_NOTICE_JOB]: mailNotice };
