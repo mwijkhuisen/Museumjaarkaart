@@ -37,10 +37,18 @@ test('tick three museums, see the passport, publish the log, see the profile sig
   await page.getByLabel(t('field_code')).fill(await mailbox(request, email).code());
   await page.getByRole('button', { name: t('action_verify'), exact: true }).click();
   await expect(page.getByText(signedInAs)).toBeVisible();
-  await page.waitForLoadState('networkidle'); // a full load below must not abort a fetch (WebKit logs it)
 
-  // 2. /welkom: tick the first three museums (never the hostile one) and save in one go.
-  await page.goto('/welkom');
+  // 2. /welkom: tick the first three museums (never the hostile one) and save in one go. In-page navigation, not
+  // page.goto: a full load would abort the account page's fetches, which WebKit logs. And never `networkidle` from
+  // here on: Chromium under Playwright loses the finish event of an ALTCHA worker's script now and then, and the
+  // sign-in page's workers then count as open for the rest of the document's life.
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: t('page_passport') })
+    .click();
+  await expect(page).toHaveURL(/\/paspoort$/);
+  await page.getByRole('link', { name: t('passport_link_onboarding') }).click();
+  await expect(page).toHaveURL(/\/welkom$/);
   await expect(page.getByRole('heading', { level: 1, name: t('welcome_h') })).toBeVisible();
   const boxes = page.locator('input[name="museum"]');
   await expect(boxes.first()).toBeVisible();
@@ -69,6 +77,7 @@ test('tick three museums, see the passport, publish the log, see the profile sig
   await expect(page.getByText(t('profile_progress_all_time').replace('{n}', '5'))).toBeVisible();
 
   // 4. /account: the visit log public, saved.
+  const exportsLoaded = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/v1/me/exports');
   await page
     .getByRole('banner')
     .getByRole('link', { name: t('nav_account') })
@@ -81,7 +90,10 @@ test('tick three museums, see the passport, publish the log, see the profile sig
     .check();
   await settings.getByRole('button', { name: t('action_save'), exact: true }).click();
   await expect(settings.getByText(t('settings_saved'))).toBeVisible();
-  await page.waitForLoadState('networkidle');
+  // Settled before step 5's full load, so it aborts nothing: every section has loaded (the sessions and passkeys
+  // show "Laden…" until then; the export list shows nothing either way, so its answer is awaited).
+  await exportsLoaded;
+  await expect(page.getByText(t('loading'))).toHaveCount(0);
 
   // 5. Signed out. A client with no cookie gets the server-rendered page: two months, none of the new museums, no day.
   const anonymous = await request.get(`/u/${handle}`);
