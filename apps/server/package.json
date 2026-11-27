@@ -9,12 +9,12 @@
     "db:types": "kysely-codegen --dialect postgres --date-parser string --exclude-pattern schema_migrations --out-file src/db/types.ts"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.9",
     "@mjk/contracts": "workspace:*",
-    "altcha-lib": "2.8.0",
-    "croner": "10.0.1",
-    "hono": "4.13.13",
-    "kysely": "0.29.7",
+    "altcha-lib": "2.9.0",
+    "croner": "11.0.1",
+    "hono": "4.13.19",
+    "kysely": "0.29.9",
     "pg": "8.23.1",
     "pino": "10.4.0",
     "zod": "4.6.7"

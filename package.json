@@ -15,14 +15,14 @@
     "test:e2e": "pnpm --filter @mjk/web build && deploy/e2e/stack.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
-    "@maplibre/maplibre-gl-style-spec": "26.4.4",
+    "@biomejs/biome": "2.6.8",
+    "@maplibre/maplibre-gl-style-spec": "26.9.0",
     "@protomaps/basemaps": "5.7.2",
-    "@types/node": "26.6.5",
-    "fast-check": "4.10.2",
-    "msw": "3.0.3",
+    "@types/node": "26.6.6",
+    "fast-check": "4.10.3",
+    "msw": "3.0.7",
     "typescript": "6.0.3",
     "vite": "8.3.8",
-    "vitest": "5.0.5"
+    "vitest": "5.1.1"
   }
 }
