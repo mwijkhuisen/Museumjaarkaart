@@ -83,6 +83,7 @@ export const SettingsPatch = z.strictObject({
   wishlist_visibility: z.enum(['private', 'public']).optional(),
   hide_ratings_until_visited: z.boolean().optional(),
   card_type: z.enum(['adult', 'under_19']).optional(),
+  profile_indexable: z.boolean().optional(),
   locale: Locale.optional(),
 });
 export type SettingsPatch = z.infer<typeof SettingsPatch>;
@@ -92,6 +93,7 @@ export const Settings = z.strictObject({
   wishlist_visibility: z.enum(['private', 'public']),
   hide_ratings_until_visited: z.boolean(),
   card_type: z.enum(['adult', 'under_19']),
+  profile_indexable: z.boolean(),
   locale: Locale,
 });
 export type Settings = z.infer<typeof Settings>;
@@ -101,6 +103,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wishlist_visibility: 'private',
   hide_ratings_until_visited: false,
   card_type: 'adult',
+  profile_indexable: false,
   locale: 'nl',
 };
 
