@@ -2,13 +2,14 @@ import { createHash, generateKeyPairSync, type KeyObject, randomBytes, sign } fr
 import type { PasskeyAssertion, PasskeyAttestation } from '@mjk/contracts';
 
 // A software authenticator for the P2b tests: it makes WebAuthn registration and authentication
-// responses the way a browser and an authenticator would (attestation `none`, ES256 or EdDSA), with a
+// responses the way a browser and an authenticator would (attestation `none` or `packed` self
+// attestation, ES256 or EdDSA; any other statement on request), with a
 // knob for every field a check looks at, so a test can forge exactly one wrong thing. The projected
 // shapes are the ones the web sends (packages/contracts/src/passkey.ts). Tests only.
 
-// ---- A minimal CBOR encoder (RFC 8949): unsigned and negative integers, byte and text strings, maps.
+// ---- A minimal CBOR encoder (RFC 8949): unsigned and negative integers, byte and text strings, arrays, maps.
 
-type Cbor = number | string | Uint8Array | Map<Cbor, Cbor>;
+export type Cbor = number | string | Uint8Array | Cbor[] | Map<Cbor, Cbor>;
 
 function head(major: number, n: number): Buffer {
   if (n < 24) return Buffer.from([(major << 5) | n]);
@@ -32,6 +33,7 @@ export function cbor(v: Cbor): Buffer {
     return Buffer.concat([head(3, bytes.length), bytes]);
   }
   if (v instanceof Uint8Array) return Buffer.concat([head(2, v.length), Buffer.from(v)]);
+  if (Array.isArray(v)) return Buffer.concat([head(4, v.length), ...v.map(cbor)]);
   const parts: Buffer[] = [head(5, v.size)];
   for (const [k, val] of v) parts.push(cbor(k), cbor(val));
   return Buffer.concat(parts);
@@ -98,9 +100,16 @@ export type SoftCredential = {
   userHandle: Buffer;
   /** The counter the next assertion carries unless a ceremony says otherwise (0 = a counterless authenticator). */
   counter: number;
-  register(c: Ceremony & { rk?: boolean; transports?: string[] }): PasskeyAttestation;
+  register(c: Ceremony & { rk?: boolean; transports?: string[]; attestation?: Attestation }): PasskeyAttestation;
   assert(c: Ceremony & { userHandle?: Buffer; badSignature?: boolean }): PasskeyAssertion;
 };
+
+/**
+ * The attestation statement of a registration: `none` (the default, an empty statement), `self`
+ * (`packed` self attestation: `alg` and `sig`, the credential key's signature over
+ * authData ‖ sha256(clientDataJSON)), a statement of any format, or raw attestationObject bytes.
+ */
+export type Attestation = 'none' | 'self' | { fmt: string; attStmt: Map<Cbor, Cbor> } | { raw: Buffer };
 
 function clientData(c: Ceremony, defaultType: string): Buffer {
   const data: Record<string, unknown> = {
@@ -131,6 +140,8 @@ function counterBytes(n: number): Buffer {
 export function softCredential(opts: { userHandle: Buffer; alg?: Alg; counter?: number; id?: Buffer }): SoftCredential {
   const alg = opts.alg ?? 'ES256';
   const pair = alg === 'EdDSA' ? generateKeyPairSync('ed25519') : generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const signWith = (data: Buffer) =>
+    alg === 'EdDSA' ? sign(null, data, pair.privateKey) : sign('sha256', data, pair.privateKey);
   const cred: SoftCredential = {
     id: opts.id ?? randomBytes(16),
     alg,
@@ -150,19 +161,37 @@ export function softCredential(opts: { userHandle: Buffer; alg?: Alg; counter?: 
         cred.id,
         cred.publicKeyCose,
       ]);
-      const attestationObject = cbor(
-        new Map<Cbor, Cbor>([
-          ['fmt', 'none'],
-          ['attStmt', new Map()],
-          ['authData', authData],
-        ]),
-      );
+      const cdj = clientData(c, 'webauthn.create');
+      const att = c.attestation ?? 'none';
+      let attestationObject: Buffer;
+      if (typeof att === 'object' && 'raw' in att) attestationObject = att.raw;
+      else {
+        const [fmt, attStmt] =
+          att === 'none'
+            ? ['none', new Map<Cbor, Cbor>()]
+            : att === 'self'
+              ? [
+                  'packed',
+                  new Map<Cbor, Cbor>([
+                    ['alg', alg === 'EdDSA' ? -8 : -7],
+                    ['sig', signWith(Buffer.concat([authData, sha(cdj)]))],
+                  ]),
+                ]
+              : [att.fmt, att.attStmt];
+        attestationObject = cbor(
+          new Map<Cbor, Cbor>([
+            ['fmt', fmt],
+            ['attStmt', attStmt],
+            ['authData', authData],
+          ]),
+        );
+      }
       return {
         id: b64(cred.id),
         rawId: b64(cred.id),
         type: 'public-key',
         response: {
-          clientDataJSON: b64(clientData(c, 'webauthn.create')),
+          clientDataJSON: b64(cdj),
           attestationObject: b64(attestationObject),
           ...(c.transports === undefined ? { transports: ['internal'] } : { transports: c.transports }),
         },
@@ -178,7 +207,7 @@ export function softCredential(opts: { userHandle: Buffer; alg?: Alg; counter?: 
       const authData = Buffer.concat([sha(c.rpId ?? 'mjk.test'), Buffer.from([flags(c)]), counterBytes(counter)]);
       const cdj = clientData(c, 'webauthn.get');
       const signed = Buffer.concat([authData, sha(cdj)]);
-      let signature = alg === 'EdDSA' ? sign(null, signed, pair.privateKey) : sign('sha256', signed, pair.privateKey);
+      let signature = signWith(signed);
       if (c.badSignature) {
         signature = Buffer.from(signature);
         signature[signature.length - 1] = (signature[signature.length - 1] as number) ^ 0x01;

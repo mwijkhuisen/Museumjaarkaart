@@ -1,5 +1,5 @@
 import { Me, PasskeyRegistrationOptions, PasskeySignInOptions } from '@mjk/contracts';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadSession, startSession } from '../../src/auth/session.ts';
 import {
   mintChallenge,
@@ -13,7 +13,7 @@ import {
 import { memoryLogger } from '../../src/lib/log.ts';
 import { accountsApp, SITE, tokenOf } from './app.ts';
 import { type AuthDb, openAuthDb } from './fixtures.ts';
-import { type SoftCredential, softCredential } from './soft-authenticator.ts';
+import { type Attestation, type Cbor, type SoftCredential, softCredential } from './soft-authenticator.ts';
 
 // P2b criteria 2, 3, 5 and 6 (issue #18), with responses forged by a software authenticator:
 //   2  another RP ID or origin, a reused or expired challenge, no UV flag → refused (sign-in and registration)
@@ -601,6 +601,134 @@ describe('registration (auth/webauthn.ts; the routes are me-passkeys.int.test.ts
     });
     expect(result).toEqual({ ok: false, code: 'invalid' });
     expect(await countRows('SELECT count(*) AS n FROM passkey WHERE credential_id = $1', [cred.id])).toBe(0);
+  });
+
+  // H1 (P2b security review): only `none` and `packed` self attestation reach the library, so no
+  // X.509 chain is ever walked and no CRL Distribution Point fetched. The bytes are arbitrary: the
+  // statement is refused before anything parses them.
+  const junk = (n: number) => Buffer.alloc(n, 0x30);
+  const stmt = (entries: [string, Cbor][]) => new Map<Cbor, Cbor>(entries);
+  const x5c: [string, Cbor] = ['x5c', [junk(300), junk(300)]];
+  it.each<[string, Attestation]>([
+    ['android-key', { fmt: 'android-key', attStmt: stmt([['alg', -7], ['sig', junk(64)], x5c]) }],
+    ['packed with an x5c', { fmt: 'packed', attStmt: stmt([['alg', -7], ['sig', junk(64)], x5c]) }],
+    [
+      'packed with another key',
+      {
+        fmt: 'packed',
+        attStmt: stmt([
+          ['alg', -7],
+          ['sig', junk(64)],
+          ['ecdaaKeyId', junk(32)],
+        ]),
+      },
+    ],
+    ['packed without a sig', { fmt: 'packed', attStmt: stmt([['alg', -7]]) }],
+    [
+      'packed with a text alg',
+      {
+        fmt: 'packed',
+        attStmt: stmt([
+          ['alg', 'ES256'],
+          ['sig', junk(64)],
+        ]),
+      },
+    ],
+    [
+      'tpm',
+      {
+        fmt: 'tpm',
+        attStmt: stmt([
+          ['ver', '2.0'],
+          ['alg', -257],
+          x5c,
+          ['sig', junk(256)],
+          ['certInfo', junk(99)],
+          ['pubArea', junk(99)],
+        ]),
+      },
+    ],
+    ['fido-u2f', { fmt: 'fido-u2f', attStmt: stmt([['sig', junk(64)], x5c]) }],
+    ['apple', { fmt: 'apple', attStmt: stmt([x5c]) }],
+    [
+      'android-safetynet',
+      {
+        fmt: 'android-safetynet',
+        attStmt: stmt([
+          ['ver', '1'],
+          ['response', junk(200)],
+        ]),
+      },
+    ],
+    ['none with a statement', { fmt: 'none', attStmt: stmt([x5c]) }],
+    ['an unknown format', { fmt: 'other', attStmt: stmt([]) }],
+    ['an undecodable attestationObject', { raw: Buffer.from([0xff, 0xff, 0xff]) }],
+    ['a CBOR text instead of a map', { raw: Buffer.from([0x63, 0x61, 0x62, 0x63]) }],
+    ['an empty attestationObject', { raw: Buffer.alloc(0) }],
+  ])('%s → invalid with reason attestation_format, nothing fetched or stored', async (_name, attestation) => {
+    const { session, cred } = await signedIn();
+    const o = await regOptions('public', session);
+    const log = memoryLogger('api');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    try {
+      const result = await verifyRegistration(
+        { db: a.db, keys: t.keys, site: SITE, logger: log.logger },
+        {
+          host: 'public',
+          session,
+          credential: cred.register({ challenge: o.challenge, attestation }),
+          name: undefined,
+        },
+      );
+      expect(result).toEqual({ ok: false, code: 'invalid' });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    expect(log.lines().map((l) => [l.msg, l.reason])).toEqual([['passkey_register_refused', 'attestation_format']]);
+    expect(await countRows('SELECT count(*) AS n FROM passkey WHERE credential_id = $1', [cred.id])).toBe(0);
+    // Nothing was spent: the same challenge with the statement a browser sends (none) still registers.
+    const none = cred.register({ challenge: o.challenge });
+    expect((await verifyRegistration(wa(), { host: 'public', session, credential: none, name: undefined })).ok).toBe(
+      true,
+    );
+  });
+
+  it.each<'ES256' | 'EdDSA'>(['ES256', 'EdDSA'])(
+    'packed self attestation (%s) registers and then signs in',
+    async (alg) => {
+      const { user, session } = await signedIn();
+      const cred = softCredential({ userHandle: await handleOf(user.id), alg });
+      const o = await regOptions('public', session);
+      const result = await verifyRegistration(wa(), {
+        host: 'public',
+        session,
+        credential: cred.register({ challenge: o.challenge, attestation: 'self' }),
+        name: undefined,
+      });
+      expect(result.ok).toBe(true);
+      const p = peer();
+      expect((await verify(cred.assert({ challenge: await options({ peer: p }) }), { peer: p })).status).toBe(200);
+    },
+  );
+
+  it('packed self attestation with a signature that does not verify → invalid (verify)', async () => {
+    const { session, cred } = await signedIn();
+    const o = await regOptions('public', session);
+    const log = memoryLogger('api');
+    const attestation: Attestation = {
+      fmt: 'packed',
+      attStmt: stmt([
+        ['alg', -7],
+        ['sig', junk(70)],
+      ]),
+    };
+    const result = await verifyRegistration(
+      { db: a.db, keys: t.keys, site: SITE, logger: log.logger },
+      { host: 'public', session, credential: cred.register({ challenge: o.challenge, attestation }), name: undefined },
+    );
+    expect(result).toEqual({ ok: false, code: 'invalid' });
+    expect(log.lines().map((l) => l.reason)).toEqual(['verify']);
   });
 
   it('the challenge binds to its host, ceremony, session and expiry, and is spent once', async () => {

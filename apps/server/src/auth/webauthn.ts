@@ -15,6 +15,7 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
+import { decodeAttestationObject, isoBase64URL } from '@simplewebauthn/server/helpers';
 import { sql } from 'kysely';
 import type { SiteDeps } from '../api/middleware/csrf.ts';
 import type { Db } from '../db/kysely.ts';
@@ -265,6 +266,35 @@ export async function verifySignIn(
 
 // ---- Registration ---------------------------------------------------------------------------
 
+/**
+ * The attestation statements the library may see (P2b security review H1): `none` with an empty
+ * statement, or `packed` self attestation (`alg` and `sig` only, signed by the new credential's own
+ * key). Every other format makes @simplewebauthn/server 14.0.3 walk an X.509 chain the client chose:
+ * for `android-key` it validates the submitted `x5c` against its own last certificate before the
+ * Google-root check, and validateCertificatePath fetches each CRL Distribution Point URL with
+ * `globalThis.fetch` (redirects followed, no timeout, the whole body read), so any signed-in member
+ * could make the api fetch a URL of theirs (SSRF, the VM's address, memory). We ask for attestation
+ * `none`, and a browser then replaces every other statement with `none` (WebAuthn L3 §5.1.3), so no
+ * browser is refused. The check decodes the same bytes the library decodes, with its own helpers,
+ * before the library sees them; anything else, an undecodable object included, is refused.
+ */
+export function attestationAllowed(attestationObject: string): boolean {
+  try {
+    const decoded: unknown = decodeAttestationObject(isoBase64URL.toBuffer(attestationObject));
+    if (!(decoded instanceof Map)) return false;
+    const fmt: unknown = decoded.get('fmt');
+    const stmt: unknown = decoded.get('attStmt');
+    if (!(stmt instanceof Map)) return false;
+    if (fmt === 'none') return stmt.size === 0;
+    if (fmt === 'packed') {
+      return stmt.size === 2 && typeof stmt.get('alg') === 'number' && stmt.get('sig') instanceof Uint8Array;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const bindingOf = (session: Session): string[] => [session.user.id, session.ref];
 
 export type RegistrationOptionsResult =
@@ -345,6 +375,8 @@ export async function verifyRegistration(
     d.logger.info({ reason }, 'passkey_register_refused');
     return { ok: false, code: 'invalid' };
   };
+  // H1: before the library, so no X.509 path is ever walked and no CRL fetched (above).
+  if (!attestationAllowed(credential.response.attestationObject)) return refuse('attestation_format');
 
   let checked: CheckedChallenge | null = null;
   let verification: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
