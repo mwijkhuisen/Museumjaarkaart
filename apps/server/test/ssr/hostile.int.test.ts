@@ -96,7 +96,11 @@ describe.each([
       'type="application/json" id="mjk-state"',
       'type="application/ld+json"',
     ]);
-    expect(scripts.filter((a) => /\bsrc=/.test(a))).toEqual([expect.stringMatching(/^type="module" src="\/assets\//)]);
+    // The prefs script (P3a, classic, by src only) comes first, then the entry module.
+    expect(scripts.filter((a) => /\bsrc=/.test(a))).toEqual([
+      expect.stringMatching(/^src="\/assets\/prefs-[\w-]+\.js"$/),
+      expect.stringMatching(/^type="module" src="\/assets\//),
+    ]);
   });
 
   it.each([

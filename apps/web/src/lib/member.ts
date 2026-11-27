@@ -30,10 +30,26 @@ export function setHint(): void {
   resetMarks();
 }
 
-/** `GET /me` or `GET /me/marks` answered "signed out". */
+/** `GET /me` or `GET /me/marks` answered "signed out", or the member signed out here. */
 export function clearHint(): void {
   guarded((s) => s.removeItem(KEY));
+  syncFold(false);
   resetMarks();
+}
+
+// "Hide ratings until I've visited": the member's setting, kept as one more `localStorage` key that
+// `src/prefs.ts` (a classic script in the document's head) reads before the first paint. The server
+// never learns it from the request: the document is the same for everyone (A§15.1). Every answer
+// that carries the setting (`/me`, `/me/marks`) rewrites the key and the attribute.
+const FOLD_KEY = 'mjk-hide-ratings';
+
+export function syncFold(on: boolean): void {
+  guarded((s) => (on ? s.setItem(FOLD_KEY, '1') : s.removeItem(FOLD_KEY)));
+  try {
+    document.documentElement.toggleAttribute('data-hide-ratings', on);
+  } catch {
+    // The server render and a test have no document.
+  }
 }
 
 export type MarkSets = { visited: ReadonlySet<string>; wishlist: ReadonlySet<string> };
@@ -63,6 +79,7 @@ export function loadMarks(): Promise<void> {
     ({ marks }) => {
       if (mine !== epoch) return;
       if (marks === null) return clearHint();
+      syncFold(marks.hide_ratings_until_visited);
       snapshot = { visited: new Set(marks.visited), wishlist: new Set(marks.wishlist) };
       emit();
     },

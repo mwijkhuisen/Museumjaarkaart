@@ -1,7 +1,7 @@
 import { Me } from '@mjk/contracts';
 import { useCallback, useEffect, useState } from 'react';
 import { getJson } from './api.ts';
-import { clearHint, setHint } from './member.ts';
+import { clearHint, setHint, syncFold } from './member.ts';
 
 // `GET /api/v1/me` for the pages of the app shell (A§15.1). The shell is one static HTML for
 // everyone, so nothing about the member is known during the server render or the first client
@@ -17,8 +17,15 @@ export type MeState = {
   reload(): void;
 };
 
-/** The "signed in" hint of lib/member.ts follows every answer about the member. */
-const syncHint = (me: Me) => (me.user === null ? clearHint() : setHint());
+/** The "signed in" hint and the fold flag of lib/member.ts follow every answer about the member. */
+function syncHint(me: Me): void {
+  if (me.user === null) {
+    clearHint();
+    return;
+  }
+  setHint();
+  syncFold(me.user.settings.hide_ratings_until_visited);
+}
 
 export function useMe(): MeState {
   const [me, setMeState] = useState<Me | undefined>(undefined);

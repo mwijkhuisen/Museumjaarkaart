@@ -256,6 +256,50 @@ describe('the rendered HTML of every page kind', () => {
   });
 });
 
+describe('the prefs script (P3a: the rating fold, src/prefs.ts)', () => {
+  const PREFS = 'src/prefs.ts';
+  const SRC = /^<script src="\/assets\/prefs-[A-Za-z0-9_-]+\.js"><\/script>$/;
+
+  it('is a manifest entry whose file is a classic script under 1 kB: no import, export or preload polyfill', () => {
+    const entry = manifest[PREFS];
+    expect(entry?.isEntry).toBe(true);
+    expect(entry?.imports ?? []).toEqual([]);
+    expect(entry?.file).toMatch(/^assets\/prefs-[A-Za-z0-9_-]+\.js$/);
+    const text = readFileSync(join(tmp, 'client', entry?.file ?? 'missing'), 'utf8');
+    expect(text.length).toBeLessThan(1024);
+    expect(text).not.toMatch(/\bimport\b|\bexport\b|modulepreload/);
+    expect(text).toContain('mjk-hide-ratings');
+    expect(text).toContain('data-hide-ratings');
+  });
+
+  it('comes right after the two metas of a hydrated document, as a classic script with no async, defer or type', () => {
+    for (const { name, html } of htmls.filter((h) => !/^(404|400|5xx) /.test(h.name))) {
+      const head = /<head>(.*?)<\/head>/s.exec(html)?.[1] ?? '';
+      const [charset, viewport, prefs] = head.match(/<(?:meta|script)\b[^>]*>(?:<\/script>)?/g) ?? [];
+      expect(charset, name).toBe('<meta charset="utf-8">');
+      expect(viewport, name).toBe('<meta name="viewport" content="width=device-width, initial-scale=1">');
+      expect(prefs, name).toMatch(SRC);
+      expect(head.indexOf(prefs ?? '?'), name).toBe((charset?.length ?? 0) + (viewport?.length ?? 0));
+    }
+  });
+
+  it('is the only script besides the entry module and the two data blocks, and an error document has none', () => {
+    for (const { name, html } of htmls) {
+      const scripts = tagsOf(html).filter((t) => t.tag === 'script');
+      if (/^(404|400|5xx) /.test(name)) {
+        expect(scripts, name).toEqual([]);
+        continue;
+      }
+      const bySrc = scripts.filter((t) => /\bsrc=/.test(t.attrs));
+      expect(bySrc, name).toHaveLength(2);
+      expect(
+        bySrc.map((t) => t.attrs.trim()).filter((a) => /^src="\/assets\/prefs-[\w-]+\.js"$/.test(a)),
+        name,
+      ).toHaveLength(1);
+    }
+  });
+});
+
 describe('the admin entry (dist/client/admin.html, A§15.1)', () => {
   it('is an empty #admin root and one module script, with no inline script, style, handler, data: or other host', () => {
     expect(adminHtml).toMatch(/<body>\s*<div id="admin"><\/div>\s*<\/body>/);

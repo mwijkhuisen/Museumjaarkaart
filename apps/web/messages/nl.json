@@ -284,6 +284,8 @@
   "settings_public": "Openbaar",
   "settings_indexable": "Zoekmachines mogen mijn profiel tonen",
   "settings_indexable_hint": "Alleen van belang als je profiel openbare onderdelen heeft; uit is de standaard.",
+  "settings_hide_ratings": "Verberg beoordelingen tot ik een museum heb bezocht",
+  "settings_hide_ratings_hint": "Scores en reviews van een museum klappen open zodra de pagina weet dat je het hebt bezocht. Wis je de sitegegevens van je browser, dan tonen openbare pagina's de scores weer totdat je je paspoort of account opent. De volgorde van de lijst volgt nog steeds de scores.",
   "settings_card_type": "Soort kaart (voor € bespaard)",
   "settings_card_adult": "Volwassene",
   "settings_card_under_19": "Jonger dan 19",
@@ -416,5 +418,7 @@
   "action_remove_passkey": "{name} verwijderen",
   "account_passkey_remove_confirm": "{name} verwijderen? Je wordt dan ook uitgelogd op je andere apparaten.",
   "action_yes": "Ja",
-  "action_no": "Nee"
+  "action_no": "Nee",
+  "fold_show": "Toon beoordelingen",
+  "fold_show_short": "Toon"
 }

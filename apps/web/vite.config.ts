@@ -19,7 +19,7 @@ export default defineConfig({
         manifest: true,
         // Strict CSP (A§15.6): every asset is a file, never a data: URL.
         assetsInlineLimit: 0,
-        rolldownOptions: { input: ['src/entry-client.tsx', 'admin.html'] },
+        rolldownOptions: { input: ['src/entry-client.tsx', 'src/prefs.ts', 'admin.html'] },
       },
     },
     ssr: {

@@ -284,6 +284,8 @@
   "settings_public": "Public",
   "settings_indexable": "Search engines may show my profile",
   "settings_indexable_hint": "Only matters if your profile has public parts; off is the default.",
+  "settings_hide_ratings": "Hide ratings until I have visited a museum",
+  "settings_hide_ratings_hint": "A museum's scores and reviews unfold once the page knows you have visited it. If you clear your browser's site data, public pages show scores again until you open your passport or account page. The order of the list still follows the scores.",
   "settings_card_type": "Card type (for € saved)",
   "settings_card_adult": "Adult",
   "settings_card_under_19": "Under 19",
@@ -416,5 +418,7 @@
   "action_remove_passkey": "Remove {name}",
   "account_passkey_remove_confirm": "Remove {name}? This also signs you out on your other devices.",
   "action_yes": "Yes",
-  "action_no": "No"
+  "action_no": "No",
+  "fold_show": "Show ratings",
+  "fold_show_short": "Show"
 }

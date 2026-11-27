@@ -11,6 +11,7 @@ import {
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { ApiError, getJson, sendJson } from '../../lib/api.ts';
 import { formatDateTime } from '../../lib/format.ts';
+import { clearHint } from '../../lib/member.ts';
 import type { Locale } from '../../lib/routes.ts';
 import { m } from '../../paraglide/messages.js';
 import { fieldsOf, useAction } from '../auth/errors.ts';
@@ -340,6 +341,7 @@ export function SignOutSection({ guard, onSignedOut }: { guard: Guard; onSignedO
     void run(async () => {
       const call = () => sendJson('POST', path);
       await (guarded ? guard(call) : call());
+      clearHint(); // the session is gone: the hint, the fold flag and the marks go with it
       onSignedOut();
     });
   return (

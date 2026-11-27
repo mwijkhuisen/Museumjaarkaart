@@ -67,6 +67,7 @@ export function PassportSettings({
         visits_visibility: s.visits_visibility,
         wishlist_visibility: s.wishlist_visibility,
         profile_indexable: s.profile_indexable,
+        hide_ratings_until_visited: s.hide_ratings_until_visited,
         card_type: s.card_type,
       },
     });
@@ -110,6 +111,13 @@ export function PassportSettings({
           onChange={(e) => set({ profile_indexable: e.target.checked })}
         />
         <p className="field__hint">{m.settings_indexable_hint()}</p>
+        <CheckField
+          label={m.settings_hide_ratings()}
+          name="hide_ratings_until_visited"
+          checked={s.hide_ratings_until_visited}
+          onChange={(e) => set({ hide_ratings_until_visited: e.target.checked })}
+        />
+        <p className="field__hint">{m.settings_hide_ratings_hint()}</p>
         <Choice
           legend={m.settings_card_type()}
           name="card_type"

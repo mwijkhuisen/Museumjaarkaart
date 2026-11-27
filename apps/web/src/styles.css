@@ -674,3 +674,37 @@ altcha-widget {
   margin: 0;
   font-weight: 600;
 }
+
+/* P3a WP5: the rating fold. The flag is <html data-hide-ratings>, set by src/prefs.ts before the first
+   paint. Only then do the body and the button share one grid cell, so opening the fold moves nothing;
+   without the flag the button is not rendered at all and the block takes no extra room. `visibility:
+   hidden` also hides the folded body from assistive technology and from the tab order. */
+.fold-show {
+  display: none;
+}
+html[data-hide-ratings] .fold {
+  display: grid;
+}
+html[data-hide-ratings] .fold > * {
+  grid-area: 1 / 1;
+}
+html[data-hide-ratings] .fold-show {
+  display: block;
+  visibility: hidden;
+  align-self: center;
+  justify-self: start;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--color-link);
+  background: var(--color-bg);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+html[data-hide-ratings] .fold:not([data-open]) > .fold-body {
+  visibility: hidden;
+}
+html[data-hide-ratings] .fold:not([data-open]) > .fold-show {
+  visibility: visible;
+}

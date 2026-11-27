@@ -192,8 +192,8 @@ describe('JSON-LD', () => {
     expect('geo' in ld).toBe(false);
     expect('sameAs' in ld).toBe(false);
     expect(ld.address).toEqual({ '@type': 'PostalAddress', addressLocality: 'Utrecht', addressCountry: 'NL' });
-    // Exactly the script elements the document owns: the state, the ld+json and the entry.
-    expect(html.match(/<script\b/g)).toHaveLength(3);
+    // Exactly the script elements the document owns: the prefs file, the state, the ld+json and the entry.
+    expect(html.match(/<script\b/g)).toHaveLength(4);
     expect(html).not.toContain('<img src=x');
     expect(html).not.toContain(HOSTILE_NAME);
   });

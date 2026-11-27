@@ -38,6 +38,8 @@ function readAssets(): Assets {
   const manifest = JSON.parse(readFileSync(url, 'utf8')) as Record<string, Chunk>;
   const entry = manifest['src/entry-client.tsx'];
   if (entry === undefined) throw new Error('manifest_without_entry');
+  const prefs = manifest['src/prefs.ts'];
+  if (prefs === undefined) throw new Error('manifest_without_prefs');
   const css = new Set<string>();
   const preload = new Set<string>();
   const walk = (chunk: Chunk, isEntry: boolean) => {
@@ -49,10 +51,10 @@ function readAssets(): Assets {
     }
   };
   walk(entry, true);
-  const assets = { script: `/${entry.file}`, css: [...css], preload: [...preload] };
+  const assets = { script: `/${entry.file}`, prefs: `/${prefs.file}`, css: [...css], preload: [...preload] };
   // The entry imports the stylesheet, so a build without CSS is broken too.
   if (assets.css.length === 0) throw new Error('manifest_without_css');
-  for (const path of [assets.script, ...assets.css, ...assets.preload]) assetPath(path);
+  for (const path of [assets.script, assets.prefs, ...assets.css, ...assets.preload]) assetPath(path);
   return assets;
 }
 
