@@ -52,7 +52,7 @@ async function signOutToSignIn(page: Page) {
 test.describe('with a virtual authenticator', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'the virtual authenticator is Chromium-only');
   // The deleted passkey is refused with a 401, which Chromium logs as a failed resource load.
-  test.use({ allowedConsole: [[/status of 401/], { option: true }] });
+  test.use({ allowedConsole: [/status of 401/] }); // one pattern: a two-element array would read as [value, options]
 
   test('add a passkey, sign out, sign in with it, remove it', async ({ page, request, browserName }) => {
     test.slow();
