@@ -103,7 +103,9 @@ describe('parsePhc', () => {
 
   it('needsRehash for other parameters and for an unparseable string', () => {
     expect(needsRehash(phc('m=57344,t=2,p=1'))).toBe(false);
-    expect(needsRehash(phc('m=19456,t=2,p=1'))).toBe(true); // a hash at the old floor is redone at sign-in
+    // A hash at the old floor still parses (so it verifies) and is redone at sign-in.
+    expect(parsePhc(phc('m=19456,t=2,p=1'))).not.toBeNull();
+    expect(needsRehash(phc('m=19456,t=2,p=1'))).toBe(true);
     expect(needsRehash(phc('m=57344,t=2,p=1'), { ...ARGON2_PARAMS, memoryKiB: 47104 })).toBe(true);
     expect(needsRehash(phc('m=57344,t=1,p=1'))).toBe(true);
     expect(needsRehash(phc('m=57344,t=2,p=2'))).toBe(true);

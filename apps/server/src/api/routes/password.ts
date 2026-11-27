@@ -118,6 +118,8 @@ export function mountPassword(v1: ApiApp, deps: PasswordDeps): void {
     const session = requireMember(c);
     requireReauth(session);
     const { password } = await readJson(c, PasswordSetRequest);
+    // Before the hash: a signed-in member cannot keep both gate permits busy (A§9 table).
+    enforce(deps.logger, BUCKETS.passwordSet, await hit(deps.db, BUCKETS.passwordSet, session.user.id));
     const hash = await gated(deps, () => hashPassword(password, undefined, gate));
     await deps.db.transaction().execute(async (trx) => {
       await trx.updateTable('app_user').set({ password_hash: hash }).where('id', '=', session.user.id).execute();

@@ -7,8 +7,8 @@ import { hmac } from './crypto.ts';
 import type { AppKeys } from './keys.ts';
 
 // The Postgres rate limiter (A§9): fixed windows in `rate_limit`, one atomic upsert per hit. Keys are
-// IP prefixes (/24, /56, /48) or an email HMAC, never an address (invariant 8). A refusal logs only
-// the bucket's name.
+// IP prefixes (/24, /56, /48), an email HMAC or a user id, never an address (invariant 8). A refusal
+// logs only the bucket's name.
 
 export type Bucket = { readonly name: string; readonly limit: number; readonly windowS: number };
 
@@ -21,6 +21,7 @@ export const BUCKETS = {
   verifyFailSite: { name: 'verify_fail_site', limit: 500, windowS: 3_600 }, // site-wide failures: above it verify also needs ALTCHA (a threshold, not a refusal)
   passwordEmail: { name: 'password_email', limit: 5, windowS: 900 }, // password sign-ins per email
   passwordPrefix: { name: 'password_prefix', limit: 20, windowS: 3_600 }, // password sign-ins per IP prefix
+  passwordSet: { name: 'password_set', limit: 5, windowS: 900 }, // PUT /me/password per user id, before the hash
   signupSiteDay: { name: 'signup_site_day', limit: 20, windowS: 86_400 }, // anonymous-triggered mails a day, site-wide (A§17.7)
 } as const satisfies Record<string, Bucket>;
 

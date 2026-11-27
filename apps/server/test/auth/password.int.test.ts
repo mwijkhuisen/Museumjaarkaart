@@ -98,6 +98,21 @@ let pwHash: string;
 /** A member with the shared password (or the given hash). */
 const member = (opts: Parameters<AuthDb['newUser']>[0] = {}) => a.newUser({ password_hash: pwHash, ...opts });
 
+/** A gate that counts its runs, around a fresh real one. */
+const countingGate = () => {
+  const inner = createHashGate();
+  const g = {
+    runs: 0,
+    run<T>(fn: () => Promise<T>) {
+      g.runs += 1;
+      return inner.run(fn);
+    },
+    inFlight: 0,
+    maxInFlight: 0,
+  };
+  return g;
+};
+
 const median = (xs: number[]) => {
   const s = [...xs].sort((x, y) => x - y);
   return ((s[(s.length - 1) >> 1] as number) + (s[s.length >> 1] as number)) / 2;
@@ -164,7 +179,8 @@ describe('POST /auth/password: criterion 10', () => {
       ]),
     ]);
     // Tolerance: every median within 50 % of the smallest, or within 25 ms (scheduler noise on a
-    // ~30–60 ms hash). A path that skipped the hash would be several times faster.
+    // ~70–120 ms hash at 56 MiB: about 70–90 ms on the VM, about 115 ms in CI). A path that skipped
+    // the hash would be several times faster.
     const medians = Object.values(times).map(median);
     const lo = Math.min(...medians);
     const hi = Math.max(...medians);
@@ -176,16 +192,7 @@ describe('POST /auth/password: criterion 10', () => {
   }, 60_000);
 
   it('every failed path runs exactly one hash through the gate (the dummy where there is no hash)', async () => {
-    const inner = createHashGate();
-    let runs = 0;
-    const counting = {
-      run<T>(fn: () => Promise<T>) {
-        runs += 1;
-        return inner.run(fn);
-      },
-      inFlight: 0,
-      maxInFlight: 0,
-    };
+    const counting = countingGate();
     const prev = app;
     app = makeApp({ hashGate: counting });
     try {
@@ -202,10 +209,10 @@ describe('POST /auth/password: criterion 10', () => {
         adminOtherEmail: () => signIn(withPw.email, PW, { host: 'admin.mjk.test', access: 'other@example.org' }),
       };
       for (const [name, run] of Object.entries(cases)) {
-        runs = 0;
+        counting.runs = 0;
         const r = await run();
         expect(r.status, name).toBe(401);
-        expect(runs, name).toBe(1);
+        expect(counting.runs, name).toBe(1);
       }
     } finally {
       app = prev;
@@ -264,7 +271,7 @@ describe('POST /auth/password: a correct password', () => {
   });
 
   it('criterion 11: a hash with older parameters is redone with the current ones', async () => {
-    const older = await hashPassword(PW, { ...ARGON2_PARAMS, memoryKiB: 19_456 + 1_024 });
+    const older = await hashPassword(PW, { ...ARGON2_PARAMS, memoryKiB: 19_456 });
     expect(needsRehash(older)).toBe(true);
     const u = await member({ password_hash: older });
     expect((await signIn(u.email, PW)).status).toBe(200);
@@ -452,6 +459,34 @@ describe('PUT and DELETE /me/password', () => {
     expect((await signIn(u.email, next)).status).toBe(200);
     expect((await signIn(u.email, PW)).status).toBe(401);
   });
+
+  it('PUT: the 6th within 15 minutes is a 429 before any hash; another member is unaffected', async () => {
+    const { u, token } = await signedIn();
+    const other = await signedIn();
+    const counting = countingGate();
+    const prev = app;
+    app = makeApp({ hashGate: counting });
+    try {
+      const put = (cookie: string, i: number) => {
+        const password = `a new password number ${i}`;
+        secrets.push(password);
+        return call({ password }, { method: 'PUT', path: '/me/password', cookie });
+      };
+      for (let i = 0; i < 5; i++) expect((await put(token, i)).status).toBe(204);
+      expect(counting.runs).toBe(5);
+      const before = await hashOf(u.id);
+      const r = await put(token, 5);
+      expect(r.status).toBe(429);
+      expect(Number(r.headers.get('retry-after'))).toBeGreaterThanOrEqual(1);
+      expect(await r.json()).toEqual({ error: 'rate_limited' });
+      expect(counting.runs).toBe(5);
+      expect(await hashOf(u.id)).toBe(before);
+      expect((await put(other.token, 6)).status).toBe(204);
+      expect(counting.runs).toBe(6);
+    } finally {
+      app = prev;
+    }
+  }, 30_000);
 
   it('DELETE: 204 without a body, the hash is NULL, every other session ended, this one kept', async () => {
     const { u, token } = await signedIn();
