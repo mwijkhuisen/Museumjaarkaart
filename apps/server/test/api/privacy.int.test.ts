@@ -91,7 +91,14 @@ async function functionsText(handle: string): Promise<{ text: string; log: unkno
       `SELECT proname FROM pg_proc WHERE pronamespace = 'public'::regnamespace AND proname LIKE 'pub\\_%' ORDER BY 1`,
     )
   ).rows.map((r) => r.proname);
-  expect(names).toEqual(['pub_search', 'pub_visit_log', 'pub_wishlist_of']);
+  expect(names).toEqual([
+    'pub_review',
+    'pub_reviews_of_museum',
+    'pub_reviews_of_user',
+    'pub_search',
+    'pub_visit_log',
+    'pub_wishlist_of',
+  ]);
   const log = (await p.pools.ssr.query('SELECT * FROM pub_visit_log($1)', [handle])).rows;
   const wishlist = (await p.pools.ssr.query('SELECT * FROM pub_wishlist_of($1)', [handle])).rows;
   const search = (await p.pools.ssr.query('SELECT * FROM pub_search($1)', [MARKER])).rows;

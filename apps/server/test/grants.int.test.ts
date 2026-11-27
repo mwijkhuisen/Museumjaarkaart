@@ -49,8 +49,10 @@ const AUTH_TABLES = [
 ] as const;
 // P2c: the passport tables (db/migrations/20261128000002_passport.sql).
 const PASSPORT_TABLES = ['visit', 'wishlist', 'visit_import', 'data_export'] as const;
+// P3a: ratings and reviews (db/migrations/20261129000001_reviews.sql).
+const REVIEW_TABLES = ['review', 'review_revision', 'museum_stats'] as const;
 const P1A = [...TABLES, VIEW];
-const ALL = [...P1A, ...AUTH_TABLES, ...PASSPORT_TABLES];
+const ALL = [...P1A, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES];
 // P1b's public views: the only objects mjk_ssr may read (A§8).
 const PUB_VIEWS = [
   'pub_museum',
@@ -60,6 +62,7 @@ const PUB_VIEWS = [
   'pub_mk_list',
   'pub_profile',
   'pub_mk_list_province',
+  'pub_museum_stats', // P3a
 ] as const;
 const PUB_SELECT = Object.fromEntries(PUB_VIEWS.map((v) => [v, ['SELECT']]));
 const LOGINS = ['mjk_api', 'mjk_worker', 'mjk_ssr', 'mjk_backup'] as const;
@@ -89,6 +92,10 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     wishlist: ['SELECT'],
     visit_import: ['SELECT', 'DELETE'],
     data_export: ['SELECT', 'DELETE'],
+    // P3a: the stats job reads the reviews and writes the scores
+    review: ['SELECT'],
+    review_revision: ['SELECT'],
+    museum_stats: ['SELECT', 'INSERT', 'UPDATE'],
   },
   mjk_api: {
     ...Object.fromEntries(P1A.map((t) => [t, ['SELECT']])),
@@ -112,6 +119,8 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     wishlist: ['SELECT', 'INSERT', 'DELETE'],
     visit_import: ['SELECT', 'INSERT', 'DELETE'],
     data_export: ['SELECT', 'INSERT'],
+    review: ['SELECT', 'INSERT', 'DELETE'], // P3a
+    review_revision: ['INSERT'],
   },
   mjk_ssr: { ...PUB_SELECT },
   // pg_read_all_data: SELECT on everything and nothing else
@@ -229,7 +238,7 @@ describe('the catalog', () => {
 
   it('no login holds a column-level REFERENCES, and no sequence is granted', async () => {
     for (const login of LOGINS) {
-      for (const table of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES]) {
+      for (const table of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES]) {
         const { rows } = await owner.query<{ has: boolean }>(
           "SELECT has_any_column_privilege($1, $2, 'REFERENCES') AS has",
           [login, `public.${table}`],
@@ -275,11 +284,14 @@ describe('the catalog', () => {
     expect(await columnGrants('mjk_worker', 'museum', 'UPDATE')).not.toContain('search');
   });
 
-  it('EXECUTE on the public functions: pub_search, pub_visit_log and pub_wishlist_of for mjk_api and mjk_ssr, the definer triggers for nobody', async () => {
+  it('EXECUTE on the public functions: pub_search, pub_visit_log, pub_wishlist_of and the three pub_review functions for mjk_api and mjk_ssr, the definer triggers for nobody', async () => {
     const EXECUTE: Record<string, readonly string[]> = {
       'public.pub_search(text)': ['mjk_api', 'mjk_ssr'],
       'public.pub_visit_log(text)': ['mjk_api', 'mjk_ssr'],
       'public.pub_wishlist_of(text)': ['mjk_api', 'mjk_ssr'],
+      'public.pub_review(uuid)': ['mjk_api', 'mjk_ssr'],
+      'public.pub_reviews_of_museum(uuid, uuid, integer)': ['mjk_api', 'mjk_ssr'],
+      'public.pub_reviews_of_user(text, uuid, integer)': ['mjk_api', 'mjk_ssr'],
       'public.museum_slug_keep()': [],
       'public.museum_alias_search_touch()': [],
       'public.municipality_search_touch()': [],
@@ -646,12 +658,13 @@ describe('no login can DELETE or TRUNCATE, except the worker on its purge tables
   ];
   it.each(LOGINS)('%s gets 42501 for DELETE and TRUNCATE on every table it holds no DELETE on', async (login) => {
     const c = { mjk_api: api, mjk_worker: worker, mjk_ssr: ssr, mjk_backup: backup }[login];
-    for (const t of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES]) {
+    for (const t of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES]) {
       const mayDelete = login === 'mjk_worker' && WORKER_DELETE.includes(t);
       // mjk_api holds DELETE on session and email_code (sign-out, used codes), passkey (P2b: remove a passkey)
       // and P2c's visit, wishlist and pending import
       const apiDelete =
-        login === 'mjk_api' && ['session', 'email_code', 'passkey', 'visit', 'wishlist', 'visit_import'].includes(t);
+        login === 'mjk_api' &&
+        ['session', 'email_code', 'passkey', 'visit', 'wishlist', 'visit_import', 'review'].includes(t);
       expect(await attempt(c, `DELETE FROM ${t}`), `${login} DELETE ${t}`).toBe(mayDelete || apiDelete ? 'ok' : DENIED);
       expect(await attempt(c, `TRUNCATE ${t}`), `${login} TRUNCATE ${t}`).toBe(DENIED);
     }
