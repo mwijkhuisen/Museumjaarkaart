@@ -708,3 +708,25 @@ html[data-hide-ratings] .fold:not([data-open]) > .fold-body {
 html[data-hide-ratings] .fold:not([data-open]) > .fold-show {
   visibility: visible;
 }
+
+/* WP7: the member's review form and slot (P3a). Native radio groups; no inline style. */
+.choice-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+}
+.review-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

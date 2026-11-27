@@ -135,7 +135,7 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
           <IconMapPin /> {m.museum_on_map()}
         </Link>
       </p>
-      <VisitForm museumId={museum.id} />
+      <VisitForm museumId={museum.id} name={museumName(museum, locale)} closedOn={museum.closed_on} />
       <MyReviewSlot museum={museum} locale={locale} />
     </article>
   );
