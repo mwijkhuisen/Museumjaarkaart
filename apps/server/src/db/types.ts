@@ -67,6 +67,13 @@ export interface AuthChallenge {
   value_hash: Buffer;
 }
 
+export interface BlockedHash {
+  created_at: Generated<Timestamp>;
+  moderation_action_id: string | null;
+  reason: string;
+  sha256: Buffer;
+}
+
 export interface ContentIpLog {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -121,6 +128,43 @@ export interface Job {
   payload: Generated<Json>;
   run_at: Generated<Timestamp>;
   state: Generated<string>;
+}
+
+export interface Media {
+  alt_text: string | null;
+  chunk_count: number;
+  consents_at: Timestamp;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  declared_size: number;
+  error_code: string | null;
+  height: number | null;
+  id: Generated<string>;
+  kind: Generated<string>;
+  museum_id: string;
+  public_key: string | null;
+  review_id: string | null;
+  sha256: Buffer | null;
+  state: Generated<string>;
+  type: string;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+  width: number | null;
+}
+
+export interface MediaChunk {
+  media_id: string;
+  n: number;
+  sha256: Buffer;
+}
+
+export interface MediaVariant {
+  bytes: number;
+  format: string;
+  media_id: string;
+  object_key: string;
+  width: number;
 }
 
 export interface MkList {
@@ -210,6 +254,21 @@ export interface MuseumChange {
   state: string;
 }
 
+export interface MuseumImage {
+  attribution: string | null;
+  checked_at: Generated<Timestamp>;
+  file: string;
+  height: number | null;
+  licence: string | null;
+  museum_id: string;
+  public_key: string | null;
+  sha1: string | null;
+  skip_code: string | null;
+  state: string;
+  width: number | null;
+  widths: number[] | null;
+}
+
 export interface MuseumSlugRedirect {
   created_at: Generated<Timestamp>;
   museum_id: string;
@@ -285,6 +344,19 @@ export interface Province {
   name_nl: string;
 }
 
+export interface PubMedia {
+  alt_text: string | null;
+  author_handle: string | null;
+  created_at: Timestamp | null;
+  height: number | null;
+  id: string | null;
+  museum_id: string | null;
+  public_key: string | null;
+  review_id: string | null;
+  width: number | null;
+  widths: number[] | null;
+}
+
 export interface PubMkList {
   n: number | null;
   published_on: string | null;
@@ -335,6 +407,17 @@ export interface PubMuseumAlias {
   alias: string | null;
   alias_folded: string | null;
   museum_id: string | null;
+}
+
+export interface PubMuseumImage {
+  attribution: string | null;
+  file: string | null;
+  height: number | null;
+  licence: string | null;
+  museum_id: string | null;
+  public_key: string | null;
+  width: number | null;
+  widths: number[] | null;
 }
 
 export interface PubMuseumStats {
@@ -462,11 +545,15 @@ export interface DB {
   app_user: AppUser;
   audit_log: AuditLog;
   auth_challenge: AuthChallenge;
+  blocked_hash: BlockedHash;
   content_ip_log: ContentIpLog;
   data_export: DataExport;
   email_code: EmailCode;
   invite: Invite;
   job: Job;
+  media: Media;
+  media_chunk: MediaChunk;
+  media_variant: MediaVariant;
   mk_list: MkList;
   mk_list_member: MkListMember;
   mk_list_version: MkListVersion;
@@ -474,16 +561,19 @@ export interface DB {
   museum: Museum;
   museum_alias: MuseumAlias;
   museum_change: MuseumChange;
+  museum_image: MuseumImage;
   museum_slug_redirect: MuseumSlugRedirect;
   museum_source_row: MuseumSourceRow;
   museum_stats: MuseumStats;
   museum_sync_run: MuseumSyncRun;
   passkey: Passkey;
   province: Province;
+  pub_media: PubMedia;
   pub_mk_list: PubMkList;
   pub_mk_list_province: PubMkListProvince;
   pub_museum: PubMuseum;
   pub_museum_alias: PubMuseumAlias;
+  pub_museum_image: PubMuseumImage;
   pub_museum_stats: PubMuseumStats;
   pub_profile: PubProfile;
   pub_province: PubProvince;

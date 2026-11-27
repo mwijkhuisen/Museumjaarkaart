@@ -51,8 +51,10 @@ const AUTH_TABLES = [
 const PASSPORT_TABLES = ['visit', 'wishlist', 'visit_import', 'data_export'] as const;
 // P3a: ratings and reviews (db/migrations/20261129000001_reviews.sql).
 const REVIEW_TABLES = ['review', 'review_revision', 'museum_stats'] as const;
+// P3b: photos and the Commons image (db/migrations/20261130000001_media.sql).
+const MEDIA_TABLES = ['media', 'media_chunk', 'media_variant', 'blocked_hash', 'museum_image'] as const;
 const P1A = [...TABLES, VIEW];
-const ALL = [...P1A, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES];
+const ALL = [...P1A, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES, ...MEDIA_TABLES];
 // P1b's public views: the only objects mjk_ssr may read (A§8).
 const PUB_VIEWS = [
   'pub_museum',
@@ -63,6 +65,8 @@ const PUB_VIEWS = [
   'pub_profile',
   'pub_mk_list_province',
   'pub_museum_stats', // P3a
+  'pub_media', // P3b
+  'pub_museum_image', // P3b
 ] as const;
 const PUB_SELECT = Object.fromEntries(PUB_VIEWS.map((v) => [v, ['SELECT']]));
 const LOGINS = ['mjk_api', 'mjk_worker', 'mjk_ssr', 'mjk_backup'] as const;
@@ -96,6 +100,10 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     review: ['SELECT'],
     review_revision: ['SELECT'],
     museum_stats: ['SELECT', 'INSERT', 'UPDATE'],
+    // P3b: processing and publishing; museum_image is the Commons sync's
+    media: ['SELECT', 'DELETE'],
+    media_variant: ['SELECT', 'INSERT', 'DELETE'],
+    museum_image: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   },
   mjk_api: {
     ...Object.fromEntries(P1A.map((t) => [t, ['SELECT']])),
@@ -121,6 +129,12 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     data_export: ['SELECT', 'INSERT'],
     review: ['SELECT', 'INSERT', 'DELETE'], // P3a
     review_revision: ['INSERT'],
+    // P3b: the upload and moderation paths (column grants below)
+    media: ['SELECT', 'INSERT', 'DELETE'],
+    media_chunk: ['SELECT', 'INSERT', 'DELETE'],
+    media_variant: ['SELECT'],
+    blocked_hash: ['SELECT'],
+    museum_image: ['SELECT'],
   },
   mjk_ssr: { ...PUB_SELECT },
   // pg_read_all_data: SELECT on everything and nothing else
@@ -238,7 +252,7 @@ describe('the catalog', () => {
 
   it('no login holds a column-level REFERENCES, and no sequence is granted', async () => {
     for (const login of LOGINS) {
-      for (const table of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES]) {
+      for (const table of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES, ...MEDIA_TABLES]) {
         const { rows } = await owner.query<{ has: boolean }>(
           "SELECT has_any_column_privilege($1, $2, 'REFERENCES') AS has",
           [login, `public.${table}`],
@@ -655,16 +669,29 @@ describe('no login can DELETE or TRUNCATE, except the worker on its purge tables
     'content_ip_log',
     'visit_import',
     'data_export',
+    'media',
+    'media_variant',
+    'museum_image',
   ];
   it.each(LOGINS)('%s gets 42501 for DELETE and TRUNCATE on every table it holds no DELETE on', async (login) => {
     const c = { mjk_api: api, mjk_worker: worker, mjk_ssr: ssr, mjk_backup: backup }[login];
-    for (const t of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES]) {
+    for (const t of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES, ...REVIEW_TABLES, ...MEDIA_TABLES]) {
       const mayDelete = login === 'mjk_worker' && WORKER_DELETE.includes(t);
       // mjk_api holds DELETE on session and email_code (sign-out, used codes), passkey (P2b: remove a passkey)
       // and P2c's visit, wishlist and pending import
       const apiDelete =
         login === 'mjk_api' &&
-        ['session', 'email_code', 'passkey', 'visit', 'wishlist', 'visit_import', 'review'].includes(t);
+        [
+          'session',
+          'email_code',
+          'passkey',
+          'visit',
+          'wishlist',
+          'visit_import',
+          'review',
+          'media',
+          'media_chunk',
+        ].includes(t);
       expect(await attempt(c, `DELETE FROM ${t}`), `${login} DELETE ${t}`).toBe(mayDelete || apiDelete ? 'ok' : DENIED);
       expect(await attempt(c, `TRUNCATE ${t}`), `${login} TRUNCATE ${t}`).toBe(DENIED);
     }
@@ -684,6 +711,7 @@ describe('P2a: the accounts grants', () => {
         'banned_until',
         'ban_reason',
         'settings',
+        'trusted_at', // P3b: the admin user trust CLI
       ],
       session: ['expires_at', 'last_used_at'],
       email_code: ['attempts', 'used_at'],
@@ -716,6 +744,7 @@ describe('P2a: the accounts grants', () => {
         'terms_accepted_at',
         'settings',
         'created_at',
+        'trusted_at', // P3b: the media job's trusted-author check
       ],
       email_code: ['id', 'email', 'purpose', 'expires_at', 'created_at'],
       session: ['user_id', 'host', 'method', 'created_at', 'last_used_at', 'expires_at', 'absolute_expires_at'],
@@ -761,7 +790,6 @@ describe('P2a: the accounts grants', () => {
     for (const col of [
       'id',
       'handle',
-      'trusted_at',
       'age_confirmed_at',
       'terms_version',
       'terms_accepted_at',
