@@ -14,6 +14,8 @@ import type { Locale } from './templates.ts';
 export const MAIL_CODE_JOB = 'mail_code';
 export const MAIL_INVITE_JOB = 'mail_invite';
 export const MAIL_NOTICE_JOB = 'mail_notice';
+/** Ids and the locale only: the worker reads the address from `app_user` when it sends (P2c owner decision). */
+export const MAIL_EXPORT_JOB = 'mail_export';
 
 const LocaleSchema = z.enum(['nl', 'en']);
 const Id = z.uuid();
@@ -36,6 +38,7 @@ export const MailNoticePayload = z.strictObject({
   sealed_to: Sealed,
   notice: z.enum(MAIL_NOTICES).optional(),
 });
+export const MailExportPayload = z.strictObject({ user_id: Id, export_id: Id, locale: LocaleSchema });
 
 export const aad = {
   code: (emailCodeId: string) => `mail_code:${emailCodeId}`,

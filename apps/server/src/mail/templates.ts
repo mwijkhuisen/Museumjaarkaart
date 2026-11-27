@@ -9,7 +9,8 @@ export type MailKind =
   | 'code_email_change'
   | 'invite'
   | 'email_changed'
-  | 'passkey_added';
+  | 'passkey_added'
+  | 'export_ready';
 
 export type TemplateData = {
   brand: string;
@@ -92,6 +93,20 @@ export function render(kind: MailKind, locale: Locale, data: TemplateData): Rend
       : {
           subject: `Your invitation to ${brand}`,
           text: `You have been invited to ${brand}.\n\nYour invite code: ${data.code}\n\nOr open this link to sign up:\n${link}\n\nThe invitation is valid until ${data.validUntil}.\n\n${brand} · ${domain}\n`,
+        };
+  }
+
+  // export_ready (P2c): the account page's plain link only, no export id, file name or data.
+  if (kind === 'export_ready') {
+    const link = nl ? `https://${domain}/account` : `https://${domain}/en/account`;
+    return nl
+      ? {
+          subject: `Je gegevensexport van ${brand} staat klaar`,
+          text: `Je gegevensexport van ${brand} staat klaar. Je kunt hem 24 uur lang downloaden op je accountpagina:\n${link}\n\n${brand} · ${domain}\n`,
+        }
+      : {
+          subject: `Your ${brand} data export is ready`,
+          text: `Your ${brand} data export is ready. You can download it from your account page for 24 hours:\n${link}\n\n${brand} · ${domain}\n`,
         };
   }
 

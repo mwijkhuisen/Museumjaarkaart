@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import type { Logger } from '../../src/lib/log.ts';
 import { purge } from '../../src/worker/purge.ts';
@@ -190,4 +193,50 @@ it('purges a visit import after 7 days, pending or confirmed, and keeps a younge
   expect((await purge(a.worker, quiet)).visit_import).toBe(2);
   expect(await count('visit_import')).toBe(2);
   expect((await purge(a.worker, quiet)).visit_import).toBe(0);
+});
+
+it('fails a stuck export, deletes rows after 7 days, and removes orphan, failed, expired and old temporary bundles', async () => {
+  const exp = async (state: string, created: string, expires: string | null) => {
+    const u = await a.newUser();
+    return (
+      await q(
+        `INSERT INTO data_export (user_id, state, created_at, expires_at)
+         VALUES ($1, $2, now() - $3::interval, now() + $4::interval) RETURNING id`,
+        [u.id, state, created, expires],
+      )
+    ).rows[0].id as string;
+  };
+  const stuck = await exp('queued', '61 minutes', null);
+  const young = await exp('queued', '59 minutes', null);
+  const old = await exp('failed', '7 days 1 minute', null);
+  const live = await exp('ready', '1 hour', '23 hours');
+  const expired = await exp('ready', '25 hours', '-1 hour');
+
+  const dir = mkdtempSync(join(tmpdir(), 'mjk-exports-'));
+  const bundle = (name: string) => {
+    mkdirSync(join(dir, name));
+    writeFileSync(join(dir, name, 'export.json'), '{}');
+  };
+  const orphan = '019a0000-0000-7000-8000-0000000000ff';
+  for (const id of [stuck, young, old, live, expired, orphan]) bundle(id);
+  bundle('.tmp-old');
+  bundle('.tmp-new');
+  const twoHoursAgo = new Date(Date.now() - 2 * 3600_000);
+  utimesSync(join(dir, '.tmp-old'), twoHoursAgo, twoHoursAgo);
+  writeFileSync(join(dir, 'README'), 'not ours');
+
+  const counts = await purge(a.worker, quiet, { exportsDir: dir });
+  expect(counts).toMatchObject({ data_export_stuck: 1, data_export: 1, export_bundles: 4, export_tmp: 1 });
+  const states = await q('SELECT id, state FROM data_export');
+  expect(Object.fromEntries(states.rows.map((r) => [r.id, r.state]))).toEqual({
+    [stuck]: 'failed',
+    [young]: 'queued',
+    [live]: 'ready',
+    [expired]: 'ready',
+  });
+  // The stuck one (now failed), the deleted one, the expired one and the orphan go; a queued one may be finishing.
+  expect(readdirSync(dir).sort()).toEqual(['.tmp-new', 'README', live, young].sort());
+
+  const again = await purge(a.worker, quiet, { exportsDir: dir });
+  expect(again).toMatchObject({ data_export_stuck: 0, data_export: 0, export_bundles: 0, export_tmp: 0 });
 });

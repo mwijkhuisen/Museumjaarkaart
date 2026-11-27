@@ -43,6 +43,8 @@ export type ApiDeps = {
   site?: SiteDeps;
   /** The `app_keys` secret (P2a); set only by runApi, which also mounts the account routes with it. */
   keys?: AppKeys;
+  /** The export bundles (A§17.1: `/srv/mjk/exports`, read-only for the api); set only by runApi (P2c). */
+  exportsDir?: string;
 };
 
 export type ApiApp = Hono<ApiEnv>;

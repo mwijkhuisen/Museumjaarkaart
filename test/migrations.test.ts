@@ -15,7 +15,7 @@ const PINNED: Record<string, string> = {
   '20261127000001_accounts.sql': '3c296800f5a9d54a208f77479f58b31fe55a6e4f33435e200cd3c1711eafc99a',
   '20261127000002_actor_foreign_keys.sql': '537365e9300d29b5c7080d0b4a078959bd0e11aa7b703aa9425c865dc1f6e0c0',
   '20261128000001_passkeys.sql': '3859da99d97283c25e1f67259075572df69448b270f2668d1bf3fa7823074092', // gitleaks:allow (a sha256 pin)
-  '20261128000002_passport.sql': '3d551af05fe289e7c7500f95e9674815a534aca4952c34d3c95f2a91670dd81f', // gitleaks:allow (a sha256 pin)
+  '20261128000002_passport.sql': 'f8aa981b8b71a292d8d8366ff2a136c73bda14810da7eac7c489946aedb2b9a6', // gitleaks:allow (a sha256 pin)
 };
 
 it('every migration matches its pinned sha256, and no file is added or removed', () => {

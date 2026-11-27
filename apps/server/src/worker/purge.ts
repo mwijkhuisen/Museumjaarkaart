@@ -1,6 +1,7 @@
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
+import { purgeExportFiles } from '../passport/export/files.ts';
 
 // The retention purge (A§13.2), every 10 minutes, as mjk_worker, on the database clock. Counts only in the
 // log (invariant 8). audit_log is never touched here (its purge function comes in P3c).
@@ -27,12 +28,26 @@ const STEPS: Record<string, RawBuilder<unknown>> = {
   content_ip_log: sql`DELETE FROM content_ip_log WHERE created_at < now() - interval '30 days'`,
   // A§10: the parsed rows of an import wait at most 7 days, confirmed or not (P2c pulls this forward from P3d).
   visit_import: sql`DELETE FROM visit_import WHERE created_at < now() - interval '7 days'`,
+  // P2c: a job that never finished stops blocking the member's next request after an hour; the rows go after 7 days.
+  data_export_stuck: sql`UPDATE data_export SET state = 'failed'
+    WHERE state = 'queued' AND created_at < now() - interval '1 hour'`,
+  data_export: sql`DELETE FROM data_export WHERE created_at < now() - interval '7 days'`,
 };
 
-export async function purge(db: Db, logger: Logger): Promise<Record<string, number>> {
+/** `exportsDir` (the worker's `/srv/mjk/exports`): the bundles whose row is gone, failed or expired go too. */
+export async function purge(
+  db: Db,
+  logger: Logger,
+  opts: { exportsDir?: string } = {},
+): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const [name, stmt] of Object.entries(STEPS)) {
     counts[name] = Number((await stmt.execute(db)).numAffectedRows ?? 0);
+  }
+  if (opts.exportsDir !== undefined) {
+    const files = await purgeExportFiles(db, opts.exportsDir);
+    counts.export_bundles = files.bundles;
+    counts.export_tmp = files.tmp;
   }
   logger.info(counts, 'purge_done');
   return counts;

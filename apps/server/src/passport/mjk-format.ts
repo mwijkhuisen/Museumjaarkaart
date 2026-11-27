@@ -45,6 +45,16 @@ export const MjkExportV1 = z.strictObject({
   sessions: z.array(
     z.strictObject({ host: z.string(), method: z.string(), created_at: IsoDateTime, last_used_at: IsoDateTime }),
   ),
+  // P2b's passkeys: the metadata only, never the credential id or the public key.
+  passkeys: z.array(
+    z.strictObject({
+      name: z.string().nullable(),
+      transports: z.array(z.string()),
+      backed_up: z.boolean(),
+      created_at: IsoDateTime,
+      last_used_at: IsoDateTime.nullable(),
+    }),
+  ),
   imports: z.array(
     z.strictObject({
       format: z.string(),

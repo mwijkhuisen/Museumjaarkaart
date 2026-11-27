@@ -10,6 +10,7 @@ import { EXIT_CONFIG } from '../db/migrate.ts';
 import { API_POOL_MAX, API_STATEMENT_TIMEOUT_MS, createPool } from '../db/pool.ts';
 import { HEARTBEAT_EVERY_MS, touch } from '../heartbeat.ts';
 import type { Logger } from '../lib/log.ts';
+import { EXPORTS_DIR } from '../passport/export/files.ts';
 import type { ApiDeps } from './app.ts';
 import { type ApiConfig, readApiConfig } from './config.ts';
 import { certsUrlOf, createJwksCache, issuerOf } from './middleware/access-jwt.ts';
@@ -136,7 +137,7 @@ export async function runApi(env: Env, opts: ApiRunOpts): Promise<number> {
   let server: Server;
   try {
     server = await listen(
-      createApp({ db, logger, ping, keys, ...edgeDeps(config, logger) }),
+      createApp({ db, logger, ping, keys, exportsDir: EXPORTS_DIR, ...edgeDeps(config, logger) }),
       opts.port ?? API_PORT,
       opts.hostname ?? '0.0.0.0',
     );

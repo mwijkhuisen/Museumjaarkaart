@@ -27,6 +27,7 @@ export const BUCKETS = {
   passkeyRegisterUser: { name: 'passkey_register_user', limit: 10, windowS: 3_600 }, // failed passkey registrations per member (P2b review L2)
   passkeyAddUserDay: { name: 'passkey_add_user_day', limit: 5, windowS: 86_400 }, // passkeys added per member a day: each sends a notice mail (P2b review M1)
   importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (keyed by user id; A§14, P2c)
+  exportUserDay: { name: 'export_user_day', limit: 3, windowS: 86_400 }, // export requests per member (keyed by user id; P2c Q5: each costs a mail)
 } as const satisfies Record<string, Bucket>;
 
 export type Hit = {

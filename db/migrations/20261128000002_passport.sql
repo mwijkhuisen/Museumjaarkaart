@@ -155,7 +155,7 @@ GRANT UPDATE (state) ON data_export TO mjk_api;
 GRANT SELECT ON pub_profile, pub_mk_list_province TO mjk_api, mjk_ssr;
 
 -- mjk_worker: the export job and the purges. It reads what an export holds, never password_hash, never
--- session.id (the token hash).
+-- session.id (the token hash), never a passkey's credential id or public key.
 GRANT SELECT ON visit, wishlist, visit_import TO mjk_worker;
 GRANT DELETE ON visit_import TO mjk_worker;
 GRANT SELECT, DELETE ON data_export TO mjk_worker;
@@ -164,8 +164,11 @@ GRANT SELECT (id, handle, display_name, email_verified_at, age_confirmed_at, ter
   settings, created_at) ON app_user TO mjk_worker;
 GRANT SELECT (user_id, host, method, created_at, last_used_at) ON session TO mjk_worker;
 GRANT SELECT (user_id, target_kind, target_id, ip) ON content_ip_log TO mjk_worker;
+-- P2b's passkeys: the export's metadata only, never credential_id or public_key.
+GRANT SELECT (user_id, name, transports, backed_up, created_at, last_used_at) ON passkey TO mjk_worker;
 
 -- migrate:down
+REVOKE SELECT (user_id, name, transports, backed_up, created_at, last_used_at) ON passkey FROM mjk_worker;
 REVOKE SELECT (user_id, target_kind, target_id, ip) ON content_ip_log FROM mjk_worker;
 REVOKE SELECT (user_id, host, method, created_at, last_used_at) ON session FROM mjk_worker;
 REVOKE SELECT (id, handle, display_name, email_verified_at, age_confirmed_at, terms_version, terms_accepted_at,

@@ -709,6 +709,8 @@ describe('P2a: the accounts grants', () => {
       auth_challenge: ['expires_at'],
       invite: ['id', 'expires_at', 'used_at', 'uses', 'max_uses'],
       content_ip_log: ['user_id', 'target_kind', 'target_id', 'ip', 'created_at'],
+      // P2c's export: the passkeys' metadata, never credential_id, public_key, ref or sign_count
+      passkey: ['user_id', 'name', 'transports', 'backed_up', 'created_at', 'last_used_at'],
     };
     for (const [table, allowed] of Object.entries(SELECT))
       for (const col of await columnsOf(table)) {
@@ -782,11 +784,16 @@ describe('P2a: the accounts grants', () => {
       ['mjk_ssr', ssr],
     ] as const) {
       expect(await attempt(c, 'SELECT webauthn_user_id FROM app_user'), `${login} webauthn_user_id`).toBe(DENIED);
-      expect(await attempt(c, 'SELECT 1 FROM passkey'), `${login} passkey`).toBe(DENIED);
-      expect(await attempt(c, 'SELECT credential_id FROM passkey'), `${login} passkey.credential_id`).toBe(DENIED);
+      for (const col of ['credential_id', 'public_key', 'ref', 'sign_count'])
+        expect(await attempt(c, `SELECT ${col} FROM passkey`), `${login} passkey.${col}`).toBe(DENIED);
       expect(await attempt(c, 'DELETE FROM passkey'), `${login} DELETE passkey`).toBe(DENIED);
       expect(await attempt(c, 'UPDATE passkey SET sign_count = 0 WHERE false'), `${login} UPDATE passkey`).toBe(DENIED);
     }
+    expect(await attempt(ssr, 'SELECT 1 FROM passkey'), 'mjk_ssr passkey').toBe(DENIED);
+    // P2c: the export reads the passkeys' metadata, never the key material.
+    expect(
+      await attempt(worker, 'SELECT user_id, name, transports, backed_up, created_at, last_used_at FROM passkey'),
+    ).toBe('ok');
     // mjk_worker's SELECT on app_user stays (email, status)
     expect(await attempt(worker, 'SELECT email, status FROM app_user')).toBe('ok');
   });

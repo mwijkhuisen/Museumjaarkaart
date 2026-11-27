@@ -2,6 +2,7 @@ import { type ApiApp, type ApiDeps, buildApp, type Mount, mountCatalogue } from 
 import { mountAuth } from './routes/auth.ts';
 import { mountAuthPasskey } from './routes/auth-passkey.ts';
 import { mountMe } from './routes/me.ts';
+import { mountMeExports } from './routes/me-exports.ts';
 import { mountMeImports } from './routes/me-imports.ts';
 import { mountMeMuseums } from './routes/me-museums.ts';
 import { mountMePasskeys } from './routes/me-passkeys.ts';
@@ -30,6 +31,7 @@ export const mountAccounts: Mount = (v1, d) => {
   mountMeMuseums(v1, d);
   mountMeProgress(v1, d);
   mountMeImports(v1, d);
+  mountMeExports(v1, d);
 };
 
 export function createApp(deps: ApiDeps): ApiApp {

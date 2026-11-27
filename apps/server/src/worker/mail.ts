@@ -9,9 +9,11 @@ import { MailError, type Mailer } from '../mail/mailer.ts';
 import {
   aad,
   MAIL_CODE_JOB,
+  MAIL_EXPORT_JOB,
   MAIL_INVITE_JOB,
   MAIL_NOTICE_JOB,
   MailCodePayload,
+  MailExportPayload,
   MailInvitePayload,
   MailNoticePayload,
 } from '../mail/payloads.ts';
@@ -148,5 +150,28 @@ export function mailJobs(deps: MailDeps): Record<string, JobHandler> {
     return deliver(to, notice, p.locale, { contact });
   };
 
-  return { [MAIL_CODE_JOB]: mailCode, [MAIL_INVITE_JOB]: mailInvite, [MAIL_NOTICE_JOB]: mailNotice };
+  // The export is ready (P2c): the address is read from `app_user` now, so a changed address gets it and nothing
+  // is sealed. An export that expired, failed or went with its account, or a member no longer active, gets none.
+  const mailExport: JobHandler = async (payload) => {
+    const p = parse(MailExportPayload, payload);
+    const row = await db
+      .selectFrom('data_export as e')
+      .innerJoin('app_user as u', 'u.id', 'e.user_id')
+      .select(['u.email', 'u.status'])
+      .where('e.id', '=', p.export_id)
+      .where('e.user_id', '=', p.user_id)
+      .where('e.state', '=', 'ready')
+      .where('e.expires_at', '>', sql<Date>`now()`)
+      .executeTakeFirst();
+    if (row === undefined || row.status !== 'active') return 'consumed';
+    if (await overCap(false, { kind: MAIL_EXPORT_JOB })) return 'consumed';
+    return deliver(row.email, 'export_ready', p.locale, {});
+  };
+
+  return {
+    [MAIL_CODE_JOB]: mailCode,
+    [MAIL_INVITE_JOB]: mailInvite,
+    [MAIL_NOTICE_JOB]: mailNotice,
+    [MAIL_EXPORT_JOB]: mailExport,
+  };
 }
