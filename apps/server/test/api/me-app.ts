@@ -1,4 +1,4 @@
-import { type ApiDeps, buildApp } from '../../src/api/app.ts';
+import { type ApiDeps, buildApp, type Mount } from '../../src/api/app.ts';
 import { mountMe } from '../../src/api/routes/me.ts';
 import type { AppKeys } from '../../src/auth/keys.ts';
 import { SESSION_COOKIE, type SessionHost, startSession } from '../../src/auth/session.ts';
@@ -6,12 +6,12 @@ import { memoryLogger } from '../../src/lib/log.ts';
 import type { AuthDb } from '../auth/fixtures.ts';
 import { makeTestKeys } from '../auth/test-keys.ts';
 
-// The /me routes mounted through buildApp, as P2a's integration tests drive them: same-origin headers, an
+// The /me routes (or the routes `mount` adds; P2c's packages mount their own) through buildApp, as P2a's integration tests drive them: same-origin headers, an
 // explicit Content-Length (app.request() sends none), the session cookie, and a client address we choose.
 
 export const SITE = { domain: 'mjk.test', adminHost: 'admin.mjk.test' };
 
-export function meApp(a: AuthDb) {
+export function meApp(a: AuthDb, mount: Mount = mountMe) {
   const keys: AppKeys = makeTestKeys();
   const { logger, lines } = memoryLogger('api');
   const state: { peer: string | undefined } = { peer: '203.0.113.7' };
@@ -23,7 +23,7 @@ export function meApp(a: AuthDb) {
     keys,
     clientAddress: { peer: () => state.peer },
   };
-  const app = buildApp(deps, mountMe);
+  const app = buildApp(deps, mount);
   const call = (
     path: string,
     o: { method?: string; token?: string; body?: unknown; host?: string; raw?: string } = {},
