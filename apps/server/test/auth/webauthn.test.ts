@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hmac } from '../../src/auth/crypto.ts';
 import {
   ADD_REAUTH_S,
   checkChallenge,
@@ -50,7 +51,12 @@ describe('the challenge', () => {
     expect(check(b64(bytes.subarray(0, 53)))).toBeNull();
     expect(check(b64(Buffer.concat([bytes, Buffer.from([0])])))).toBeNull();
     expect(check(`${b64(bytes)}=`)).toBeNull();
-    expect(check(bytes.toString('base64'))).toBeNull();
+    // Standard base64: a challenge whose spelling has a `+` or `/` (one in ten has neither, and is then
+    // the same string as its base64url).
+    let std = bytes;
+    while (std.toString('base64') === b64(std)) std = mintChallenge(keys, 'admin', 'signin', [], NOW);
+    expect(check(b64(std))).not.toBeNull();
+    expect(check(std.toString('base64'))).toBeNull();
     for (const at of [0, 1, 2, 5, 6, 21, 22, 53]) {
       const t = Buffer.from(bytes);
       t[at] = (t[at] as number) ^ 0x01;
@@ -62,6 +68,17 @@ describe('the challenge', () => {
     expect(check(b64(later))).toBeNull();
     expect(check('')).toBeNull();
     expect(check('x'.repeat(72))).toBeNull();
+  });
+
+  it('carries its version inside the tag: a tag made without the version part is refused', () => {
+    const bytes = mintChallenge(keys, 'public', 'signin', [], NOW);
+    const expNonce = bytes.subarray(2, 22);
+    const check = (tag: Buffer) =>
+      checkChallenge(keys, 'public', 'signin', [], b64(Buffer.concat([bytes.subarray(0, 22), tag])), NOW);
+    expect(check(hmac(keys.altcha_hmac, 'webauthn', '1', 'public', '1', expNonce))).not.toBeNull();
+    // the pre-review layout, which left the version byte outside the MAC
+    expect(check(hmac(keys.altcha_hmac, 'webauthn', 'public', '1', expNonce))).toBeNull();
+    expect(check(hmac(keys.altcha_hmac, 'webauthn', '2', 'public', '1', expNonce))).toBeNull();
   });
 });
 

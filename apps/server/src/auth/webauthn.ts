@@ -39,7 +39,7 @@ import { REAUTH_S, type Session, type SessionHost, startSession } from './sessio
 //
 // Challenges are stateless (P2a's ALTCHA pattern, owner 2026-11-26): 54 bytes,
 //   version (1) ‖ kind (1: sign-in, 2: registration) ‖ exp (uint32, Unix seconds) ‖ nonce (16) ‖ tag (32),
-// tag = HMAC(altcha_hmac, 'webauthn', host, kind, exp ‖ nonce, …binding). The binding is empty for a
+// tag = HMAC(altcha_hmac, 'webauthn', version, host, kind, exp ‖ nonce, …binding). The binding is empty for a
 // sign-in and (user id, session ref) for a registration, so a challenge works only on its host, for
 // its ceremony and, when registering, in the session that asked for it. Options write nothing. A
 // challenge is spent once into auth_challenge (purpose `webauthn`, sha256 of its bytes, unique) by an
@@ -75,8 +75,10 @@ export const rpIdOf = (site: SiteDeps): string => site.domain;
 export const originOf = (site: SiteDeps, host: SessionHost): string =>
   `https://${host === 'admin' ? site.adminHost : site.domain}`;
 
+// The version byte is inside the MAC too (P2b security review, info), so a later format can never
+// accept a tag made for this one.
 const tagOf = (keys: AppKeys, host: SessionHost, kind: Kind, expNonce: Buffer, binding: readonly string[]) =>
-  hmac(keys.altcha_hmac, 'webauthn', host, String(KINDS[kind]), expNonce, ...binding);
+  hmac(keys.altcha_hmac, 'webauthn', String(VERSION), host, String(KINDS[kind]), expNonce, ...binding);
 
 /** A new challenge's bytes for `host`, `kind` and `binding`. */
 export function mintChallenge(
