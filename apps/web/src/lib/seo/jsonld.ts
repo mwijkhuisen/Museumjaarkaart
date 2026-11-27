@@ -24,5 +24,17 @@ export function museumJsonLd(museum: MuseumDetail, locale: Locale, url: string, 
       ? {}
       : { geo: { '@type': 'GeoCoordinates', latitude: museum.lat, longitude: museum.lon } }),
     ...(museum.website === null ? {} : { sameAs: [museum.website] }),
+    // Q9: the shown mean (one decimal) and the count, once there is a rating.
+    ...(museum.rating_count < 1 || museum.rating_mean === null
+      ? {}
+      : {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: museum.rating_mean,
+            ratingCount: museum.rating_count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }),
   };
 }

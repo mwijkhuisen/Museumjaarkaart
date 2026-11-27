@@ -2,6 +2,7 @@ import type { MuseumListItem } from '@mjk/contracts';
 import { museumName } from '../../lib/names.ts';
 import { Link } from '../../lib/router.tsx';
 import { type Locale, pathOf } from '../../lib/routes.ts';
+import { CardScore } from '../reviews/CardScore.tsx';
 import { IconMapPin } from '../ui/icons.tsx';
 import { ClosureNote } from './ClosureNote.tsx';
 import { MuseumkaartStatus } from './MuseumkaartStatus.tsx';
@@ -21,6 +22,7 @@ export function MuseumCard({ museum, locale }: { museum: MuseumListItem; locale:
       <p>
         <MuseumkaartStatus status={museum.museumkaart_status} locale={locale} />
       </p>
+      <CardScore museum={museum} locale={locale} />
       <ClosureNote closedOn={museum.closed_on} tempClosed={museum.temp_closed} locale={locale} />
       <MarkSlot museumId={museum.id} name={museumName(museum, locale)} />
     </article>

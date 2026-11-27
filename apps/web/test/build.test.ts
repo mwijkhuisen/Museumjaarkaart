@@ -16,6 +16,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildWeb } from '../build.ts';
 import { parseHex } from '../src/lib/map/museumLayer.ts';
+import { REVIEW_ID, review, reviewList } from './review-fixture.ts';
 
 // P1c criterion 3: the built client and the rendered HTML of every page kind make no inline script,
 // style, handler or third-party fetch (A§15.6, A§18). The scan output goes into the PR as evidence.
@@ -82,8 +83,8 @@ const item = {
   registered: true,
   closed_on: null,
   temp_closed: false,
-  rating_count: 0,
-  rating_mean: null,
+  rating_count: 12,
+  rating_mean: 4.3,
 };
 const detail = MuseumDetail.parse({
   ...item,
@@ -103,8 +104,8 @@ const detail = MuseumDetail.parse({
   temp_closed_until: null,
   mk_list: { published_on: '2026-11-05', n: 512, member: true },
   aspects: {
-    collection: { mean: null, count: 0 },
-    presentation: { mean: null, count: 0 },
+    collection: { mean: 4.5, count: 6 },
+    presentation: { mean: null, count: 2 },
     kid_friendly: { mean: null, count: 0 },
     accessibility: { mean: null, count: 0 },
     facilities: { mean: null, count: 0 },
@@ -141,6 +142,8 @@ const fake =
     if (path === '/api/v1/provinces') return answer(200, provinces);
     if (path === '/api/v1/mk-list') return answer(200, mkList);
     if (path === '/api/v1/users/anna_b') return answer(200, profile);
+    if (/\/reviews$/.test(path)) return answer(200, reviewList());
+    if (path.startsWith('/api/v1/reviews/')) return answer(200, review());
     if (/^\/api\/v1\/museums\/[^/?]+$/.test(path)) return answer(200, detail);
     return answer(200, list);
   };
@@ -158,6 +161,8 @@ const KINDS: Kind[] = [
   ['signin', '/inloggen', '/en/sign-in'],
   ['account', '/account', '/en/account'],
   ['profile', '/u/anna_b', '/en/u/anna_b'],
+  ['museum-reviews', '/musea/voorbeeld-museum/reviews', '/en/museums/voorbeeld-museum/reviews'],
+  ['review', `/reviews/${REVIEW_ID}`, `/en/reviews/${REVIEW_ID}`],
   ['404', '/nergens/naartoe', '/en/nowhere/at/all'],
   ['400', '/musea', '/en/museums', 400],
   ['5xx', '/musea', '/en/museums', 503],

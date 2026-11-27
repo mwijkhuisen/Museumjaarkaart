@@ -69,3 +69,9 @@ export const IconChevronRight = (p: IconProps) => (
     <path d="M9 5l7 7-7 7" />
   </Svg>
 );
+export const IconInfo = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v6M12 7.5h.01" />
+  </Svg>
+);

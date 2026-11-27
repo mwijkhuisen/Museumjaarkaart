@@ -55,10 +55,19 @@ export function createSsrApp({ bundle, fetchApi, db, config, logger }: SsrDeps):
       .where('indexable', '=', true)
       .orderBy('handle')
       .execute();
+    // P3a: the review page of a museum that has at least one rating (the view holds visible museums only).
+    const reviewed = await db
+      .selectFrom('pub_museum_stats as s')
+      .innerJoin('pub_museum as m', 'm.id', 's.museum_id')
+      .select('m.slug')
+      .where('s.rating_count', '>=', 1)
+      .orderBy('m.slug')
+      .execute();
     const body = bundle.sitemap(
       rows.map((r) => r.slug as string),
       profiles.map((r) => r.handle as string),
       config,
+      reviewed.map((r) => r.slug as string),
     );
     return new Response(body, {
       headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': CACHE_STATIC },

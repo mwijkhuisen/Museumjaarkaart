@@ -12,11 +12,13 @@ import { Home } from './routes/Home.tsx';
 import { Legal } from './routes/Legal.tsx';
 import { MapPage } from './routes/MapPage.tsx';
 import { Museum } from './routes/Museum.tsx';
+import { MuseumReviews } from './routes/MuseumReviews.tsx';
 import { Museums } from './routes/Museums.tsx';
 import { Onboarding } from './routes/Onboarding.tsx';
 import { Passport } from './routes/Passport.tsx';
 import { Profile } from './routes/Profile.tsx';
 import { Province } from './routes/Province.tsx';
+import { Review } from './routes/Review.tsx';
 import { Search } from './routes/Search.tsx';
 import { SignIn } from './routes/SignIn.tsx';
 import { Wishlist } from './routes/Wishlist.tsx';
@@ -67,6 +69,10 @@ function PageFor({ route }: { route: Route }) {
       return <Museums route={route} />;
     case 'museum':
       return <Museum route={route} />;
+    case 'museum-reviews':
+      return <MuseumReviews route={route} />;
+    case 'review':
+      return <Review route={route} />;
     case 'province':
       return <Province route={route} />;
     case 'search':

@@ -1,10 +1,11 @@
 import { useConfig } from '../lib/config.ts';
-import type { Route } from '../lib/routes.ts';
+import { Link } from '../lib/router.tsx';
+import { pathOf, type Route } from '../lib/routes.ts';
 import { m } from '../paraglide/messages.js';
 
-// The interim privacy and contact texts (P1e, accounts and the cookie added in P2a); the terms and the review
-// rules stay placeholders until P3. The controller and the email come from the config as plain text:
-// React escapes them, and the address is only ever a `mailto:` link.
+// The interim privacy and contact texts (P1e, accounts and the cookie added in P2a); the terms stay a placeholder
+// until P3. "How we check reviews" (P3a, A§11) is a draft until the owner approves it in P3d. The controller and
+// the email come from the config as plain text: React escapes them, and the address is only ever a `mailto:` link.
 
 function Mail() {
   const { contactEmail } = useConfig();
@@ -60,13 +61,46 @@ function Contact() {
   );
 }
 
+function ReviewRules({ locale }: { locale: Extract<Route, { page: 'legal' }>['locale'] }) {
+  return (
+    <>
+      <h1>{m.page_reviews()}</h1>
+      <p className="muted">{m.howcheck_draft()}</p>
+      <p>{m.howcheck_intro()}</p>
+      <h2>{m.howcheck_h_visits()}</h2>
+      <p>{m.howcheck_visits()}</p>
+      <h2>{m.howcheck_h_once()}</h2>
+      <p>{m.howcheck_once()}</p>
+      <h2>{m.howcheck_h_scores()}</h2>
+      <p>{m.howcheck_mean()}</p>
+      <p>{m.howcheck_aspects()}</p>
+      <h2>{m.howcheck_h_rank()}</h2>
+      <p>{m.howcheck_rank()}</p>
+      <p>
+        <code>{m.howcheck_formula()}</code>
+      </p>
+      <p>{m.howcheck_rank_why()}</p>
+      <h2>{m.howcheck_h_negative()}</h2>
+      <p>{m.howcheck_negative()}</p>
+      <h2>{m.howcheck_h_moderation()}</h2>
+      <p>{m.howcheck_moderation()}</p>
+      <h2>{m.howcheck_h_staff()}</h2>
+      <p>{m.howcheck_staff()}</p>
+      <h2>{m.howcheck_h_report()}</h2>
+      <p>
+        {m.howcheck_report()} <Link href={pathOf({ page: 'legal', locale, doc: 'contact' })}>{m.page_contact()}</Link>
+      </p>
+    </>
+  );
+}
+
 export function Legal({ route }: { route: Extract<Route, { page: 'legal' }> }) {
   if (route.doc === 'privacy') return <Privacy />;
   if (route.doc === 'contact') return <Contact />;
-  const title = { terms: m.page_terms, reviews: m.page_reviews }[route.doc];
+  if (route.doc === 'reviews') return <ReviewRules locale={route.locale} />;
   return (
     <>
-      <h1>{title()}</h1>
+      <h1>{m.page_terms()}</h1>
       <p>{m.legal_soon()}</p>
     </>
   );

@@ -132,7 +132,7 @@ async function renderRoute(route: Route, path: string, fetchApi: FetchApi, confi
       state[paths[i] as string] = result.body;
       continue;
     }
-    if (result.status === 301 && route.page === 'museum') {
+    if (result.status === 301 && (route.page === 'museum' || route.page === 'museum-reviews')) {
       const slug = movedSlug(result.location);
       if (slug !== null) return redirect(pathOf({ ...route, slug }), 'museum_moved');
     }
@@ -164,6 +164,11 @@ export async function render(path: string, fetchApi: FetchApi, config: SsrConfig
   });
 }
 
-export function sitemap(slugs: readonly string[], handles: readonly string[], config: SsrConfig): string {
-  return sitemapXml(slugs, handles, config);
+export function sitemap(
+  slugs: readonly string[],
+  handles: readonly string[],
+  config: SsrConfig,
+  reviewed: readonly string[] = [],
+): string {
+  return sitemapXml(slugs, handles, config, reviewed);
 }

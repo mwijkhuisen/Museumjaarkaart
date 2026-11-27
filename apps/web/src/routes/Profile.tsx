@@ -1,9 +1,15 @@
-import { type PublicMuseum, PublicVisitList, PublicWishlist, UserProfile } from '@mjk/contracts';
-import { useState } from 'react';
-import type { z } from 'zod';
+import {
+  type PublicMuseum,
+  PublicVisitList,
+  PublicWishlist,
+  ReviewList as ReviewListSchema,
+  UserProfile,
+} from '@mjk/contracts';
 import { Loading } from '../components/layout/Layout.tsx';
 import { ProgressSummary } from '../components/passport/ProgressSummary.tsx';
-import { getJson, useApi } from '../lib/api.ts';
+import { ReviewList } from '../components/reviews/ReviewList.tsx';
+import { More, useMore } from '../components/ui/more.tsx';
+import { useApi } from '../lib/api.ts';
 import { formatMonth } from '../lib/format.ts';
 import { museumName } from '../lib/names.ts';
 import { Link } from '../lib/router.tsx';
@@ -23,52 +29,6 @@ const initialsOf = (name: string, locale: Locale): string =>
     .map((w) => Array.from(w)[0] ?? '')
     .join('')
     .toLocaleUpperCase(locale);
-
-type Page<T> = { items: T[]; next: string | null };
-
-/** The inline first page plus whatever "meer" has fetched since; the browser only. */
-function useMore<T>(first: Page<T>, path: string, schema: z.ZodType<Page<T>>) {
-  const [items, setItems] = useState<T[]>(first.items);
-  const [next, setNext] = useState<string | null>(first.next);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const more = () => {
-    if (next === null || busy) return;
-    setBusy(true);
-    setFailed(false);
-    getJson(`${path}?cursor=${next}`, schema).then(
-      (page) => {
-        setItems((all) => [...all, ...page.items]);
-        setNext(page.next);
-        setBusy(false);
-      },
-      () => {
-        setFailed(true);
-        setBusy(false);
-      },
-    );
-  };
-  return { items, next, busy, failed, more };
-}
-
-function More({ next, busy, failed, more }: { next: string | null; busy: boolean; failed: boolean; more: () => void }) {
-  return (
-    <>
-      {failed ? (
-        <p role="alert" className="form-error">
-          {m.profile_more_failed()}
-        </p>
-      ) : null}
-      {next === null ? null : (
-        <p>
-          <button type="button" className="button button--quiet" disabled={busy} onClick={more}>
-            {m.profile_more()}
-          </button>
-        </p>
-      )}
-    </>
-  );
-}
 
 function MuseumLine({ museum, locale }: { museum: PublicMuseum; locale: Locale }) {
   return (
@@ -128,9 +88,11 @@ function Wishlist({ handle, first, locale }: { handle: string; first: PublicWish
 
 export function Profile({ route }: { route: Extract<Route, { page: 'profile' }> }) {
   const profile = useApi(apiPath.user(route.handle), UserProfile);
-  if (profile === undefined) return <Loading />;
+  const reviews = useApi(apiPath.userReviews(route.handle), ReviewListSchema);
+  if (profile === undefined || reviews === undefined) return <Loading />;
   const { locale } = route;
-  const sharesNothing = profile.progress === null && profile.visits === null && profile.wishlist === null;
+  const sharesNothing =
+    profile.progress === null && profile.visits === null && profile.wishlist === null && reviews.items.length === 0;
   return (
     <article className="stack">
       <header className="cluster">
@@ -149,6 +111,12 @@ export function Profile({ route }: { route: Extract<Route, { page: 'profile' }> 
         <section className="stack" aria-labelledby="profile-progress">
           <h2 id="profile-progress">{m.profile_progress_h()}</h2>
           <ProgressSummary progress={profile.progress} locale={locale} />
+        </section>
+      )}
+      {reviews.items.length === 0 ? null : (
+        <section className="stack" aria-labelledby="profile-reviews">
+          <h2 id="profile-reviews">{m.review_profile_h()}</h2>
+          <ReviewList first={reviews} path={apiPath.userReviews(profile.handle)} locale={locale} showMuseum />
         </section>
       )}
       {profile.visits === null ? null : <VisitLog handle={profile.handle} first={profile.visits} locale={locale} />}

@@ -45,6 +45,21 @@ export function formatDateTime(iso: string, locale: Locale): string {
   }).format(new Date(iso));
 }
 
+/** "1 november 2026" / "1 November 2026": the Amsterdam day of an instant (a contract IsoDateTime). */
+export function formatDay(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(TAG[locale], {
+    timeZone: ZONE,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(iso));
+}
+
+/** "4,3" / "4.3": a mean with one decimal, in the page's language. */
+export function formatMean(mean: number, locale: Locale): string {
+  return new Intl.NumberFormat(TAG[locale], { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(mean);
+}
+
 /** "1.234" / "1,234". */
 export function formatCount(n: number, locale: Locale): string {
   return new Intl.NumberFormat(TAG[locale]).format(n);

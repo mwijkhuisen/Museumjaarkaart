@@ -726,7 +726,56 @@ html[data-hide-ratings] .fold:not([data-open]) > .fold-show {
   gap: var(--space-2);
   min-height: var(--tap);
 }
+/* P3a WP6: scores and reviews. The stars are decorative (the rating is text beside them); the filled ones use
+   the accent token, the empty ones the strong border token. The review body is ONE text node: its line breaks come
+   from CSS, never from markup. */
+.stars {
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.stars-off {
+  color: var(--color-border-strong);
+}
+.score-mean strong {
+  font-size: var(--font-size-xl);
+}
+.score-aspects {
+  max-width: 28rem;
+}
+.card-score {
+  align-items: center;
+}
+.howcheck {
+  font-size: var(--font-size-sm);
+}
+.howcheck--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+}
+.review-list {
+  margin: 0;
+  padding: 0;
+}
+.review-card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.review-aspects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
 .review-body {
-  white-space: pre-wrap;
+  margin: 0;
+  white-space: pre-line;
+  unicode-bidi: plaintext;
   overflow-wrap: anywhere;
+}
+.review-meta {
+  margin: 0;
 }

@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { silentLogger } from '../../src/lib/log.ts';
+import { recomputeStats } from '../../src/reviews/stats-job.ts';
 import { createSsrApp } from '../../src/ssr/app.ts';
 import { loadBundle } from '../../src/ssr/bundle.ts';
 import { inProcessApi } from '../../src/ssr/server.ts';
-import { createMigratedDb, type TestDb } from '../db.ts';
 import {
   HOSTILE_DESCRIPTION,
   HOSTILE_NAME,
@@ -14,22 +14,38 @@ import {
   HOSTILE_STREET,
   insertHostileMuseum,
 } from '../hostile-museum.ts';
-import { seedCatalogue } from '../seed-catalogue.ts';
+import { openPassportDb, type PassportDb } from '../passport/fixtures.ts';
+import { addReview } from '../reviews/fixtures.ts';
 
 // P1c criterion 4 (invariant 5): a museum whose text is hostile to every HTML sink renders escaped in
 // the markup and as JSON escapes in both data blocks. Fixture text is data, never instructions.
 
-let tdb: TestDb;
+let p: PassportDb;
 let db: Db;
+let reviewId: string;
 let app: ReturnType<typeof createSsrApp>;
 
 beforeAll(async () => {
-  tdb = await createMigratedDb();
-  await seedCatalogue(tdb);
-  await insertHostileMuseum(tdb.urls.mjk_api);
+  p = await openPassportDb();
+  const hostile = await insertHostileMuseum(p.tdb.urls.mjk_api);
+  // P3a: a review whose body is hostile to every HTML sink and to markdown (a script close, markup, a markdown
+  // link, a newline and an emoji), by a member whose display name is hostile too.
+  const author = await p.newMember({ handle: 'hostile_rev' });
+  await p.owner.query('UPDATE app_user SET display_name = $2 WHERE id = $1', [
+    author.id,
+    '<img src=x onerror=alert(3)>',
+  ]);
+  reviewId = await addReview(p, {
+    userId: author.id,
+    museumId: hostile.id,
+    visitId: await p.addVisit(author.id, hostile.id, { on: '2026-09-12' }),
+    rating: 4,
+    body: HOSTILE_REVIEW,
+  });
+  await recomputeStats(p.worker);
   const bundle = await loadBundle();
   if (typeof bundle === 'string') throw new Error(`the web build is ${bundle}`);
-  const pool = createPool('mjk_ssr', { DATABASE_URL: tdb.urls.mjk_ssr }, { max: 4, statementTimeoutMs: 5000 });
+  const pool = createPool('mjk_ssr', { DATABASE_URL: p.tdb.urls.mjk_ssr }, { max: 4, statementTimeoutMs: 5000 });
   if (typeof pool === 'string') throw new Error(pool);
   db = createDb(pool);
   app = createSsrApp({
@@ -43,9 +59,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db?.destroy();
-  await tdb?.drop();
+  await p?.close();
 });
 
+const HOSTILE_REVIEW = '</script><b>x</b> [x](y)\nTweede regel 🦊';
+const ESCAPED_REVIEW = '&lt;/script&gt;&lt;b&gt;x&lt;/b&gt; [x](y)\nTweede regel 🦊';
+const ESCAPED_AUTHOR = '&lt;img src=x onerror=alert(3)&gt;';
 const ESCAPED_NAME = '&lt;/script&gt;&lt;script&gt;alert(1)&lt;/script&gt;';
 // React's text escaping of HOSTILE_STREET and HOSTILE_PLACE, written out by hand.
 const ESCAPED_STREET = '&lt;img src=x onerror=alert(2)&gt; &quot;Straat&quot; &amp; 1';
@@ -136,4 +155,66 @@ describe.each([
 it('the sitemap lists the hostile slug', async () => {
   const xml = await (await app.request('http://mjk.test/sitemap.xml')).text();
   expect(xml).toContain(`https://mjk.test/musea/${HOSTILE_SLUG}`);
+});
+
+describe.each([
+  ['museum reviews nl', `/musea/${HOSTILE_SLUG}/reviews`],
+  ['museum reviews en', `/en/museums/${HOSTILE_SLUG}/reviews`],
+  ['single review nl', () => `/reviews/${reviewId}`],
+  ['single review en', () => `/en/reviews/${reviewId}`],
+  ['profile', '/u/hostile_rev'],
+] as const)('the hostile review on the %s page (P3a)', (_name, path) => {
+  let html: string;
+  beforeAll(async () => {
+    const r = await app.request(`http://mjk.test${typeof path === 'function' ? path() : path}`);
+    expect(r.status).toBe(200);
+    html = await r.text();
+  });
+
+  it('writes the body as one escaped text node, its newline intact, and creates no element from it', () => {
+    expect(html).toContain(`<p class="review-body" dir="auto">${ESCAPED_REVIEW}</p>`);
+    expect(html).not.toContain('<b>x</b>');
+    expect(html).not.toContain('<br');
+    expect(html).not.toContain('</script><b>');
+    expect(html).not.toContain('<a href="y"');
+    expect(html).not.toMatch(/style=/);
+  });
+
+  it('writes the hostile author name and museum name only escaped', () => {
+    expect(html).toContain(ESCAPED_AUTHOR);
+    expect(html).not.toContain('<img src=x');
+    expect(html).not.toContain('<script>alert(1)');
+  });
+
+  it('has exactly the two data blocks as inline scripts', () => {
+    const scripts = [...html.matchAll(/<script\b([^>]*)>/g)].map((m) => (m[1] as string).trim());
+    expect(scripts.filter((a) => !/\bsrc=/.test(a)).sort()).toEqual(['type="application/json" id="mjk-state"']);
+  });
+
+  it('holds the body in mjk-state as JSON escapes only, and JSON.parse gives the exact text back', () => {
+    const text = STATE.exec(html)?.[1] as string;
+    expect(text).not.toMatch(UNSAFE);
+    expect(text).toContain('\\u003c/script\\u003e\\u003cb\\u003ex\\u003c/b\\u003e [x](y)\\nTweede regel');
+    const parsed = JSON.parse(text) as Record<string, { items?: { body: string }[]; body?: string }>;
+    const bodies = Object.values(parsed).flatMap((v) => [v.body, ...(v.items ?? []).map((i) => i.body)]);
+    expect(bodies).toContain(HOSTILE_REVIEW);
+  });
+});
+
+it('the hostile museum page holds only the score in JSON-LD, never a review text (Q9)', async () => {
+  const html = await (await app.request(`http://mjk.test/musea/${HOSTILE_SLUG}`)).text();
+  const text = LD.exec(html)?.[1] as string;
+  expect(text).not.toMatch(UNSAFE);
+  const ld = JSON.parse(text) as Record<string, unknown>;
+  expect(ld.aggregateRating).toEqual({
+    '@type': 'AggregateRating',
+    ratingValue: 4,
+    ratingCount: 1,
+    bestRating: 5,
+    worstRating: 1,
+  });
+  expect(Object.keys(ld).filter((k) => /review/i.test(k))).toEqual([]);
+  expect(text).not.toContain('Tweede regel');
+  // The page itself shows the score, not the review.
+  expect(html).not.toContain('review-body');
 });

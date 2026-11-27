@@ -5,6 +5,7 @@ import { apiPath, type Locale, PROVINCE_SLUGS, pathOf, type Route } from '../src
 import { headOf, jsonLdOf, type PageData } from '../src/lib/seo/head.tsx';
 import { sitemapXml } from '../src/lib/seo/sitemap.ts';
 import { overwriteServerAsyncLocalStorage } from '../src/paraglide/runtime.js';
+import { REVIEW_ID, review, reviewList } from './review-fixture.ts';
 
 const CONFIG = { brand: 'Musea Test', domain: 'mjk.test', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
 
@@ -126,6 +127,43 @@ describe('headOf', () => {
   });
 });
 
+describe('the review pages heads (P3a)', () => {
+  const reviewsRoute = (locale: Locale): Route => ({ page: 'museum-reviews', locale, slug: 'rijksmuseum' });
+  const singleRoute = (locale: Locale): Route => ({ page: 'review', locale, id: REVIEW_ID });
+  const reviewsData = new Map<string, unknown>([
+    [apiPath.museum('rijksmuseum'), FULL],
+    [apiPath.museumReviews('rijksmuseum'), reviewList()],
+  ]);
+  const singleData = new Map<string, unknown>([[apiPath.review(REVIEW_ID), review()]]);
+
+  it("indexes a museum's reviews page, titled and described with the museum's name, canonical and hreflang", () => {
+    const nl = inLocaleOf('nl', () => headOf(reviewsRoute('nl'), reviewsData, CONFIG));
+    expect(nl.robots).toBeNull();
+    expect(nl.title).toBe('Reviews van Rijksmuseum · Musea Test');
+    expect(nl.description).toContain('Rijksmuseum');
+    expect(nl.canonical).toBe('https://mjk.test/musea/rijksmuseum/reviews');
+    expect(nl.alternates).toEqual({
+      nl: 'https://mjk.test/musea/rijksmuseum/reviews',
+      en: 'https://mjk.test/en/museums/rijksmuseum/reviews',
+    });
+    expect(inLocaleOf('en', () => headOf(reviewsRoute('en'), reviewsData, CONFIG)).title).toBe(
+      'Reviews of Rijks Museum · Musea Test',
+    );
+  });
+
+  it('keeps a single review out of the index but lets its links be followed (thin content naming a member)', () => {
+    const head = inLocaleOf('nl', () => headOf(singleRoute('nl'), singleData, CONFIG));
+    expect(head.robots).toBe('noindex, follow');
+    expect(head.title).toBe('Review van Voorbeeldmuseum · Musea Test');
+    expect(head.canonical).toBe(`https://mjk.test/reviews/${REVIEW_ID}`);
+  });
+
+  it('has no JSON-LD on either page', () => {
+    expect(jsonLdOf(reviewsRoute('nl'), reviewsData, CONFIG)).toBeNull();
+    expect(jsonLdOf(singleRoute('nl'), singleData, CONFIG)).toBeNull();
+  });
+});
+
 describe('a profile head (Q2: noindex unless the member opted in)', () => {
   const route = (locale: Locale): Route => ({ page: 'profile', locale, handle: 'anna_b' });
   const profile = (over: Record<string, unknown> = {}) =>
@@ -189,6 +227,22 @@ describe('jsonLdOf', () => {
     });
   });
 
+  it('adds aggregateRating from one rating on, with the shown mean and nothing else (Q9)', () => {
+    const rated = { ...FULL, rating_count: 12, rating_mean: 4.3 };
+    const ld = inLocaleOf('en', () => jsonLdOf(route, dataFor(rated), CONFIG)) as Record<string, unknown>;
+    expect(ld.aggregateRating).toEqual({
+      '@type': 'AggregateRating',
+      ratingValue: 4.3,
+      ratingCount: 12,
+      bestRating: 5,
+      worstRating: 1,
+    });
+    expect(Object.keys(ld).filter((k) => /review|rating/i.test(k))).toEqual(['aggregateRating']);
+    const one = inLocaleOf('en', () => jsonLdOf(route, dataFor({ ...FULL, rating_count: 1, rating_mean: 5 }), CONFIG));
+    expect(one).toHaveProperty('aggregateRating.ratingCount', 1);
+    expect('aggregateRating' in (inLocaleOf('en', () => jsonLdOf(route, dataFor(FULL), CONFIG)) as object)).toBe(false);
+  });
+
   it('omits what is unknown and holds no null', () => {
     const ld = inLocaleOf('nl', () => jsonLdOf({ ...route, locale: 'nl' }, dataFor(SPARSE), CONFIG)) as Record<
       string,
@@ -250,6 +304,15 @@ describe('sitemapXml', () => {
     expect(urls.slice(17, 19)).toEqual(['https://mjk.test/u/anna_b', 'https://mjk.test/u/bob']);
     expect(urls).toContain('https://mjk.test/en/u/anna_b');
     expect(urls).toContain('https://mjk.test/en/u/bob');
+  });
+
+  it('lists the review pages of the rated museums after the museums, in both languages', () => {
+    const urls = locs(sitemapXml(slugs, ['anna_b'], CONFIG, ['b-museum']));
+    expect(urls).toHaveLength(2 * (1 + 1 + 12 + slugs.length + 1 + 1));
+    expect(urls.slice(17, 19)).toEqual(['https://mjk.test/musea/b-museum/reviews', 'https://mjk.test/u/anna_b']);
+    expect(urls).toContain('https://mjk.test/en/museums/b-museum/reviews');
+    expect(urls.some((u) => u.includes('/reviews/'))).toBe(false); // no single review page
+    expect(locs(sitemapXml(slugs, [], CONFIG)).some((u) => u.endsWith('/reviews'))).toBe(false);
   });
 
   it('escapes XML metacharacters', () => {

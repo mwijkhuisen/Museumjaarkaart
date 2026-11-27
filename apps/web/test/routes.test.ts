@@ -17,6 +17,8 @@ import {
 type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 type WithoutLocale = DistOmit<Route, 'locale'>;
 
+const UUID = '0191a2b3-c4d5-7e6f-8a9b-0c1d2e3f4a5b';
+
 const route = (path: string): Route => {
   const r = routeOf(path);
   if (r.kind !== 'route') throw new Error(`${path} redirects`);
@@ -50,6 +52,12 @@ describe('routeOf: the A§15.2 table', () => {
     ['/inloggen', '/en/sign-in', { page: 'shell', app: 'signin' }],
     ['/welkom', '/en/welcome', { page: 'shell', app: 'welcome' }],
     ['/u/anna_b', '/en/u/anna_b', { page: 'profile', handle: 'anna_b' }],
+    [
+      '/musea/rijksmuseum-amsterdam/reviews',
+      '/en/museums/rijksmuseum-amsterdam/reviews',
+      { page: 'museum-reviews', slug: 'rijksmuseum-amsterdam' },
+    ],
+    [`/reviews/${UUID}`, `/en/reviews/${UUID}`, { page: 'review', id: UUID }],
     [`/u/${'a'.repeat(30)}`, `/en/u/${'a'.repeat(30)}`, { page: 'profile', handle: 'a'.repeat(30) }],
   ];
 
@@ -66,7 +74,21 @@ describe('routeOf: the A§15.2 table', () => {
     '/en/musea',
     '/musea/Rijksmuseum',
     '/musea/a--b',
-    '/musea/x/reviews',
+    // The one three-segment form is /musea/<slug>/reviews; every other path of three is a 404.
+    '/musea/x/reviewz',
+    '/musea/x/reviews/y',
+    '/en/museums/Bad_Slug/reviews',
+    '/museums/x/reviews',
+    '/en/musea/x/reviews',
+    '/provincie/utrecht/reviews',
+    '/u/anna_b/reviews',
+    '/reviews',
+    '/reviews/x',
+    `/reviews/${UUID.toUpperCase()}`,
+    `/reviews/${UUID}/x`,
+    `/reviews/${UUID.slice(0, 35)}`,
+    `/en/reviews/${UUID}0`,
+    '/en/review/0191a2b3-c4d5-7e6f-8a9b-0c1d2e3f4a5b',
     '/provincie/north-holland',
     '/en/province/friesland',
     '/u/Someone',
@@ -95,6 +117,8 @@ describe('routeOf: the A§15.2 table', () => {
     ['/en', { kind: 'redirect', location: '/en/' }],
     ['/en?x=1', { kind: 'redirect', location: '/en/' }],
     ['/musea/', { kind: 'redirect', location: '/musea' }],
+    ['/musea/x/reviews/', { kind: 'redirect', location: '/musea/x/reviews' }],
+    [`/en/reviews/${UUID}/`, { kind: 'redirect', location: `/en/reviews/${UUID}` }],
     ['/musea/?province=NL-NH&utm=x', { kind: 'redirect', location: '/musea?province=NL-NH' }],
     ['/en/museums/rijksmuseum//', { kind: 'redirect', location: '/en/museums/rijksmuseum' }],
   ])('%s redirects to the canonical path', (path, expected) => {
@@ -138,6 +162,26 @@ describe('query parameters', () => {
     });
   });
 
+  it('keeps the rating filters right after mk, on the list, the map and the points path', () => {
+    const query = 'utm=x&kid_friendly=true&min_rating=4&mk=participating&q=a&sort=name';
+    expect(route(`/musea?${query}`)).toMatchObject({
+      query: 'q=a&mk=participating&min_rating=4&kid_friendly=true&sort=name',
+    });
+    expect(route(`/en/map?${query}`)).toMatchObject({
+      query: 'q=a&mk=participating&min_rating=4&kid_friendly=true&sort=name',
+    });
+    expect(apiPath.points('sort=name&kid_friendly=true&min_rating=4&mk=participating')).toBe(
+      '/api/v1/museums/points?mk=participating&min_rating=4&kid_friendly=true',
+    );
+    expect(route('/provincie/utrecht?min_rating=4')).toMatchObject({ query: '' });
+  });
+
+  it('builds the review paths', () => {
+    expect(apiPath.museumReviews('a-b')).toBe('/api/v1/museums/a-b/reviews');
+    expect(apiPath.review(UUID)).toBe(`/api/v1/reviews/${UUID}`);
+    expect(apiPath.userReviews('anna_b')).toBe('/api/v1/users/anna_b/reviews');
+  });
+
   it('drops empty form fields', () => {
     expect(route('/musea?q=&province=&category=art&mk=')).toMatchObject({ query: 'category=art' });
     expect(route('/zoeken?q=%20%20')).toMatchObject({ query: '' });
@@ -158,7 +202,12 @@ describe('apiPathsOf', () => {
     ['/provincie/noord-holland?cursor=abc', ['/api/v1/provinces', '/api/v1/museums?province=NL-NH&cursor=abc']],
     ['/zoeken', []],
     ['/zoeken?q=rijks', ['/api/v1/museums?q=rijks']],
-    ['/en/u/anna_b', ['/api/v1/users/anna_b']],
+    ['/en/u/anna_b', ['/api/v1/users/anna_b', '/api/v1/users/anna_b/reviews']],
+    [
+      '/musea/rijksmuseum-amsterdam/reviews',
+      ['/api/v1/museums/rijksmuseum-amsterdam', '/api/v1/museums/rijksmuseum-amsterdam/reviews'],
+    ],
+    [`/en/reviews/${UUID}`, [`/api/v1/reviews/${UUID}`]],
     ['/welkom', []],
     ['/kaart', ['/api/v1/museums', '/api/v1/provinces']],
     [
