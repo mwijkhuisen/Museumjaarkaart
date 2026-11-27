@@ -7,7 +7,16 @@ import { Field, FormError } from './fields.tsx';
 
 // Sign-in by password (A§9). `email` is given when the member is already known (reauthentication).
 
-export function PasswordSignIn({ email: known, onSignedIn }: { email?: string; onSignedIn: (me: Me) => void }) {
+export function PasswordSignIn({
+  email: known,
+  webauthn = false,
+  onSignedIn,
+}: {
+  email?: string;
+  /** Lets the browser offer passkeys in the email field (the autofill UI); only `SignInMethods` sets it, never `Reauth`. */
+  webauthn?: boolean;
+  onSignedIn: (me: Me) => void;
+}) {
   const [typed, setTyped] = useState('');
   const [password, setPassword] = useState('');
   const { busy, failure, setFailure, run } = useAction('password');
@@ -34,7 +43,7 @@ export function PasswordSignIn({ email: known, onSignedIn }: { email?: string; o
           type="email"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
-          autoComplete="username"
+          autoComplete={webauthn ? 'username webauthn' : 'username'}
           autoCapitalize="none"
           spellCheck={false}
           required
