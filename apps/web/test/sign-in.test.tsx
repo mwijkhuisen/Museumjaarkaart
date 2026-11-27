@@ -208,6 +208,14 @@ describe('every error code has its own text in both languages', () => {
     expect(describeError(new ApiError(429, 'rate_limited', [], 600), 'plain').text).toContain('10 min');
     expect(describeError(new ApiError(429, 'rate_limited', [], 61), 'plain').text).toContain('2 min');
     expect(describeError(new ApiError(429, 'rate_limited', [], 5), 'plain').text).toContain('1 min');
+    expect(describeError(new ApiError(429, 'rate_limited', [], 3_600), 'plain').text).toContain('60 min');
+  });
+
+  it('turns a wait over an hour (a day\u2019s limit) into whole hours', () => {
+    setLocale('nl', { reload: false });
+    expect(describeError(new ApiError(429, 'rate_limited', [], 3_601), 'passkey_add').text).toContain('2 uur');
+    setLocale('en', { reload: false });
+    expect(describeError(new ApiError(429, 'rate_limited', [], 80_000), 'passkey_add').text).toContain('23 hours');
   });
 
   it('names the field a 422 or a taken handle is about', () => {

@@ -167,6 +167,7 @@
   "auth_err_conflict_verify": "This account already exists, or the username was taken in the meantime. Start again.",
   "auth_err_conflict_email": "This email address is already in use.",
   "auth_err_rate_limited": "Too many attempts. Try again in about {minutes} min.",
+  "auth_err_rate_limited_hours": "Too many attempts. Try again in about {hours} hours.",
   "auth_err_session": "You are no longer signed in. Sign in again.",
   "auth_err_reauth": "We could not confirm it is you. Try again.",
   "auth_err_generic": "Something went wrong. Try again later.",

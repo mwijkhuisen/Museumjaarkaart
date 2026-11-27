@@ -167,6 +167,7 @@
   "auth_err_conflict_verify": "Dit account bestaat al, of de gebruikersnaam is intussen vergeven. Begin opnieuw.",
   "auth_err_conflict_email": "Dit e-mailadres is al in gebruik.",
   "auth_err_rate_limited": "Te veel pogingen. Probeer het over ongeveer {minutes} min opnieuw.",
+  "auth_err_rate_limited_hours": "Te veel pogingen. Probeer het over ongeveer {hours} uur opnieuw.",
   "auth_err_session": "Je bent niet meer ingelogd. Log opnieuw in.",
   "auth_err_reauth": "We konden je niet bevestigen. Probeer het opnieuw.",
   "auth_err_generic": "Er ging iets mis. Probeer het later opnieuw.",

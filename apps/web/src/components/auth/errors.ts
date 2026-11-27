@@ -67,6 +67,8 @@ export function fieldsOf(error: z.ZodError): Record<string, string> {
 }
 
 const minutes = (retryAfter: number | null) => String(Math.max(1, Math.ceil((retryAfter ?? 60) / 60)));
+/** A wait over an hour (a day's limit, such as the passkey adds of M1) in whole hours, so at least 2. */
+const hours = (retryAfter: number) => String(Math.ceil(retryAfter / 3_600));
 
 function textOf(error: ApiError, ctx: Ctx): string {
   switch (error.code) {
@@ -96,7 +98,9 @@ function textOf(error: ApiError, ctx: Ctx): string {
       if (ctx === 'passkey_reauth') return m.auth_err_generic();
       return ctx === 'email' ? m.auth_err_conflict_email() : m.auth_err_conflict_verify();
     case 'rate_limited':
-      return m.auth_err_rate_limited({ minutes: minutes(error.retryAfter) });
+      return error.retryAfter !== null && error.retryAfter > 3_600
+        ? m.auth_err_rate_limited_hours({ hours: hours(error.retryAfter) })
+        : m.auth_err_rate_limited({ minutes: minutes(error.retryAfter) });
     case 'reauth_required':
       return m.auth_err_reauth();
     default:

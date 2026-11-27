@@ -57,7 +57,11 @@ export function mountMePasskeys(v1: ApiApp, deps: ApiDeps): void {
     parseQuery(c, EmptyQuery);
     await requireReauthWithin(db, session, ADD_REAUTH_S);
     const result = await registrationOptions(wa, hostClass(c, site), session);
-    if (!result.ok) throw new ApiError(result.code);
+    if (!result.ok) {
+      throw result.code === 'rate_limited'
+        ? new ApiError('rate_limited', undefined, result.retryAfterS)
+        : new ApiError(result.code);
+    }
     return sendJson(c, PasskeyRegistrationOptions, result.options, CACHE_PRIVATE);
   });
 
@@ -76,8 +80,13 @@ export function mountMePasskeys(v1: ApiApp, deps: ApiDeps): void {
       credential: body.credential,
       name: body.name,
     });
-    if (result.ok) await refund(db, bucket, key, slot.windowStart);
-    if (!result.ok) throw result.code === 'invalid' ? new ApiError('invalid', ['response']) : new ApiError(result.code);
+    // A stored passkey, and one refused by the day's add limit, are no failed registration.
+    if (result.ok || result.code === 'rate_limited') await refund(db, bucket, key, slot.windowStart);
+    if (!result.ok) {
+      if (result.code === 'invalid') throw new ApiError('invalid', ['response']);
+      if (result.code === 'rate_limited') throw new ApiError('rate_limited', undefined, result.retryAfterS);
+      throw new ApiError(result.code);
+    }
     return sendJson(c, PasskeyItem, result.item, CACHE_PRIVATE, 201);
   });
 

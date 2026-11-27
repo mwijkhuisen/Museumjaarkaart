@@ -25,7 +25,7 @@ import type { Logger } from '../lib/log.ts';
 import { enqueueMailNotice } from '../mail/payloads.ts';
 import { hmac, safeEqual, sha256 } from './crypto.ts';
 import type { AppKeys } from './keys.ts';
-import { BUCKETS, hit, passkeyUserKey } from './limiter.ts';
+import { BUCKETS, hit, passkeyUserKey, peek } from './limiter.ts';
 import { loadUser, settingsOf, toMeUser } from './me.ts';
 import { REAUTH_S, type Session, type SessionHost, startSession } from './session.ts';
 
@@ -391,7 +391,8 @@ export function attestationAllowed(attestationObject: string): boolean {
 
 export type RegistrationOptionsResult =
   | { ok: true; options: PasskeyRegistrationOptions }
-  | { ok: false; code: 'conflict' };
+  | { ok: false; code: 'conflict' }
+  | { ok: false; code: 'rate_limited'; retryAfterS: number };
 
 /** POST /me/passkeys/options for the session's member (the route checks the re-authentication). */
 export async function registrationOptions(
@@ -411,6 +412,14 @@ export async function registrationOptions(
     .orderBy('created_at')
     .execute();
   if (existing.length >= PASSKEY_MAX) return { ok: false, code: 'conflict' };
+  // P2b review M1: the day's adds used up → refused here, before the browser's dialog, so no device
+  // stores a passkey the add would then refuse (the add counts it, under the member's row lock).
+  const day = BUCKETS.passkeyAddUserDay;
+  if ((await peek(d.db, day, passkeyUserKey(d.keys, session.user.id))) >= day.limit) {
+    d.logger.warn({ bucket: day.name }, 'rate_limited');
+    const nowS = Math.floor(Date.now() / 1_000);
+    return { ok: false, code: 'rate_limited', retryAfterS: Math.max(1, day.windowS - (nowS % day.windowS)) };
+  }
   const handle = String(user.handle);
   const o = await generateRegistrationOptions({
     rpName: rpIdOf(d.site),
@@ -450,7 +459,10 @@ export async function registrationOptions(
   };
 }
 
-export type RegistrationResult = { ok: true; item: PasskeyItem } | { ok: false; code: 'invalid' | 'conflict' };
+export type RegistrationResult =
+  | { ok: true; item: PasskeyItem }
+  | { ok: false; code: 'invalid' | 'conflict' }
+  | { ok: false; code: 'rate_limited'; retryAfterS: number };
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -525,6 +537,14 @@ export async function verifyRegistration(
         .executeTakeFirstOrThrow();
       if (Number(count) >= PASSKEY_MAX) return { ok: false, code: 'conflict' };
       if (!(await spendChallenge(trx, host, spend))) return refuse('replay');
+      // P2b review M1: every added passkey sends a notice that may use the mail budget's reserve, so adds
+      // are limited per member and (UTC) day, and removing one frees no slot. Counted under the row lock
+      // above, after the spend (a replay counts nothing); a failed insert rolls the count back.
+      const added = await hit(trx, BUCKETS.passkeyAddUserDay, passkeyUserKey(d.keys, session.user.id));
+      if (!added.allowed) {
+        d.logger.warn({ bucket: BUCKETS.passkeyAddUserDay.name }, 'rate_limited');
+        return { ok: false, code: 'rate_limited', retryAfterS: added.retryAfterS };
+      }
       const row = await trx
         .insertInto('passkey')
         .values({

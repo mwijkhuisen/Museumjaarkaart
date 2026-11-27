@@ -1,5 +1,6 @@
 import { Me, PasskeyItem, PasskeyList, PasskeyRegistrationOptions } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { passkeyUserKey } from '../../src/auth/limiter.ts';
 import { loadSession, startSession } from '../../src/auth/session.ts';
 import { accountsApp, altchaPayload, codeFor, SITE, tokenOf } from '../auth/app.ts';
 import { type AuthDb, openAuthDb } from '../auth/fixtures.ts';
@@ -438,5 +439,81 @@ describe('refusals', () => {
     const onAdmin: Who = { ...w, host: 'admin' };
     expect((await call(onAdmin, '/me/passkeys')).status).toBe(401);
     expect(await loadSession(a.db, w.token, 'admin')).toBeNull();
+  });
+});
+
+// P2b review M1: every added passkey sends a notice that may use the mail budget's reserve, so a member
+// adds at most 5 a (UTC) day, checked at the options (before the browser's dialog) and counted at the end.
+describe('the day’s add limit (M1)', () => {
+  const DAY = 'passkey_add_user_day';
+  const notices = (w: Who) =>
+    count("SELECT count(*) AS n FROM job WHERE kind = 'mail_notice' AND payload->>'user_id' = $1", [w.user.id]);
+  const bucketCount = (w: Who, bucket: string) =>
+    count('SELECT COALESCE(sum(count), 0) AS n FROM rate_limit WHERE bucket = $1 AND key = $2', [
+      bucket,
+      passkeyUserKey(t.keys, w.user.id),
+    ]);
+  const fresh = (w: Who) => softCredential({ userHandle: w.cred.userHandle });
+  const limitedBuckets = (from: number) =>
+    t
+      .lines()
+      .slice(from)
+      .filter((l) => l.msg === 'rate_limited')
+      .map((l) => l.bucket);
+
+  it('5 adds, one notice each; the 6th → 429 at the options, and removing one frees no slot', async () => {
+    const w = await member();
+    const items = [];
+    for (let i = 0; i < 5; i++) items.push(await added(w, `Key ${i + 1}`, fresh(w)));
+    expect(await notices(w)).toBe(5);
+    const first = items[0] as PasskeyItem;
+    expect((await call(w, `/me/passkeys/${first.ref}`, { method: 'DELETE' })).status).toBe(204);
+    expect(await passkeysOf(w)).toBe(4);
+    const from = t.lines().length;
+    const r = await optionsOf(w);
+    expect(r.status).toBe(429);
+    expect(await r.json()).toEqual({ error: 'rate_limited' });
+    const retry = Number(r.headers.get('retry-after'));
+    expect(retry).toBeGreaterThan(0);
+    expect(retry).toBeLessThanOrEqual(86_400);
+    expect(limitedBuckets(from)).toEqual([DAY]);
+    expect(JSON.stringify(t.lines().slice(from))).not.toContain(w.user.id);
+    expect(await notices(w)).toBe(5);
+    // Another member is not affected.
+    expect((await add(await member())).status).toBe(201);
+  });
+
+  it('a ceremony started before the 5th add is refused at the end: 429, nothing stored, no notice, no failure counted', async () => {
+    const w = await member();
+    for (let i = 0; i < 4; i++) await added(w, undefined, fresh(w));
+    const early = await challengeOf(w);
+    const late = await challengeOf(w);
+    const fifth = await call(w, '/me/passkeys', { body: { credential: fresh(w).register({ challenge: early }) } });
+    expect(fifth.status).toBe(201);
+    const from = t.lines().length;
+    const sixth = await call(w, '/me/passkeys', { body: { credential: fresh(w).register({ challenge: late }) } });
+    expect(sixth.status).toBe(429);
+    expect(await sixth.json()).toEqual({ error: 'rate_limited' });
+    expect(Number(sixth.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(limitedBuckets(from)).toEqual([DAY]);
+    expect(await passkeysOf(w)).toBe(5);
+    expect(await notices(w)).toBe(5);
+    // Every passkey_register_user slot came back: neither a stored passkey nor the day's limit is a failure (L2).
+    expect(await bucketCount(w, 'passkey_register_user')).toBe(0);
+  });
+
+  it('a duplicate (409) and a replayed challenge (422) count no add', async () => {
+    const w = await member();
+    await added(w, 'Once');
+    expect((await add(w, { name: 'Twice' })).status).toBe(409);
+    const challenge = await challengeOf(w);
+    expect((await call(w, '/me/passkeys', { body: { credential: fresh(w).register({ challenge }) } })).status).toBe(
+      201,
+    );
+    const replay = await call(w, '/me/passkeys', { body: { credential: fresh(w).register({ challenge }) } });
+    expect(replay.status).toBe(422);
+    expect(await bucketCount(w, DAY)).toBe(2);
+    expect(await passkeysOf(w)).toBe(2);
+    expect(await notices(w)).toBe(2);
   });
 });
