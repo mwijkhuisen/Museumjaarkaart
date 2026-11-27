@@ -65,6 +65,30 @@ export type PasskeyAssertion = z.infer<typeof PasskeyAssertion>;
 export const PasskeySignInRequest = z.strictObject({ credential: PasskeyAssertion });
 export type PasskeySignInRequest = z.infer<typeof PasskeySignInRequest>;
 
+/**
+ * The assertion of a re-authentication: the browser was given the member's own credentials
+ * (`allowCredentials`), and an authenticator may then leave `userHandle` out. When it is there, the
+ * server still checks it.
+ */
+export const PasskeyReauthAssertion = z
+  .strictObject({
+    id: CredentialId,
+    rawId: CredentialId,
+    type: z.literal('public-key'),
+    response: z.strictObject({
+      clientDataJSON: Bytes(4096),
+      authenticatorData: Bytes(2048),
+      signature: Bytes(1024),
+      userHandle: Bytes(64).optional(),
+    }),
+  })
+  .refine((c) => c.id === c.rawId, { path: ['rawId'] });
+export type PasskeyReauthAssertion = z.infer<typeof PasskeyReauthAssertion>;
+
+/** POST /auth/passkey/reauth/verify. */
+export const PasskeyReauthRequest = z.strictObject({ credential: PasskeyReauthAssertion });
+export type PasskeyReauthRequest = z.infer<typeof PasskeyReauthRequest>;
+
 /** A new credential: the attestation, the transports the browser reported and `credProps.rk`. */
 export const PasskeyAttestation = z
   .strictObject({
@@ -103,6 +127,23 @@ export const PasskeySignInOptions = z.strictObject({
 });
 export type PasskeySignInOptions = z.infer<typeof PasskeySignInOptions>;
 
+/** A credential the browser may use: in excludeCredentials (registration) and allowCredentials (re-authentication). */
+const CredentialDescriptor = z.strictObject({
+  id: CredentialId,
+  type: z.literal('public-key'),
+  transports: z.array(z.enum(PASSKEY_TRANSPORTS)).max(8).optional(),
+});
+
+/** POST /auth/passkey/reauth/options: only the signed-in member's own passkeys, so the browser offers no other account's. */
+export const PasskeyReauthOptions = z.strictObject({
+  challenge: Challenge,
+  rpId: z.string().min(1).max(253),
+  timeout: Timeout,
+  userVerification: z.literal('required'),
+  allowCredentials: z.array(CredentialDescriptor).min(1).max(PASSKEY_MAX),
+});
+export type PasskeyReauthOptions = z.infer<typeof PasskeyReauthOptions>;
+
 /** POST /me/passkeys/options: PublicKeyCredentialCreationOptionsJSON as we fill it (A§9). */
 export const PasskeyRegistrationOptions = z.strictObject({
   challenge: Challenge,
@@ -114,15 +155,7 @@ export const PasskeyRegistrationOptions = z.strictObject({
     .max(8),
   timeout: Timeout,
   attestation: z.literal('none'),
-  excludeCredentials: z
-    .array(
-      z.strictObject({
-        id: CredentialId,
-        type: z.literal('public-key'),
-        transports: z.array(z.enum(PASSKEY_TRANSPORTS)).max(8).optional(),
-      }),
-    )
-    .max(PASSKEY_MAX),
+  excludeCredentials: z.array(CredentialDescriptor).max(PASSKEY_MAX),
   authenticatorSelection: z.strictObject({
     residentKey: z.literal('required'),
     requireResidentKey: z.literal(true),

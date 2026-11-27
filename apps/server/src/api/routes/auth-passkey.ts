@@ -1,14 +1,27 @@
-import { EmptyQuery, Me, PasskeySignInOptions, PasskeySignInRequest } from '@mjk/contracts';
+import {
+  EmptyQuery,
+  Me,
+  PasskeyReauthOptions,
+  PasskeyReauthRequest,
+  PasskeySignInOptions,
+  PasskeySignInRequest,
+} from '@mjk/contracts';
 import type { Context } from 'hono';
 import { BUCKETS, enforce, hitIp, ipKeys, refund } from '../../auth/limiter.ts';
 import { readSessionCookie } from '../../auth/session.ts';
-import { signInOptions, verifySignIn, type WebAuthnDeps } from '../../auth/webauthn.ts';
+import {
+  reauthOptions,
+  type SignInResult,
+  signInOptions,
+  verifySignIn,
+  type WebAuthnDeps,
+} from '../../auth/webauthn.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
 import { readJson } from '../body.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
 import { ApiError } from '../errors.ts';
 import type { ApiEnv } from '../middleware/request.ts';
-import { accessEmail, hostClass } from '../middleware/session.ts';
+import { accessEmail, hostClass, requireMember } from '../middleware/session.ts';
 import { parseQuery } from '../query.ts';
 import { sendJson } from '../respond.ts';
 
@@ -45,16 +58,8 @@ export function mountAuthPasskey(v1: ApiApp, deps: ApiDeps): void {
     return sendJson(c, PasskeySignInOptions, signInOptions(wa, hostClass(c, site)), CACHE_PRIVATE);
   });
 
-  v1.post('/auth/passkey/verify', async (c) => {
-    const { credential } = await readJson(c, PasskeySignInRequest);
-    const host = hostClass(c, site);
-    const refundVerified = await reservePasskeyCheck(c, deps);
-    const result = await verifySignIn(wa, {
-      host,
-      credential,
-      accessEmail: host === 'admin' ? accessEmail(c) : undefined,
-      sentToken: readSessionCookie(c.req.header('cookie')),
-    });
+  /** The answer of a verify: the refusals' status codes, or 200 Me with the new session's cookie. */
+  const answer = async (c: Context<ApiEnv>, result: SignInResult, refundVerified: () => Promise<void>) => {
     if (!result.ok) {
       // A banned member's signature verified, and so did one past passkey_user_hour: neither is a
       // failed guess (A§9, as for a password).
@@ -65,5 +70,46 @@ export function mountAuthPasskey(v1: ApiApp, deps: ApiDeps): void {
     await refundVerified();
     c.header('Set-Cookie', result.cookie);
     return sendJson(c, Me, { user: result.me }, CACHE_PRIVATE);
+  };
+
+  v1.post('/auth/passkey/verify', async (c) => {
+    const { credential } = await readJson(c, PasskeySignInRequest);
+    const host = hostClass(c, site);
+    const refundVerified = await reservePasskeyCheck(c, deps);
+    const result = await verifySignIn(wa, {
+      host,
+      credential,
+      accessEmail: host === 'admin' ? accessEmail(c) : undefined,
+      sentToken: readSessionCookie(c.req.header('cookie')),
+    });
+    return answer(c, result, refundVerified);
+  });
+
+  // Re-authentication with a passkey (owner, 2026-11-27): the signed-in member confirms it is them with
+  // one of their own passkeys, for the 10-minute window of A§9. It never switches accounts: the options
+  // list only this member's passkeys, the challenge is bound to this session, verify refuses another
+  // member's credential, and the new session (a new token, the current row deleted, as after a code)
+  // is this member's.
+  v1.post('/auth/passkey/reauth/options', async (c) => {
+    const session = requireMember(c);
+    parseQuery(c, EmptyQuery);
+    const result = await reauthOptions(wa, hostClass(c, site), session);
+    if (!result.ok) throw new ApiError(result.code);
+    return sendJson(c, PasskeyReauthOptions, result.options, CACHE_PRIVATE);
+  });
+
+  v1.post('/auth/passkey/reauth/verify', async (c) => {
+    const session = requireMember(c);
+    const { credential } = await readJson(c, PasskeyReauthRequest);
+    const host = hostClass(c, site);
+    const refundVerified = await reservePasskeyCheck(c, deps);
+    const result = await verifySignIn(wa, {
+      host,
+      credential,
+      accessEmail: host === 'admin' ? accessEmail(c) : undefined,
+      sentToken: readSessionCookie(c.req.header('cookie')),
+      reauth: session,
+    });
+    return answer(c, result, refundVerified);
   });
 }

@@ -6,6 +6,8 @@ import {
   type PasskeyAssertion,
   type PasskeyAttestation,
   type PasskeyItem,
+  type PasskeyReauthAssertion,
+  type PasskeyReauthOptions,
   type PasskeyRegistrationOptions,
   type PasskeySignInOptions,
   type PasskeyTransport,
@@ -54,7 +56,7 @@ export const ADD_REAUTH_S = REAUTH_S - WEBAUTHN_TTL_S;
 export const ALGORITHMS: readonly number[] = [-8, -7, -257];
 
 const VERSION = 1;
-const KINDS = { signin: 1, register: 2 } as const;
+const KINDS = { signin: 1, register: 2, reauth: 3 } as const;
 type Kind = keyof typeof KINDS;
 const CHALLENGE_BYTES = 54;
 const TAG_AT = 22;
@@ -176,6 +178,47 @@ export function signInOptions(d: WebAuthnDeps, host: SessionHost): PasskeySignIn
   };
 }
 
+/** The challenge binding of a session-bound ceremony (a registration or a re-authentication): this member, this session. */
+const bindingOf = (session: Session): string[] => [session.user.id, session.ref];
+
+export type ReauthOptionsResult = { ok: true; options: PasskeyReauthOptions } | { ok: false; code: 'conflict' };
+
+/**
+ * POST /auth/passkey/reauth/options (P2b, owner 2026-11-27): a re-authentication with one of the
+ * signed-in member's own passkeys. The options list only those (`allowCredentials`), so the browser
+ * offers no other account's passkey, and the challenge is bound to this member and session. A member
+ * without a passkey gets `conflict`.
+ */
+export async function reauthOptions(
+  d: WebAuthnDeps,
+  host: SessionHost,
+  session: Session,
+): Promise<ReauthOptionsResult> {
+  const own = await d.db
+    .selectFrom('passkey')
+    .select(['credential_id', 'transports'])
+    .where('user_id', '=', session.user.id)
+    .orderBy('created_at')
+    .execute();
+  if (own.length === 0) return { ok: false, code: 'conflict' };
+  return {
+    ok: true,
+    options: {
+      challenge: mintChallenge(d.keys, host, 'reauth', bindingOf(session), nowOf(d)).toString('base64url'),
+      rpId: rpIdOf(d.site),
+      timeout: WEBAUTHN_TTL_S * 1_000,
+      userVerification: 'required',
+      allowCredentials: own.map((p) => {
+        const transports = knownTransports(p.transports);
+        const id = p.credential_id.toString('base64url');
+        return transports.length > 0
+          ? { id, type: 'public-key' as const, transports }
+          : { id, type: 'public-key' as const };
+      }),
+    },
+  };
+}
+
 export type SignInResult =
   | { ok: true; cookie: string; me: MeUser }
   | { ok: false; code: 'unauthorized' | 'banned' }
@@ -190,9 +233,20 @@ export type SignInResult =
  */
 export async function verifySignIn(
   d: WebAuthnDeps,
-  req: { host: SessionHost; credential: PasskeyAssertion; accessEmail: string | undefined; sentToken: string | null },
+  req: {
+    host: SessionHost;
+    credential: PasskeyAssertion | PasskeyReauthAssertion;
+    accessEmail: string | undefined;
+    sentToken: string | null;
+    /**
+     * A re-authentication (POST /auth/passkey/reauth/verify): the signed-in member's session. The
+     * credential must then be one of this member's, and the challenge one bound to this session; the
+     * new session is this member's (a re-authentication never switches accounts).
+     */
+    reauth?: Session;
+  },
 ): Promise<SignInResult> {
-  const { host, credential } = req;
+  const { host, credential, reauth } = req;
   const refuse = (reason: string): SignInResult => {
     d.logger.info({ reason }, 'passkey_refused');
     return { ok: false, code: 'unauthorized' };
@@ -215,12 +269,20 @@ export async function verifySignIn(
     .where('p.credential_id', '=', id)
     .executeTakeFirst();
   if (row === undefined || row.status === 'deleted') return refuse('unknown');
+  // A re-authentication confirms the signed-in member, never another account.
+  if (reauth !== undefined && row.user_id !== reauth.user.id) return refuse('other_member');
   // A§9: an admin-host session only for the Access JWT's own email.
   if (host === 'admin' && req.accessEmail !== String(row.email)) return refuse('unknown');
-  // A discoverable credential names its user: it must be the one this credential belongs to.
-  if (!safeEqual(Buffer.from(credential.response.userHandle, 'base64url'), row.webauthn_user_id)) {
+  // A discoverable credential names its user: it must be the one this credential belongs to. A
+  // re-authentication may come without it (the browser was given the credential list), never with another.
+  const handle = credential.response.userHandle;
+  if (
+    handle === undefined ? reauth === undefined : !safeEqual(Buffer.from(handle, 'base64url'), row.webauthn_user_id)
+  ) {
     return refuse('user_handle');
   }
+  const kind = reauth === undefined ? 'signin' : 'reauth';
+  const binding = reauth === undefined ? [] : bindingOf(reauth);
 
   let checked: CheckedChallenge | null = null;
   let verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>>;
@@ -230,11 +292,16 @@ export async function verifySignIn(
         id: credential.id,
         rawId: credential.rawId,
         type: 'public-key',
-        response: { ...credential.response },
+        response: {
+          clientDataJSON: credential.response.clientDataJSON,
+          authenticatorData: credential.response.authenticatorData,
+          signature: credential.response.signature,
+          ...(handle === undefined ? {} : { userHandle: handle }),
+        },
         clientExtensionResults: {},
       },
       expectedChallenge: (challenge: string) => {
-        checked = checkChallenge(d.keys, host, 'signin', [], challenge, nowOf(d));
+        checked = checkChallenge(d.keys, host, kind, binding, challenge, nowOf(d));
         return checked !== null;
       },
       expectedOrigin: originOf(d.site, host),
@@ -321,8 +388,6 @@ export function attestationAllowed(attestationObject: string): boolean {
     return false;
   }
 }
-
-const bindingOf = (session: Session): string[] => [session.user.id, session.ref];
 
 export type RegistrationOptionsResult =
   | { ok: true; options: PasskeyRegistrationOptions }

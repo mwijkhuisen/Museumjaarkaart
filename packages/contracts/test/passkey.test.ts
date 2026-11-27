@@ -4,6 +4,8 @@ import {
   PASSKEY_MAX,
   PasskeyItem,
   PasskeyList,
+  PasskeyReauthOptions,
+  PasskeyReauthRequest,
   PasskeyRegisterRequest,
   PasskeyRegistrationOptions,
   PasskeyRenameRequest,
@@ -143,5 +145,32 @@ describe('the answers', () => {
       expect(PasskeyItem.safeParse({ ...item, [extra]: 'x' }).success).toBe(false);
     }
     expect(PasskeyList.safeParse({ items: Array.from({ length: PASSKEY_MAX + 1 }, () => item) }).success).toBe(false);
+  });
+});
+
+describe('re-authentication', () => {
+  it('takes an assertion with or without userHandle, and stays strict otherwise', () => {
+    expect(PasskeyReauthRequest.safeParse({ credential: assertion }).success).toBe(true);
+    const { userHandle: _, ...noHandle } = assertion.response;
+    expect(PasskeyReauthRequest.safeParse({ credential: { ...assertion, response: noHandle } }).success).toBe(true);
+    expect(PasskeyReauthRequest.safeParse({ credential: { ...assertion, clientExtensionResults: {} } }).success).toBe(
+      false,
+    );
+    const empty = { ...assertion.response, userHandle: '' };
+    expect(PasskeyReauthRequest.safeParse({ credential: { ...assertion, response: empty } }).success).toBe(false);
+  });
+
+  it('its options name at least one of the member\u2019s credentials, at most PASSKEY_MAX', () => {
+    const ok = {
+      challenge: b64(new Uint8Array(54)),
+      rpId: 'mjk.test',
+      timeout: 300_000,
+      userVerification: 'required',
+      allowCredentials: [{ id, type: 'public-key', transports: ['internal'] }],
+    };
+    expect(PasskeyReauthOptions.parse(ok)).toEqual(ok);
+    expect(PasskeyReauthOptions.safeParse({ ...ok, allowCredentials: [] }).success).toBe(false);
+    const many = Array.from({ length: PASSKEY_MAX + 1 }, () => ({ id, type: 'public-key' }));
+    expect(PasskeyReauthOptions.safeParse({ ...ok, allowCredentials: many }).success).toBe(false);
   });
 });
