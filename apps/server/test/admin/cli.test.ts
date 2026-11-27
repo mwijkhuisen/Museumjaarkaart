@@ -29,13 +29,18 @@ describe('runAdmin', () => {
     }
   });
 
-  it.each([[['user', 'role']], [['user', 'role', 'ann']], [['invite', 'create', 'extra']], [['invite']]])(
-    'usage error %j exits 64 before app_keys or a connection',
-    async (argv) => {
-      const h = harness();
-      expect(await runAdmin(argv, {}, h.io, '/nonexistent')).toBe(64);
-    },
-  );
+  it.each([
+    [['user', 'role']],
+    [['user', 'role', 'ann']],
+    [['user', 'trust']],
+    [['user', 'trust', 'ann', 'bob']],
+    [['user', 'trust', 'ann', '--undo']],
+    [['invite', 'create', 'extra']],
+    [['invite']],
+  ])('usage error %j exits 64 before app_keys or a connection', async (argv) => {
+    const h = harness();
+    expect(await runAdmin(argv, {}, h.io, '/nonexistent')).toBe(64);
+  });
 
   it.each([
     [[]],

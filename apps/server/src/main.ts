@@ -8,6 +8,9 @@ import { createPool, WORKER_POOL_MAX } from './db/pool.ts';
 import { HEARTBEAT_PATH, healthy } from './heartbeat.ts';
 import { createLogger } from './lib/log.ts';
 import { lettermintMailer } from './mail/lettermint.ts';
+import { mediaPublishJob } from './media/publish.ts';
+import { mediaDeleteJob } from './media/remove.ts';
+import { MEDIA_DELETE_JOB, MEDIA_PUBLISH_JOB } from './media/types.ts';
 import type { Source } from './museums/fields.ts';
 import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
@@ -139,6 +142,8 @@ async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promis
       // file r2_media_rw is not optional: Compose does not start the worker without it.
       [TILES_REFRESH_JOB]: tilesRefreshJob({ logger, env }),
       [TILES_ROLLBACK_JOB]: tilesRollbackJob({ logger, env }),
+      [MEDIA_PUBLISH_JOB]: mediaPublishJob({ db, env }),
+      [MEDIA_DELETE_JOB]: mediaDeleteJob({ db, env }),
     }),
     logger,
     signal: stopSignal(deps),

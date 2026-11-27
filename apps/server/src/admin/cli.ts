@@ -35,7 +35,7 @@ import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB } from '../tiles/job.ts';
 import { enqueueUnique } from '../worker/queue.ts';
 import { TILES_REFRESH_ATTEMPTS } from '../worker/schedule.ts';
 import { inviteCreate } from './invite.ts';
-import { userRole } from './user.ts';
+import { userRole, userTrust } from './user.ts';
 
 // The `admin` role (A§5, plan §2.6): the owner's curation tool, run as `mjk_api`. Exit codes:
 // 0 ok · 64 usage · 65 bad data · 66 not found · 78 config · 2 a command a later phase builds.
@@ -316,7 +316,10 @@ const invite: Group = {
   },
 };
 
-const user: Group = { role: { spec: { min: 2, max: 2 }, run: userRole } };
+const user: Group = {
+  role: { spec: { min: 2, max: 2 }, run: userRole },
+  trust: { spec: { min: 1, max: 1, bools: ['revoke'] }, run: userTrust },
+};
 
 /** The groups that are built. */
 export const GROUPS: Record<string, Group> = { museum, list, match, change, tiles, invite, user };
@@ -324,7 +327,7 @@ export const GROUPS: Record<string, Group> = { museum, list, match, change, tile
 export const NOT_BUILT: readonly string[] = [];
 
 const USAGE =
-  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback | invite create | user role> …';
+  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback | invite create | user role|trust> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 

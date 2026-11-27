@@ -6,6 +6,7 @@ import { createPool, WORKER_POOL_MAX } from '../db/pool.ts';
 import { HEARTBEAT_PATH } from '../heartbeat.ts';
 import { createPinger, type Pinger } from '../lib/healthchecks.ts';
 import type { Logger } from '../lib/log.ts';
+import { MEDIA_WORK_DIR, QUARANTINE_DIR } from '../media/limits.ts';
 import { EXPORTS_DIR } from '../passport/export/files.ts';
 import { startHealthPing } from './health-ping.ts';
 import { startSchedule } from './schedule.ts';
@@ -39,7 +40,13 @@ export async function runWorkerRole(
     return EXIT_CONFIG;
   }
   const db = createDb(pool);
-  const schedule = startSchedule({ db, logger, exportsDir: EXPORTS_DIR });
+  const schedule = startSchedule({
+    db,
+    logger,
+    exportsDir: EXPORTS_DIR,
+    quarantineDir: QUARANTINE_DIR,
+    mediaWorkDir: MEDIA_WORK_DIR,
+  });
   const healthPing = startHealthPing({ db, logger, env, pinger: opts.pinger ?? createPinger({ logger }) });
   try {
     await runWorker({

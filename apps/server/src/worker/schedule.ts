@@ -1,7 +1,7 @@
 import { Cron } from 'croner';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
-import { purge } from './purge.ts';
+import { type PurgeOpts, purge } from './purge.ts';
 import { enqueueUnique } from './queue.ts';
 
 // The weekly museum sync [U → A§7.4]: Tuesday 03:17 Europe/Amsterdam, unless one is
@@ -26,9 +26,9 @@ export type Schedule = {
   stop(): void;
 };
 
-/** `exportsDir`: the export bundles the purge also cleans (P2c). */
-export function startSchedule(opts: { db: Db; logger: Logger; exportsDir?: string }): Schedule {
-  const { db, logger } = opts;
+/** The directories the purge also cleans: the export bundles (P2c), the quarantine and media-work (P3b). */
+export function startSchedule(opts: { db: Db; logger: Logger } & PurgeOpts): Schedule {
+  const { db, logger, ...dirs } = opts;
   // protect: a run that is still busy (a slow database) is not started twice (F1's busy guard).
   const every = (pattern: string, kind: string, maxAttempts?: number) =>
     new Cron(pattern, { timezone: SCHEDULE_TIMEZONE, protect: true, name: kind }, async () => {
@@ -45,7 +45,7 @@ export function startSchedule(opts: { db: Db; logger: Logger; exportsDir?: strin
   // The retention purge (A§13.2) runs here directly, with no job row.
   const purgeCron = new Cron(PURGE_PATTERN, { timezone: SCHEDULE_TIMEZONE, protect: true, name: 'purge' }, async () => {
     try {
-      await purge(db, logger, opts.exportsDir === undefined ? {} : { exportsDir: opts.exportsDir });
+      await purge(db, logger, dirs);
     } catch (err) {
       // The SQLSTATE if any, never the message (it can quote a value).
       const code = (err as { code?: unknown } | null)?.code;
