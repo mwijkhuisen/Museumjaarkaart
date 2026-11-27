@@ -1,14 +1,16 @@
 import { webcrypto } from 'node:crypto';
-import { AdminMe, ErrorBody } from '@mjk/contracts';
+import { AdminMe, ErrorBody, Me, PasskeySignInOptions } from '@mjk/contracts';
 import { sign } from 'hono/utils/jwt/jwt';
 import { HttpResponse, http } from 'msw';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { server as msw } from '../../../../test/msw.setup.ts';
-import { type ApiDeps, createApp } from '../../src/api/app.ts';
+import type { ApiDeps } from '../../src/api/app.ts';
+import { createApp } from '../../src/api/create-app.ts';
 import { certsUrlOf, createJwksCache, issuerOf } from '../../src/api/middleware/access-jwt.ts';
 import { SESSION_COOKIE, startSession } from '../../src/auth/session.ts';
 import { memoryLogger } from '../../src/lib/log.ts';
 import { type AuthDb, openAuthDb } from '../auth/fixtures.ts';
+import { softCredential } from '../auth/soft-authenticator.ts';
 import { makeTestKeys } from '../auth/test-keys.ts';
 
 // Criteria 12 and 13 (D22, ADR-0004, A§9, A§14) on createApp as the api serves it: on the admin host
@@ -103,6 +105,12 @@ const ROUTES: Array<[string, string, unknown?]> = [
   ['POST', '/api/v1/auth/password', { email: 'owner@example.org', password: 'correct horse battery' }],
   ['POST', '/api/v1/auth/signout'],
   ['POST', '/api/v1/auth/signup', {}],
+  ['POST', '/api/v1/auth/passkey/options'],
+  ['POST', '/api/v1/auth/passkey/verify', { credential: {} }],
+  ['GET', '/api/v1/me/passkeys'],
+  ['POST', '/api/v1/me/passkeys/options'],
+  ['POST', '/api/v1/auth/passkey/reauth/options'],
+  ['POST', '/api/v1/auth/passkey/reauth/verify', { credential: {} }],
   ['GET', '/api/v1/museums'],
   ['GET', '/api/v1/healthz'],
 ];
@@ -206,5 +214,67 @@ describe('/api/admin/*: an admin-host session of the JWT’s email, and the role
       const r = await call('/api/admin/me', { host: 'mjk.test', ...o });
       expect(r.status).toBe(404);
     }
+  });
+});
+
+describe('passkeys on the admin host (P2b criterion 3, the real JWT)', () => {
+  async function adminWithPasskey() {
+    const u = await a.newUser({ role: 'admin' });
+    const handle = (await a.admin.query('SELECT webauthn_user_id AS h FROM app_user WHERE id = $1', [u.id])).rows[0]
+      ?.h as Buffer;
+    const cred = softCredential({ userHandle: handle });
+    await a.admin.query(
+      `INSERT INTO passkey (credential_id, user_id, public_key, backed_up) VALUES ($1, $2, $3, false)`,
+      [cred.id, u.id, cred.publicKeyCose],
+    );
+    return { u, cred };
+  }
+  const challengeOn = async (host: string, token?: string) => {
+    const r = await call('/api/v1/auth/passkey/options', { host, method: 'POST', ...(token ? { jwt: token } : {}) });
+    expect(r.status).toBe(200);
+    return PasskeySignInOptions.parse(await r.json()).challenge;
+  };
+
+  it('the JWT’s own account signs in with its passkey, and the admin-host session reaches /api/admin', async () => {
+    const { u, cred } = await adminWithPasskey();
+    const token = await jwt(u.email);
+    const assertion = cred.assert({ challenge: await challengeOn(ADMIN, token), origin: 'https://admin.mjk.test' });
+    const r = await call('/api/v1/auth/passkey/verify', { jwt: token, body: { credential: assertion } });
+    expect(r.status).toBe(200);
+    expect(Me.parse(await r.json()).user?.handle).toBe(u.handle);
+    const cookie = /__Host-mjk_sid=([A-Za-z0-9_-]{43});/.exec(r.headers.get('set-cookie') ?? '')?.[1];
+    expect(cookie).toBeDefined();
+    expect((await call('/api/admin/me', { jwt: token, cookie: cookie as string })).status).toBe(200);
+    // that session is the admin host's only: the public host does not know it
+    expect(await (await call('/api/v1/me', { host: 'mjk.test', cookie: cookie as string })).json()).toEqual({
+      user: null,
+    });
+  });
+
+  it('a JWT of another email: the passkey of a real admin creates no session (401)', async () => {
+    const { cred } = await adminWithPasskey();
+    const token = await jwt('someone.else@example.org');
+    const assertion = cred.assert({ challenge: await challengeOn(ADMIN, token), origin: 'https://admin.mjk.test' });
+    const r = await call('/api/v1/auth/passkey/verify', { jwt: token, body: { credential: assertion } });
+    expect(r.status).toBe(401);
+    expect(r.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('an assertion made on the public host is refused by the admin host, and the other way round', async () => {
+    const { u, cred } = await adminWithPasskey();
+    const token = await jwt(u.email);
+    const onPublic = cred.assert({ challenge: await challengeOn('mjk.test'), origin: 'https://mjk.test' });
+    expect((await call('/api/v1/auth/passkey/verify', { jwt: token, body: { credential: onPublic } })).status).toBe(
+      401,
+    );
+    const onAdmin = cred.assert({ challenge: await challengeOn(ADMIN, token), origin: 'https://admin.mjk.test' });
+    expect(
+      (await call('/api/v1/auth/passkey/verify', { host: 'mjk.test', body: { credential: onAdmin } })).status,
+    ).toBe(401);
+    // and each works on its own host
+    const fresh = cred.assert({ challenge: await challengeOn('mjk.test'), origin: 'https://mjk.test' });
+    expect((await call('/api/v1/auth/passkey/verify', { host: 'mjk.test', body: { credential: fresh } })).status).toBe(
+      200,
+    );
   });
 });

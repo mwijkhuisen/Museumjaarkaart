@@ -14,10 +14,13 @@ import { Field, FormError } from './fields.tsx';
 export function EmailCodeSignIn({
   locale,
   email: known,
+  webauthn = false,
   onSignedIn,
 }: {
   locale: Locale;
   email?: string;
+  /** Lets the browser offer passkeys in this field (the autofill UI); only `SignInMethods` sets it, never `Reauth`. */
+  webauthn?: boolean;
   onSignedIn: (me: Me) => void;
 }) {
   const [typed, setTyped] = useState('');
@@ -69,7 +72,7 @@ export function EmailCodeSignIn({
           type="email"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
-          autoComplete="email"
+          autoComplete={webauthn ? 'email webauthn' : 'email'}
           autoCapitalize="none"
           spellCheck={false}
           required

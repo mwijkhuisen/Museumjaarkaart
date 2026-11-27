@@ -258,6 +258,7 @@ Each phase lists **Depends on**, its **owner actions** (§4) and its **labels** 
 - **Scope in:**
   - @simplewebauthn/server 14.0.3 + @simplewebauthn/browser 14.0.0 (bundled, no third-party request); RP ID `<domain>`; discoverable credentials and the autofill UI; `userVerification: 'required'` at registration and sign-in; the expected origin is that of the host the request arrived on, and each challenge records its host (A§9)
   - add, sign in, list, rename, delete; adding or removing needs a sign-in or code within the last 10 min (else 403 `reauth_required`), and a removal ends every other session; challenges in `auth_challenge` (5 min, single use); the email code stays a way in for every account
+  - As built (A§9): the challenges are stateless (signed per host, ceremony and, when registering, session) and spent once into `auth_challenge` after the signature verified; starting an add needs a sign-in or code within 5 minutes (owner, Q1a)
 - **Scope out:** passkeys as a second factor or TOTP (none, ADR-0007); passkey-only accounts (the email code stays); the Access login on the admin host (A2).
 - **Acceptance:**
   - [CI] Playwright with Chromium's virtual authenticator: add a passkey, sign out, sign in with it.

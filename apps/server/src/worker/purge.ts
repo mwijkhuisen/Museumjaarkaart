@@ -8,7 +8,9 @@ import type { Logger } from '../lib/log.ts';
 const STEPS: Record<string, RawBuilder<unknown>> = {
   session: sql`DELETE FROM session WHERE expires_at < now() OR absolute_expires_at < now()`,
   email_code: sql`DELETE FROM email_code WHERE created_at < now() - interval '24 hours'`,
-  auth_challenge: sql`DELETE FROM auth_challenge WHERE expires_at < now()`,
+  // A minute of grace past the expiry: a spend checks the expiry with its own statement's clock, so a
+  // replay that starts just before a purge can never find the spent row already gone (P2b review L4).
+  auth_challenge: sql`DELETE FROM auth_challenge WHERE expires_at < now() - interval '1 minute'`,
   rate_limit: sql`DELETE FROM rate_limit WHERE window_end < now() - interval '24 hours'`,
   job: sql`DELETE FROM job WHERE state IN ('done', 'failed') AND finished_at < now() - interval '30 days'`,
   // A§9: an unsent sealed code is nulled at its expiry (10 minutes); a failed mail job keeps no sealed value.

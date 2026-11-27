@@ -60,6 +60,9 @@ const ALLOWED_URLS = [
   'https://altcha.org',
   // Svelte's error texts ("https://svelte.dev/e/<code>"): console messages, never fetched.
   'https://svelte.dev/e/',
+  // @simplewebauthn/browser (a lazy chunk, P2b): the link inside the console.warn of its legacy-call
+  // check, in startAuthentication and startRegistration. Text, never fetched; nothing broader.
+  'https://simplewebauthn.dev/docs/packages/browser#typeerror-cannot-read-properties-of-undefined-reading-challenge',
 ];
 
 const item = {
@@ -157,6 +160,7 @@ let manifest: Record<string, ManifestChunk> = {};
 const ENTRY = 'src/entry-client.tsx';
 const MAP_CHUNK = 'src/lib/map/createMap.ts';
 const ALTCHA_CHUNK = 'src/components/auth/altcha-load.ts';
+const PASSKEY_CHUNK = 'src/lib/passkey.ts';
 let adminHtml = '';
 
 beforeAll(async () => {
@@ -390,6 +394,47 @@ describe('the lazy ALTCHA chunk (P2a)', () => {
     console.log(
       `build scan: ALTCHA lazy chunk ${lazy?.file} (${(text(ALTCHA_CHUNK).length / 1024).toFixed(1)} kB), css ${lazy?.css?.join(', ')}, worker ${lazy?.assets?.join(', ')}; no static import from either entry`,
     );
+  });
+});
+
+describe('the lazy passkey chunk (P2b)', () => {
+  const staticKeys = (key: string, seen = new Set<string>()): Set<string> => {
+    if (seen.has(key)) return seen;
+    seen.add(key);
+    for (const dep of manifest[key]?.imports ?? []) staticKeys(dep, seen);
+    return seen;
+  };
+  const text = (key: string) => readFileSync(join(tmp, 'client', manifest[key]?.file ?? 'missing'), 'utf8');
+
+  it('keeps @simplewebauthn/browser out of everything either entry imports, in one lazy chunk without eval, wasm or blob:', () => {
+    const lazy = manifest[PASSKEY_CHUNK];
+    expect(lazy?.isDynamicEntry).toBe(true);
+    // The library's own code (its calls into the browser's credential API), in the lazy chunk only.
+    expect(text(PASSKEY_CHUNK)).toContain('navigator.credentials');
+    const lazyKeys = [...staticKeys(PASSKEY_CHUNK)];
+    for (const entry of [ENTRY, 'admin.html']) {
+      expect(manifest[entry]?.imports ?? [], `${entry} has no static import of the passkey chunk`).not.toContain(
+        PASSKEY_CHUNK,
+      );
+      const entryKeys = staticKeys(entry);
+      expect(entryKeys.has(PASSKEY_CHUNK), `${entry} reaches the passkey chunk statically`).toBe(false);
+      for (const key of entryKeys) {
+        expect(text(key), `${entry}: ${manifest[key]?.file}`).not.toContain('navigator.credentials');
+      }
+    }
+    // The chunk and any chunk only it reaches statically: no way to run strings as code, no wasm, no blob: URL.
+    const entryKeys = new Set([...staticKeys(ENTRY), ...staticKeys('admin.html')]);
+    for (const key of lazyKeys.filter((k) => !entryKeys.has(k))) {
+      expect(text(key), manifest[key]?.file).not.toMatch(/\beval\(|new Function|WebAssembly|blob:/);
+    }
+    console.log(
+      `build scan: passkey lazy chunk ${lazy?.file} (${(text(PASSKEY_CHUNK).length / 1024).toFixed(1)} kB); no static import from either entry`,
+    );
+  });
+
+  it('leaves dist/server holding entry-server.js alone, with no passkey code in it', () => {
+    expect(readdirSync(join(tmp, 'server'))).toEqual(['entry-server.js']);
+    expect(readFileSync(join(tmp, 'server', 'entry-server.js'), 'utf8')).not.toContain('navigator.credentials');
   });
 });
 
