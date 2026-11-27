@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { Handle } from './auth.ts';
+import { BAD_TEXT_CHAR, Cursor, codePoints, isStorable, Slug } from './common.ts';
+import { Limit } from './queries.ts';
 
 // Photos (P3b, A§12, A§14). Browser-safe: zod only, no Node API. The server's own limits are in
 // apps/server/src/media/limits.ts; the values the browser also needs live here.
@@ -77,3 +80,83 @@ export const UploadStatus = z.strictObject({
   keys: z.array(z.string().regex(/^p\/[0-9a-f]{32}\/[0-9]{1,4}\.(avif|webp)$/)).max(8),
 });
 export type UploadStatus = z.infer<typeof UploadStatus>;
+
+// ---- Photos on reviews (P3b WP5) ---------------------------------------------------------------------
+
+/** The widths a variant can have (A§12: 400, 1200, 2000, or the source's own smaller width). */
+const Widths = z.array(z.int().min(1).max(2000)).max(4);
+const Key = z.string().regex(/^[0-9a-f]{32}$/);
+const Dimension = z.int().min(1).max(100000);
+const AltOut = z.string().min(1).max(ALT_TEXT_MAX).nullable();
+
+/**
+ * A published photo (from `pub_media`: approved, on a visible review). The web builds
+ * `https://media.<domain>/p/<public_key>/<width>.<avif|webp>` from `public_key` and `widths` (the AVIF widths).
+ */
+export const PublicPhoto = z.strictObject({
+  id: z.uuid(),
+  width: Dimension,
+  height: Dimension,
+  alt_text: AltOut,
+  public_key: Key,
+  widths: Widths,
+});
+export type PublicPhoto = z.infer<typeof PublicPhoto>;
+
+/**
+ * A member's own photo of a review, in any state but failed and removed. `public_key` and `widths` are set only
+ * once the photo is approved; until then the author sees it through `GET /uploads/:id/preview`.
+ */
+export const OwnPhoto = z.strictObject({
+  id: z.uuid(),
+  state: MediaStateSchema,
+  width: Dimension.nullable(),
+  height: Dimension.nullable(),
+  alt_text: AltOut,
+  public_key: Key.nullable(),
+  widths: Widths,
+});
+export type OwnPhoto = z.infer<typeof OwnPhoto>;
+
+/** An alt text: one line, 1 to 250 code points, P3a's text rule (no control, separator or bidi character). */
+export function isAltText(s: string): boolean {
+  const n = codePoints(s);
+  return isStorable(s) && n >= 1 && n <= ALT_TEXT_MAX && !BAD_TEXT_CHAR.test(s);
+}
+
+/** `PATCH /media/:id`: trimmed text that passes the rule, or `null` to clear it. */
+export const MediaAltPatch = z.strictObject({
+  alt_text: z
+    .string()
+    .max(4 * ALT_TEXT_MAX)
+    .nullable()
+    .transform((s, ctx) => {
+      const t = s === null ? null : s.trim();
+      if (t !== null && !isAltText(t)) ctx.issues.push({ code: 'custom', message: 'not alt text', input: s });
+      return t;
+    }),
+});
+export type MediaAltPatch = z.output<typeof MediaAltPatch>;
+
+/** `GET /uploads/:id/preview?w=`: the WebP variant at most this wide (the smallest when none is). */
+export const PreviewQuery = z.strictObject({ w: z.enum(['400', '1200']).prefault('400') });
+
+/** A photo in a gallery list: the photo, the review it belongs to, its author's handle and the museum. */
+export const GalleryPhoto = PublicPhoto.extend({
+  review_id: z.uuid(),
+  author_handle: Handle.nullable(),
+  museum: z.strictObject({
+    id: z.uuid(),
+    slug: Slug,
+    name: z.string().min(1).max(250),
+    name_en: z.string().max(250).nullable(),
+  }),
+});
+export type GalleryPhoto = z.infer<typeof GalleryPhoto>;
+
+export const PhotoListQuery = z.strictObject({ limit: Limit, cursor: Cursor.optional() });
+export type PhotoListQuery = z.infer<typeof PhotoListQuery>;
+
+/** `GET /museums/:slug/photos` and `GET /users/:handle/photos`, newest first, keyset-paged like the review lists. */
+export const PhotoList = z.strictObject({ items: z.array(GalleryPhoto).max(50), next_cursor: Cursor.nullable() });
+export type PhotoList = z.infer<typeof PhotoList>;

@@ -299,3 +299,63 @@ describe('reviews in the export (P3a)', () => {
     expect(parseMjk(JSON.stringify(without), todayAmsterdam())).toMatchObject({ ok: true });
   });
 });
+
+describe('photos in the export (P3b)', () => {
+  it('lists the member’s photos as metadata only: no file, key, hash or other member’s photo', async () => {
+    const u = await p.newMember();
+    const other = await p.newMember();
+    const m = await p.visible(31);
+    const visit = await p.addVisit(u.id, m.id, {});
+    const review = await p.pools.api.query<{ id: string }>(
+      `INSERT INTO review (user_id, museum_id, visit_id, rating) VALUES ($1, $2, $3, 4) RETURNING id`,
+      [u.id, m.id, visit],
+    );
+    const reviewId = (review.rows[0] as { id: string }).id;
+    const keys = ['a1'.repeat(16), 'b2'.repeat(16), 'c3'.repeat(16)];
+    const sha = Buffer.alloc(32, 0x5a);
+    const insert = async (userId: string, state: string, key: string | null, alt: string | null, attach: boolean) =>
+      (
+        await p.owner.query<{ id: string }>(
+          `INSERT INTO media (user_id, museum_id, review_id, type, state, declared_size, chunk_count, sha256, width,
+             height, public_key, alt_text, consents_at)
+           VALUES ($1, $2, $3, 'image/jpeg', $4, 1000, 1, $5, $6, $7, $8, $9, now()) RETURNING id`,
+          [
+            userId,
+            m.id,
+            attach ? reviewId : null,
+            state,
+            sha,
+            key === null ? null : 640,
+            key === null ? null : 480,
+            key,
+            alt,
+          ],
+        )
+      ).rows[0]?.id as string;
+    const approved = await insert(u.id, 'approved', keys[0] as string, 'Een zaal', true);
+    const pending = await insert(u.id, 'pending_review', keys[1] as string, null, true);
+    const loose = await insert(u.id, 'quarantined', null, null, false);
+    const theirs = await insert(other.id, 'approved', keys[2] as string, null, false);
+
+    const token = await app.signIn(u.id);
+    const text = await (await download(await exportOf(token), 'export.json', token)).text();
+    const doc = JSON.parse(text);
+    expect(MjkExportV1.safeParse(doc).success).toBe(true);
+    expect(doc.photos.map((x: { id: string }) => x.id).sort()).toEqual([approved, pending, loose].sort());
+    const one = doc.photos.find((x: { id: string }) => x.id === approved);
+    expect(one).toEqual({
+      id: approved,
+      review_id: reviewId,
+      museum_slug: m.slug,
+      state: 'approved',
+      created_at: expect.any(String),
+      alt_text: 'Een zaal',
+      width: 640,
+      height: 480,
+    });
+    expect(doc.photos.find((x: { id: string }) => x.id === loose)).toMatchObject({ review_id: null, width: null });
+    for (const secret of [...keys, sha.toString('hex'), sha.toString('base64'), theirs, 'public_key', 'sha256'])
+      expect(text).not.toContain(secret);
+    expect(parseMjk(text, todayAmsterdam())).toMatchObject({ ok: true });
+  });
+});

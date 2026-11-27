@@ -104,6 +104,22 @@ export async function buildBundle(db: Db, userId: string): Promise<Record<Export
        WHERE r.user_id = ${userId}::uuid
        ORDER BY q.created_at, q.id`.execute(db)
   ).rows;
+  // Every photo of the member, any state, as metadata: never the file, the public key, the hash or the error.
+  const photos = (
+    await sql<{
+      id: string;
+      review_id: string | null;
+      slug: string;
+      state: string;
+      created_at: Date;
+      alt_text: string | null;
+      width: number | null;
+      height: number | null;
+    }>`SELECT md.id, md.review_id, m.slug, md.state, md.created_at, md.alt_text, md.width, md.height
+        FROM media md JOIN museum m ON m.id = md.museum_id
+       WHERE md.user_id = ${userId}::uuid
+       ORDER BY md.created_at, md.id`.execute(db)
+  ).rows;
   const sessions = await db
     .selectFrom('session')
     .select(['host', 'method', 'created_at', 'last_used_at'])
@@ -169,6 +185,16 @@ export async function buildBundle(db: Db, userId: string): Promise<Record<Export
       revisions: revisionRows
         .filter((q) => q.review_id === r.id)
         .map((q) => ({ ...contentOf(q), created_at: q.created_at.toISOString() })),
+    })),
+    photos: photos.map((p) => ({
+      id: p.id,
+      review_id: p.review_id,
+      museum_slug: p.slug,
+      state: p.state,
+      created_at: p.created_at.toISOString(),
+      alt_text: p.alt_text,
+      width: p.width,
+      height: p.height,
     })),
     sessions: sessions.map((s) => ({
       host: s.host,

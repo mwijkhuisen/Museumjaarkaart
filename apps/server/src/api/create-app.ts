@@ -9,6 +9,7 @@ import { mountMePasskeys } from './routes/me-passkeys.ts';
 import { mountMeProgress } from './routes/me-progress.ts';
 import { mountMeVisits } from './routes/me-visits.ts';
 import { mountMeWishlist } from './routes/me-wishlist.ts';
+import { mountMedia } from './routes/media.ts';
 import { mountPassword } from './routes/password.ts';
 import { mountReviews } from './routes/reviews.ts';
 import { mountUploads } from './routes/uploads.ts';
@@ -36,6 +37,7 @@ export const mountAccounts: Mount = (v1, d) => {
   mountMeExports(v1, d);
   mountReviews(v1, d);
   mountUploads(v1, d);
+  mountMedia(v1, d);
 };
 
 export function createApp(deps: ApiDeps): ApiApp {
