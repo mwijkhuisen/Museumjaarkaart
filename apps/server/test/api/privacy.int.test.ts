@@ -11,6 +11,7 @@ import { createSsrApp } from '../../src/ssr/app.ts';
 import { loadBundle } from '../../src/ssr/bundle.ts';
 import { inProcessApi } from '../../src/ssr/server.ts';
 import { openPassportDb, type PassportDb } from '../passport/fixtures.ts';
+import { addReview } from '../reviews/fixtures.ts';
 import { meApp } from './me-app.ts';
 
 // P2c criteria 6 and 7 (A§10, A§13, invariant 5): what a member keeps private reaches no public surface, what
@@ -257,5 +258,100 @@ describe('the 24-hour delay on a public visit log (criterion 7)', () => {
     expect(s.page).not.toContain('20 november');
     expect(s.fns.log).toEqual([{ museum_id: e.id, visited_month: '2026-11', visits: '1' }]);
     noneOf(JSON.stringify(s) + (await users('/fresh_one')).text, [MARKER, '2026-11-20'], 'a public surface');
+  });
+});
+
+// P3a (A§8, D17, Q8): a review is public text with the visit's date, and nothing more. A revision, a visit's note,
+// a user id, a visit id and `visit_count` reach no public route, page, view or function; mjk_ssr reads no review
+// table at all.
+
+describe('what a public review answer holds (P3a)', () => {
+  it('has no revision, note, user id, visit id, state or visit_count on any public surface', async () => {
+    const REVISION = 'REVISION-MARKER-9e2f';
+    const NOTE = 'NOTE-MARKER-review-71aa';
+    const u = await p.newMember({ handle: 'rev_private', settings: PUBLIC });
+    const m = await p.visible(30);
+    const visitId = await p.addVisit(u.id, m.id, { on: '2026-07-07', note: NOTE, ageHours: 48 });
+    const reviewId = await addReview(p, { userId: u.id, museumId: m.id, visitId, rating: 5, body: 'Openbare woorden' });
+    await p.owner.query('INSERT INTO review_revision (review_id, rating, body) VALUES ($1, 2, $2)', [
+      reviewId,
+      REVISION,
+    ]);
+    await p.owner.query('UPDATE review SET edited_at = now() WHERE id = $1', [reviewId]);
+    await p.admin.query(
+      'INSERT INTO museum_stats (museum_id, rating_count, rating_mean, bayes_score, collection_count, presentation_count, kid_friendly_count, accessibility_count, facilities_count, value_for_money_count, visit_count) VALUES ($1, 1, 5, 4.9, 0, 0, 0, 0, 0, 0, 31415926)',
+      [m.id],
+    );
+
+    const catalogue = buildApp({ db: p.db, logger: silentLogger, ping: async () => true }, mountCatalogue);
+    const paths = [
+      `/reviews/${reviewId}`,
+      `/museums/${m.slug}/reviews`,
+      `/museums/${m.slug}`,
+      `/users/rev_private/reviews`,
+      `/users/rev_private`,
+      `/users/rev_private/visits`,
+    ];
+    const surfaces: string[] = [];
+    for (const path of paths) {
+      const [a, s] = [await apiGet(catalogue, path), await apiGet(ssrUsers, path)];
+      expect(s, `${path}: api and ssr differ`).toEqual(a);
+      expect(a.status, path).toBe(200);
+      surfaces.push(a.text);
+    }
+    expect(JSON.parse(surfaces[0] as string)).toMatchObject({
+      id: reviewId,
+      rating: 5,
+      body: 'Openbare woorden',
+      visited_on: '2026-07-07',
+    });
+    surfaces.push((await html('/u/rev_private')).text, (await sitemap()).text, await viewsText());
+
+    // The three review functions, as mjk_ssr: the columns are the public ones, in this order and no other.
+    const columns = [
+      'id',
+      'museum_id',
+      'museum_slug',
+      'museum_name',
+      'museum_name_en',
+      'author_handle',
+      'author_display_name',
+      'author_active',
+      'former_member',
+      'visited_on',
+      'rating',
+      'collection',
+      'presentation',
+      'kid_friendly',
+      'accessibility',
+      'facilities',
+      'value_for_money',
+      'body',
+      'created_at',
+      'edited_at',
+    ];
+    for (const sql of [
+      'SELECT * FROM pub_review($1)',
+      'SELECT * FROM pub_reviews_of_museum($1, NULL, 50)',
+      'SELECT * FROM pub_reviews_of_user($1, NULL, 50)',
+    ]) {
+      const arg = sql.includes('of_user') ? 'rev_private' : sql.includes('of_museum') ? m.id : reviewId;
+      const res = await p.pools.ssr.query(sql, [arg]);
+      expect(res.rows.length, sql).toBeGreaterThan(0);
+      expect(Object.keys(res.rows[0]), sql).toEqual(columns);
+      surfaces.push(JSON.stringify(res.rows));
+    }
+
+    for (const text of surfaces) {
+      noneOf(
+        text,
+        [REVISION, NOTE, u.id, visitId, 'visit_count', '31415926', 'user_id', 'visit_id', '"state"'],
+        'a public surface',
+      );
+    }
+    // mjk_ssr reads none of the tables behind them.
+    for (const table of ['review', 'review_revision', 'museum_stats', 'visit']) {
+      await expect(p.pools.ssr.query(`SELECT 1 FROM ${table} LIMIT 1`), table).rejects.toMatchObject({ code: '42501' });
+    }
   });
 });

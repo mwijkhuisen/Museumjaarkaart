@@ -10,6 +10,7 @@ import { mountMeProgress } from './routes/me-progress.ts';
 import { mountMeVisits } from './routes/me-visits.ts';
 import { mountMeWishlist } from './routes/me-wishlist.ts';
 import { mountPassword } from './routes/password.ts';
+import { mountReviews } from './routes/reviews.ts';
 
 // The `api` role's own app: the catalogue plus the account routes. Only the api role loads this
 // module (runApi imports it when it starts), never `ssr`: the passkey routes bring
@@ -32,6 +33,7 @@ export const mountAccounts: Mount = (v1, d) => {
   mountMeProgress(v1, d);
   mountMeImports(v1, d);
   mountMeExports(v1, d);
+  mountReviews(v1, d);
 };
 
 export function createApp(deps: ApiDeps): ApiApp {
