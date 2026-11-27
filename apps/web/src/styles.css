@@ -508,6 +508,29 @@ altcha-widget {
   min-height: var(--tap);
 }
 
+/* profile and passport (P2c) */
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+.plain-list {
+  list-style: none;
+  padding-left: 0;
+}
+.progress__headline {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
 /* utilities */
 .muted {
   color: var(--color-text-muted);

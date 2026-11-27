@@ -1,5 +1,6 @@
-import { MuseumDetail, Provinces, type SsrConfig } from '@mjk/contracts';
+import { MuseumDetail, Provinces, type SsrConfig, UserProfile } from '@mjk/contracts';
 import { m } from '../../paraglide/messages.js';
+import { formatMonth } from '../format.ts';
 import { museumName, provinceName } from '../names.ts';
 import { apiPath, inLocale, type Locale, PROVINCE_SLUGS, pathOf, type Route } from '../routes.ts';
 import { museumJsonLd } from './jsonld.ts';
@@ -64,14 +65,16 @@ export function titleOf(route: Route, data: PageData, brand: string): string {
         brand,
       );
     case 'profile':
-      // ponytail: the handle until WP8b's profile head reads the display name from the page data.
-      return pageTitle(route.handle, brand);
+      return pageTitle(profileOf(route, data).display_name, brand);
     case 'not_found':
       return pageTitle(m.page_not_found(), brand);
   }
 }
 
 const absolute = (route: Route, config: SsrConfig) => `https://${config.domain}${pathOf(route)}`;
+
+const profileOf = (route: Extract<Route, { page: 'profile' }>, data: PageData) =>
+  UserProfile.parse(data.get(apiPath.user(route.handle)));
 
 const museumOf = (route: Extract<Route, { page: 'museum' }>, data: PageData) =>
   MuseumDetail.parse(data.get(apiPath.museum(route.slug)));
@@ -102,9 +105,24 @@ function descriptionOf(route: Route, data: PageData): string | null {
     }
     case 'map':
       return m.head_description_map();
+    case 'profile': {
+      const profile = profileOf(route, data);
+      return m.profile_head_description({
+        name: profile.display_name,
+        month: formatMonth(`${profile.member_since}-01`, route.locale),
+      });
+    }
     default:
       return null;
   }
+}
+
+/** `noindex` for the app shell, `noindex, follow` for search, and for a profile unless its member opted in (Q2). */
+function robotsOf(route: Route, data: PageData): string | null {
+  if (route.page === 'shell') return 'noindex';
+  if (route.page === 'search') return 'noindex, follow';
+  if (route.page === 'profile') return profileOf(route, data).indexable ? null : 'noindex';
+  return null;
 }
 
 /** The head of a 200 page: description, canonical, the hreflang pair and Open Graph (A§15.2). */
@@ -115,12 +133,7 @@ export function headOf(route: Route, data: PageData, config: SsrConfig): HeadDat
     description: descriptionOf(route, data),
     canonical: absolute(route, config),
     alternates: { nl: absolute(inLocale(route, 'nl'), config), en: absolute(inLocale(route, 'en'), config) },
-    robots:
-      route.page === 'shell' || route.page === 'profile'
-        ? 'noindex'
-        : route.page === 'search'
-          ? 'noindex, follow'
-          : null,
+    robots: robotsOf(route, data),
     brand: config.brand,
     controller: config.controller,
     contactEmail: config.contactEmail,

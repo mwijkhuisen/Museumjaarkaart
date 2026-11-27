@@ -6,9 +6,10 @@ const escapeXml = (s: string) =>
 
 /**
  * `sitemap.xml` (A§15.2): the home page, the list, the provinces and every museum, in NL and then
- * EN; the slugs in the order given. No legal, shell, map or search pages.
+ * EN; the slugs in the order given, then the opted-in profiles' handles (P2c, Q2). No legal, shell,
+ * map or search pages.
  */
-export function sitemapXml(slugs: readonly string[], config: SsrConfig): string {
+export function sitemapXml(slugs: readonly string[], handles: readonly string[], config: SsrConfig): string {
   const urls = (['nl', 'en'] as Locale[]).flatMap((locale) => {
     const routes: Route[] = [
       { page: 'home', locale },
@@ -22,6 +23,7 @@ export function sitemapXml(slugs: readonly string[], config: SsrConfig): string 
         }),
       ),
       ...slugs.map((slug): Route => ({ page: 'museum', locale, slug })),
+      ...handles.map((handle): Route => ({ page: 'profile', locale, handle })),
     ];
     return routes.map((r) => `<url><loc>${escapeXml(`https://${config.domain}${pathOf(r)}`)}</loc></url>`);
   });

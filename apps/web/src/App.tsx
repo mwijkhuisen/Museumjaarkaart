@@ -13,6 +13,7 @@ import { Legal } from './routes/Legal.tsx';
 import { MapPage } from './routes/MapPage.tsx';
 import { Museum } from './routes/Museum.tsx';
 import { Museums } from './routes/Museums.tsx';
+import { Profile } from './routes/Profile.tsx';
 import { Province } from './routes/Province.tsx';
 import { Search } from './routes/Search.tsx';
 import { Shell } from './routes/Shell.tsx';
@@ -76,7 +77,8 @@ function PageFor({ route }: { route: Route }) {
       if (route.app === 'signin') return <SignIn route={route} />;
       if (route.app === 'account') return <Account route={route} />;
       return <Shell route={route} />;
-    case 'profile': // the profile page arrives with WP8b
+    case 'profile':
+      return <Profile route={route} />;
     case 'not_found':
       return <ErrorPage kind="not_found" />;
   }

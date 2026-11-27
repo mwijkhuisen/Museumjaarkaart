@@ -162,6 +162,6 @@ export async function render(path: string, fetchApi: FetchApi, config: SsrConfig
   });
 }
 
-export function sitemap(slugs: readonly string[], config: SsrConfig): string {
-  return sitemapXml(slugs, config);
+export function sitemap(slugs: readonly string[], handles: readonly string[], config: SsrConfig): string {
+  return sitemapXml(slugs, handles, config);
 }

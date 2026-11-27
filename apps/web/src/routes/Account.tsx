@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PassportSettings } from '../components/account/PassportSettings.tsx';
 import {
   DisplayNameSection,
   EmailSection,
@@ -91,6 +92,7 @@ export function Account({ route }: { route: Extract<Route, { page: 'shell' }> })
       ) : null}
       <DisplayNameSection user={user} onChanged={setMe} />
       <EmailSection user={user} locale={locale} guard={guard} onChanged={setMe} />
+      <PassportSettings user={user} locale={locale} onChanged={setMe} />
       <PasswordSection user={user} guard={guard} onChanged={reload} />
       <SessionsSection locale={locale} guard={guard} />
       <SignOutSection guard={guard} onSignedOut={() => navigate(pathOf({ page: 'home', locale }))} />
