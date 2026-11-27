@@ -4,6 +4,7 @@
 export * from './auth.ts';
 export * from './common.ts';
 export * from './errors.ts';
+export * from './media.ts';
 export * from './museums.ts';
 export * from './passkey.ts';
 export * from './passport.ts';
