@@ -76,6 +76,7 @@ function PageFor({ route }: { route: Route }) {
       if (route.app === 'signin') return <SignIn route={route} />;
       if (route.app === 'account') return <Account route={route} />;
       return <Shell route={route} />;
+    case 'profile': // the profile page arrives with WP8b
     case 'not_found':
       return <ErrorPage kind="not_found" />;
   }

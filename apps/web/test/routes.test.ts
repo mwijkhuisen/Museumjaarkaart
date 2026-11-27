@@ -48,6 +48,9 @@ describe('routeOf: the A§15.2 table', () => {
     ['/verlanglijst', '/en/wishlist', { page: 'shell', app: 'wishlist' }],
     ['/account', '/en/account', { page: 'shell', app: 'account' }],
     ['/inloggen', '/en/sign-in', { page: 'shell', app: 'signin' }],
+    ['/welkom', '/en/welcome', { page: 'shell', app: 'welcome' }],
+    ['/u/anna_b', '/en/u/anna_b', { page: 'profile', handle: 'anna_b' }],
+    [`/u/${'a'.repeat(30)}`, `/en/u/${'a'.repeat(30)}`, { page: 'profile', handle: 'a'.repeat(30) }],
   ];
 
   it.each(pairs)('%s and %s', (nl, en, expected) => {
@@ -66,7 +69,14 @@ describe('routeOf: the A§15.2 table', () => {
     '/musea/x/reviews',
     '/provincie/north-holland',
     '/en/province/friesland',
-    '/u/someone',
+    '/u/Someone',
+    '/u/ab',
+    '/u/a-b',
+    `/u/${'a'.repeat(31)}`,
+    '/u/someone/x',
+    '/en/u',
+    '/welcome',
+    '/en/welkom',
     '/melden',
     '/enx',
     '//evil.example',
@@ -148,6 +158,8 @@ describe('apiPathsOf', () => {
     ['/provincie/noord-holland?cursor=abc', ['/api/v1/provinces', '/api/v1/museums?province=NL-NH&cursor=abc']],
     ['/zoeken', []],
     ['/zoeken?q=rijks', ['/api/v1/museums?q=rijks']],
+    ['/en/u/anna_b', ['/api/v1/users/anna_b']],
+    ['/welkom', []],
     ['/kaart', ['/api/v1/museums', '/api/v1/provinces']],
     [
       '/kaart?province=NL-NH&mk=participating',

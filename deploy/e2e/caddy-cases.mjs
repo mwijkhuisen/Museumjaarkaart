@@ -317,6 +317,28 @@ async function echoCases() {
       headersAre(expect, res, { ...PUBLIC, 'cache-control': 'no-store' }, '413');
     });
   }
+  // P2c design 4: an import's file and its confirm take 2 MiB, and only those two POSTs.
+  for (const path of ['/api/v1/me/imports', '/api/v1/me/imports/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/confirm']) {
+    await check(`POST ${path}: over 64 KiB reaches the api, over 2 MiB is a no-store 413`, async (expect) => {
+      const ok = await send('edge', path, { method: 'POST', body: Buffer.alloc(2 * 1024 * 1024, 'a') });
+      statusIs(expect, ok, 200, '2 MiB');
+      reached(expect, ok, 'api');
+      const big = await send('edge', path, { method: 'POST', body: Buffer.alloc(2 * 1024 * 1024 + 1, 'a') });
+      statusIs(expect, big, 413, '413');
+      headersAre(expect, big, { ...PUBLIC, 'cache-control': 'no-store' }, '413');
+    });
+  }
+  for (const [method, path] of [
+    ['PUT', '/api/v1/me/imports'],
+    ['POST', '/api/v1/me/imports/x'],
+    ['POST', '/api/v1/me/imports/x/confirm/y'],
+    ['POST', '/api/v1/me/importsx'],
+  ]) {
+    await check(`${method} ${path}: a body over 64 KiB is a 413`, async (expect) => {
+      const res = await send('edge', path, { method, body: Buffer.alloc(64 * 1024 + 1, 'a') });
+      statusIs(expect, res, 413, '413');
+    });
+  }
 
   // The admin host (A§5, A§15.6, ADR-0004): the SPA's one page for every path that is not an asset or an api route.
   for (const via of ['edge', CADDY_EDGE]) {

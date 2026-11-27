@@ -54,11 +54,18 @@ export function titleOf(route: Route, data: PageData, brand: string): string {
       );
     case 'shell':
       return pageTitle(
-        { passport: m.page_passport, wishlist: m.page_wishlist, account: m.page_account, signin: m.page_signin }[
-          route.app
-        ](),
+        {
+          passport: m.page_passport,
+          wishlist: m.page_wishlist,
+          account: m.page_account,
+          signin: m.page_signin,
+          welcome: m.page_welcome,
+        }[route.app](),
         brand,
       );
+    case 'profile':
+      // ponytail: the handle until WP8b's profile head reads the display name from the page data.
+      return pageTitle(route.handle, brand);
     case 'not_found':
       return pageTitle(m.page_not_found(), brand);
   }
@@ -108,7 +115,12 @@ export function headOf(route: Route, data: PageData, config: SsrConfig): HeadDat
     description: descriptionOf(route, data),
     canonical: absolute(route, config),
     alternates: { nl: absolute(inLocale(route, 'nl'), config), en: absolute(inLocale(route, 'en'), config) },
-    robots: route.page === 'shell' ? 'noindex' : route.page === 'search' ? 'noindex, follow' : null,
+    robots:
+      route.page === 'shell' || route.page === 'profile'
+        ? 'noindex'
+        : route.page === 'search'
+          ? 'noindex, follow'
+          : null,
     brand: config.brand,
     controller: config.controller,
     contactEmail: config.contactEmail,
