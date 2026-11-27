@@ -28,6 +28,7 @@ import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountMuseumsPoints } from './routes/museums-points.ts';
 import { mountPassword } from './routes/password.ts';
 import { mountProvinces } from './routes/provinces.ts';
+import { mountUsers } from './routes/users.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2, P2a design 6):
 // request id and log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) →
@@ -167,6 +168,8 @@ export const mountCatalogue: Mount = (v1, d) => {
   mountMuseumsNear(v1, d);
   mountMuseumsPoints(v1, d);
   mountMuseumDetail(v1, d);
+  // P2c: the public profiles; outside the session paths, readable as mjk_ssr.
+  mountUsers(v1, d);
 };
 
 /**
