@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mountMeImports } from '../../src/api/routes/me-imports.ts';
 import { BUCKETS, userKey } from '../../src/auth/limiter.ts';
@@ -211,6 +212,56 @@ describe('CSV ratings and reviews', () => {
     app.state.peer = '203.0.113.7';
     expect(await r.json()).toEqual({ visits: 1, wishlist: 0, reviews: 0, skipped: 0 });
     expect(await queued()).toBe(0);
+  });
+
+  it('old terms: a rated file is a 403 and stays pending until the member accepts; an unrated file needs none', async () => {
+    const [m, plain] = [await p.visible(25), await p.visible(26)];
+    const u = await member();
+    await p.admin.query('UPDATE app_user SET terms_version = $2 WHERE id = $1', [u.id, '2020-01-01']);
+    const pre = await upload(u.token, `museum_id,datum,rating\n${m.id},2026-06-01,4\n`);
+    const refused = await confirm(u.token, pre.id);
+    expect([refused.status, await refused.json()]).toEqual([403, { error: 'terms_required' }]);
+    expect(await n("SELECT count(*) AS n FROM visit_import WHERE id = $1 AND state = 'pending'", [pre.id])).toBe(1);
+    expect(await visits(u.id)).toBe(0);
+    expect(await reviews(u.id)).toBe(0);
+
+    await p.admin.query('UPDATE app_user SET terms_version = $2 WHERE id = $1', [u.id, TERMS_VERSION]);
+    expect(await (await confirm(u.token, pre.id)).json()).toEqual({ visits: 1, wishlist: 0, reviews: 1, skipped: 0 });
+
+    // P2c's behaviour: a file without ratings needs only a member.
+    const v = await member();
+    await p.admin.query('UPDATE app_user SET terms_version = $2 WHERE id = $1', [v.id, '2020-01-01']);
+    const unrated = await upload(v.token, `museum_id,datum\n${plain.id},2026-06-01\n`);
+    const r = await confirm(v.token, unrated.id);
+    expect([r.status, await r.json()]).toEqual([200, { visits: 1, wishlist: 0, reviews: 0, skipped: 0 }]);
+  });
+
+  it('a database error in a rated row fails the whole confirm (still pending); a constraint error skips its row', async () => {
+    const [a, b] = [await p.visible(27), await p.visible(28)];
+    // A trigger on b's reviews stands in for a timeout or a deadlock (40P01), then for a lost race (23514).
+    const failOn = (code: string) =>
+      p.owner.query(`CREATE OR REPLACE FUNCTION test_fail_review() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.museum_id = '${b.id}' THEN RAISE EXCEPTION 'forced' USING ERRCODE = '${code}'; END IF;
+        RETURN NEW; END $$`);
+    await failOn('40P01');
+    await p.owner.query(
+      'CREATE TRIGGER test_fail_review BEFORE INSERT ON review FOR EACH ROW EXECUTE FUNCTION test_fail_review()',
+    );
+    try {
+      const u = await member();
+      const pre = await upload(u.token, `museum_id,datum,rating\n${a.id},2026-07-01,5\n${b.id},2026-07-02,4\n`);
+      expect((await confirm(u.token, pre.id)).status).toBe(500);
+      expect(await n("SELECT count(*) AS n FROM visit_import WHERE id = $1 AND state = 'pending'", [pre.id])).toBe(1);
+      expect(await visits(u.id)).toBe(0);
+      expect(await reviews(u.id)).toBe(0);
+
+      await failOn('23514');
+      expect(await (await confirm(u.token, pre.id)).json()).toEqual({ visits: 1, wishlist: 0, reviews: 1, skipped: 1 });
+      expect(await n('SELECT count(*) AS n FROM visit WHERE user_id = $1 AND museum_id = $2', [u.id, b.id])).toBe(0);
+    } finally {
+      await p.owner.query('DROP TRIGGER test_fail_review ON review');
+      await p.owner.query('DROP FUNCTION test_fail_review()');
+    }
   });
 
   it('the mjk importer ignores a reviews key', () => {

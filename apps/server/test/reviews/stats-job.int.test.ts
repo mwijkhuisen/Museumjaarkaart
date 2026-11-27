@@ -63,6 +63,8 @@ describe('what the recompute counts', () => {
     expect(s.presentation_count).toBe(0);
     expect(s.presentation_mean).toBeNull();
     expect(s.visit_count).toBe(5); // every visit counts, whatever became of its review
+    // A museum no one visited counts 0 (the grouped visit count is joined in, not correlated).
+    expect((await stats((await p.visible(2)).id)).visit_count).toBe(0);
     expect(Math.abs(s.bayes_score - bayes(BAYES_C, 4, [5, 3, 4]))).toBeLessThan(1e-9);
 
     const hs = await stats(h.id);

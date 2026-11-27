@@ -82,11 +82,67 @@ describe('DELETE /me/visits/:id with a review', () => {
     expect((await t.call(`/me/visits/${me.visitId}`, { method: 'DELETE' })).status).toBe(401);
   });
 
+  it('a delete started while a review citing the visit is uncommitted waits, then is a 409; no orphan', async () => {
+    const m = await openMuseum(p, 600 + nth++);
+    const me = await memberWithVisit(p, t, m.id);
+    const c = await p.pools.api.connect();
+    let pending: ReturnType<typeof del> | undefined;
+    try {
+      // createReview's order on a second connection: the visit FOR KEY SHARE, then the insert, uncommitted.
+      await c.query('BEGIN');
+      await c.query('SELECT 1 FROM visit WHERE id = $1 FOR KEY SHARE', [me.visitId]);
+      await c.query('INSERT INTO review (user_id, museum_id, visit_id, rating) VALUES ($1, $2, $3, 4)', [
+        me.id,
+        m.id,
+        me.visitId,
+      ]);
+      pending = del(me.token, me.visitId);
+      const waiting = async () =>
+        (
+          await p.pools.api.query(
+            "SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'DELETE FROM visit%'",
+          )
+        ).rowCount;
+      for (let i = 0; i < 100 && (await waiting()) === 0; i++) await new Promise((r) => setTimeout(r, 50));
+      expect(await waiting()).toBe(1);
+      await c.query('COMMIT');
+    } finally {
+      c.release();
+    }
+    const r = (await pending) as Response;
+    expect([r.status, await r.json()]).toEqual([409, { error: 'conflict' }]);
+    expect((await p.admin.query('SELECT 1 FROM visit WHERE id = $1', [me.visitId])).rowCount).toBe(1);
+    const orphans = await p.admin.query(
+      'SELECT 1 FROM review r LEFT JOIN visit v ON v.id = r.visit_id WHERE r.user_id = $1 AND v.id IS NULL',
+      [me.id],
+    );
+    expect(orphans.rowCount).toBe(0);
+    expect((await p.admin.query('SELECT 1 FROM review WHERE user_id = $1', [me.id])).rowCount).toBe(1);
+  });
+
   it('an account delete still cascades through the cited visit and the review', async () => {
     const { me, reviewId } = await scene();
     await p.admin.query('DELETE FROM app_user WHERE id = $1', [me.id]);
     expect((await p.admin.query('SELECT 1 FROM review WHERE id = $1', [reviewId])).rowCount).toBe(0);
     expect((await p.admin.query('SELECT 1 FROM visit WHERE id = $1', [me.visitId])).rowCount).toBe(0);
+  });
+});
+
+describe('PATCH /me/visits/:id on a cited visit', () => {
+  const editedAt = async (id: string) =>
+    ((await p.admin.query('SELECT edited_at FROM review WHERE id = $1', [id])).rows[0] as { edited_at: Date | null })
+      .edited_at;
+  const patch = (token: string, id: string, body: object) =>
+    t.call(`/me/visits/${id}`, { method: 'PATCH', token, body });
+
+  it('a new date sets the review’s edited_at; the note alone and the same date do not', async () => {
+    const { me, reviewId } = await scene(); // the visit is on 2026-05-01
+    expect((await patch(me.token, me.visitId, { note: 'Alleen de notitie' })).status).toBe(200);
+    expect((await patch(me.token, me.visitId, { visited_on: '2026-05-01' })).status).toBe(200);
+    expect(await editedAt(reviewId)).toBeNull();
+    const r = await patch(me.token, me.visitId, { visited_on: '2026-05-02' });
+    expect(r.status).toBe(200);
+    expect(await editedAt(reviewId)).not.toBeNull();
   });
 });
 

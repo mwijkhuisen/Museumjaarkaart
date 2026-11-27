@@ -100,6 +100,15 @@ describe('POST /reviews', () => {
     expect(await count('SELECT count(*) AS n FROM review WHERE user_id = $1', [u.id])).toBe(0);
   });
 
+  it('five parallel creates by one member for one museum: one 201, four 409, one row', async () => {
+    const m = await fresh();
+    const u = await memberWithVisit(p, t, m.id);
+    const body = { museum_id: m.id, visit_id: u.visitId, rating: 4 };
+    const rs = await Promise.all(Array.from({ length: 5 }, () => t.call('/reviews', { token: u.token, body })));
+    expect(rs.map((r) => r.status).sort()).toEqual([201, 409, 409, 409, 409]);
+    expect(await count('SELECT count(*) AS n FROM review WHERE user_id = $1', [u.id])).toBe(1);
+  });
+
   it('a second review of the same museum is a 409, even citing another visit', async () => {
     const m = await fresh();
     const u = await memberWithVisit(p, t, m.id, { on: '2026-01-01' });
@@ -227,19 +236,25 @@ describe('PATCH /reviews/:id', () => {
     ]);
   });
 
-  it('a patch that changes nothing, or only the cited visit, writes no revision and leaves edited_at alone', async () => {
-    const { m, u, id } = await setup();
-    const other = await p.addVisit(u.id, m.id, { on: '2026-04-02' });
+  it('a patch that changes nothing, or cites the same visit again, writes no revision and leaves edited_at alone', async () => {
+    const { u, id } = await setup();
     let r = await patch(u, id, { rating: 3, body: 'Eerste tekst', collection: 2 });
     expect(r.status).toBe(200);
     expect(OwnReview.parse(await r.json()).edited_at).toBeNull();
-    r = await patch(u, id, { visit_id: other });
+    // visit_once allows no second visit to the museum on the same date: the same visit is the same-date move.
+    r = await patch(u, id, { visit_id: u.visitId });
+    expect(OwnReview.parse(await r.json()).edited_at).toBeNull();
+    expect((await revisions(id)).rowCount).toBe(0);
+  });
+
+  it('citing a visit with another date sets edited_at (the date is content) and writes no revision', async () => {
+    const { m, u, id } = await setup();
+    const other = await p.addVisit(u.id, m.id, { on: '2026-04-02' });
+    const r = await patch(u, id, { visit_id: other });
     expect(r.status).toBe(200);
-    expect(OwnReview.parse(await r.json())).toMatchObject({
-      visit_id: other,
-      visited_on: '2026-04-02',
-      edited_at: null,
-    });
+    const own = OwnReview.parse(await r.json());
+    expect(own).toMatchObject({ visit_id: other, visited_on: '2026-04-02' });
+    expect(own.edited_at).not.toBeNull();
     expect((await revisions(id)).rowCount).toBe(0);
   });
 

@@ -79,14 +79,25 @@ export function mountMeVisits(v1: ApiApp, deps: ApiDeps): void {
       ...(body.note === undefined ? {} : { note: body.note }),
     };
     try {
-      const done = await db
-        .updateTable('visit')
-        .set(set)
-        .where('id', '=', id)
-        .where('user_id', '=', userId)
-        .returning('id')
-        .executeTakeFirst();
-      if (done === undefined) throw new ApiError('not_found');
+      await db.transaction().execute(async (trx) => {
+        // PostgreSQL 18's RETURNING old/new: whether the date moved, decided under the visit's row lock.
+        const done = await trx
+          .updateTable('visit')
+          .set(set)
+          .where('id', '=', id)
+          .where('user_id', '=', userId)
+          .returning(sql<boolean>`old.visited_on IS DISTINCT FROM new.visited_on`.as('moved'))
+          .executeTakeFirst();
+        if (done === undefined) throw new ApiError('not_found');
+        // The date a review shows is part of its content (A§11 Edits): the member's review citing it is edited.
+        if (done.moved)
+          await trx
+            .updateTable('review')
+            .set({ edited_at: sql<Date>`now()` })
+            .where('visit_id', '=', id)
+            .where('user_id', '=', userId)
+            .execute();
+      });
     } catch (err) {
       if (sqlstate(err) === UNIQUE_VIOLATION) throw new ApiError('conflict');
       throw err;

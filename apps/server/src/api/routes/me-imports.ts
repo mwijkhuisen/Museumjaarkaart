@@ -23,7 +23,7 @@ import { readJson } from '../body.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
 import { ApiError } from '../errors.ts';
 import { clientOr429 } from '../middleware/client-address.ts';
-import { requireMember } from '../middleware/session.ts';
+import { requireMember, requirePoster } from '../middleware/session.ts';
 import { parseParam } from '../query.ts';
 import { sendJson } from '../respond.ts';
 
@@ -51,8 +51,8 @@ type StoredRow = {
 
 /**
  * One rated row in its own savepoint: the visit (the existing one by `visit_once`'s key, or a new one), then the
- * review. A refusal, a lost race or a database error rolls the savepoint back, so a new visit goes with it and
- * nothing of the row applies (null). No rate-limit hit (plan Q7); one `content_ip_log` row per review.
+ * review. A refusal or a lost race (a constraint error) rolls the savepoint back, so a new visit goes with it and
+ * nothing of the row applies (null); any other database error propagates. No rate-limit hit (plan Q7); one `content_ip_log` row per review.
  */
 async function applyRated(
   trx: Db,
@@ -94,7 +94,10 @@ async function applyRated(
       .execute();
     await sql`RELEASE SAVEPOINT import_row`.execute(trx);
     return { newVisit: inserted !== undefined };
-  } catch {
+  } catch (err) {
+    // Only a constraint error (class 23, a lost race) skips the row; anything else (a timeout, a deadlock, a lost
+    // connection) fails the whole confirm, so the import stays pending and the member retries.
+    if (!String((err as { code?: unknown }).code).startsWith('23')) throw err;
     await sql`ROLLBACK TO SAVEPOINT import_row`.execute(trx);
     return null;
   }
@@ -270,10 +273,11 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
         throw new ApiError(own === undefined ? 'not_found' : 'conflict');
       }
       const rows = claimed.rows as StoredRow[];
-      // A file with ratings logs the client address once per review: without one, 429 and the import stays pending.
-      const client = rows.some((r) => r.status !== 'invalid' && (r.rating ?? null) !== null)
-        ? clientOr429(c, logger, BUCKETS.importUserHour)
-        : undefined;
+      // A file with ratings publishes reviews: it needs the current terms (403, as POST /reviews) and logs the
+      // client address once per review (without one, 429). Either refusal rolls the claim back: still pending.
+      const ratedFile = rows.some((r) => r.status !== 'invalid' && (r.rating ?? null) !== null);
+      if (ratedFile) requirePoster(c);
+      const client = ratedFile ? clientOr429(c, logger, BUCKETS.importUserHour) : undefined;
       const byRow = new Map(rows.map((r) => [r.row, r]));
 
       const chosen = new Map<number, string>();

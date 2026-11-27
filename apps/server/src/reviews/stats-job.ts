@@ -22,7 +22,8 @@ export async function recomputeStats(db: Db): Promise<number> {
   return db.transaction().execute(async (trx) => {
     await sql`SELECT pg_advisory_xact_lock(hashtext(${STATS_LOCK_KEY}::text))`.execute(trx);
     // The LEFT JOIN keeps museums without a counted rating (count 0, mean null, score m). The means round as
-    // numeric, so 3.95 is 4.0, the value the UI shows and the filters compare.
+    // numeric, so 3.95 is 4.0, the value the UI shows and the filters compare. The visits are counted once,
+    // grouped, and joined in (a correlated count would scan visit once per museum).
     const res = await sql`
       WITH counted AS (
         SELECT r.* FROM review r
@@ -40,11 +41,12 @@ export async function recomputeStats(db: Db): Promise<number> {
         (${BAYES_C}::float8 * (SELECT mean FROM prior) + coalesce(sum(r.rating), 0)::float8)
           / (${BAYES_C}::float8 + count(r.id)),
         ${sql.join(aspectSelect)},
-        (SELECT count(*) FROM visit v WHERE v.museum_id = m.id),
+        coalesce(vc.n, 0),
         now()
       FROM museum m
       LEFT JOIN counted r ON r.museum_id = m.id
-      GROUP BY m.id
+      LEFT JOIN (SELECT museum_id, count(*) AS n FROM visit GROUP BY museum_id) vc ON vc.museum_id = m.id
+      GROUP BY m.id, vc.n
       ON CONFLICT (museum_id) DO UPDATE SET
         rating_count = excluded.rating_count, rating_mean = excluded.rating_mean,
         bayes_score = excluded.bayes_score, ${sql.join(aspectUpdates)},

@@ -27,7 +27,7 @@ export async function createReview(trx: Db, userId: string, input: ReviewWrite):
   const m = museum.rows[0];
   if (m === undefined) return { ok: false, reason: 'museum_unknown' };
   if (m.closed) return { ok: false, reason: 'museum_closed' };
-  if (!(await lockOwnVisit(trx, userId, input.visit_id, input.museum_id)))
+  if ((await lockOwnVisit(trx, userId, input.visit_id, input.museum_id)) === undefined)
     return { ok: false, reason: 'visit_not_own' };
   const aspect = (a: Aspect) => input[a] ?? null;
   // No conflict target: review_once (user, museum) is the only unique key besides the generated id.
@@ -41,11 +41,17 @@ export async function createReview(trx: Db, userId: string, input: ReviewWrite):
   return id === undefined ? { ok: false, reason: 'review_exists' } : { ok: true, id };
 }
 
-async function lockOwnVisit(trx: Db, userId: string, visitId: string, museumId: string): Promise<boolean> {
-  const r = await sql`SELECT 1 FROM visit
+/** Locks the member's own visit to the museum FOR KEY SHARE; its date as text (null undated), undefined when none. */
+async function lockOwnVisit(
+  trx: Db,
+  userId: string,
+  visitId: string,
+  museumId: string,
+): Promise<{ cited_on: string | null } | undefined> {
+  const r = await sql<{ cited_on: string | null }>`SELECT visited_on::text AS cited_on FROM visit
     WHERE id = ${visitId}::uuid AND user_id = ${userId}::uuid AND museum_id = ${museumId}::uuid
     FOR KEY SHARE`.execute(trx);
-  return r.rows.length > 0;
+  return r.rows[0];
 }
 
 type OwnRow = {
@@ -95,21 +101,24 @@ type Current = { museum_id: string; rating: number; body: string | null } & { [A
 /**
  * Edits the member's own visible review on the caller's transaction. Another member's review, a removed one, an
  * unknown id and a hidden museum are all `not_found`. A change of the rating, an aspect or the body keeps the old
- * values in one `review_revision` row (insert only: mjk_api cannot read it back) and sets `edited_at`; a change
- * of the cited visit alone writes neither.
+ * values in one `review_revision` row (insert only: mjk_api cannot read it back) and sets `edited_at`. A change
+ * of the cited visit writes no revision; it sets `edited_at` only when the new visit's date differs (the date a
+ * review shows is part of its content, A§11).
  */
 export async function editReview(trx: Db, userId: string, id: string, patch: ReviewPatch): Promise<EditResult> {
-  const found = await sql<Current & { hidden: boolean; closed: boolean }>`SELECT r.museum_id, r.rating, r.collection,
-      r.presentation, r.kid_friendly, r.accessibility, r.facilities, r.value_for_money, r.body, m.hidden,
-      (m.closed_on IS NOT NULL AND m.closed_on <= ${NL_TODAY}) AS closed
-    FROM review r JOIN museum m ON m.id = r.museum_id
+  const found = await sql<Current & { hidden: boolean; closed: boolean; cited_on: string | null }>`SELECT r.museum_id,
+      r.rating, r.collection, r.presentation, r.kid_friendly, r.accessibility, r.facilities, r.value_for_money,
+      r.body, m.hidden, (m.closed_on IS NOT NULL AND m.closed_on <= ${NL_TODAY}) AS closed, v.visited_on::text AS cited_on
+    FROM review r JOIN museum m ON m.id = r.museum_id LEFT JOIN visit v ON v.id = r.visit_id
     WHERE r.id = ${id}::uuid AND r.user_id = ${userId}::uuid AND r.state = 'visible'
     FOR UPDATE OF r`.execute(trx);
   const cur = found.rows[0];
   if (cur === undefined || cur.hidden) return { ok: false, reason: 'not_found' };
   if (cur.closed) return { ok: false, reason: 'museum_closed' };
-  if (patch.visit_id !== undefined && !(await lockOwnVisit(trx, userId, patch.visit_id, cur.museum_id)))
-    return { ok: false, reason: 'visit_not_own' };
+  const next =
+    patch.visit_id === undefined ? undefined : await lockOwnVisit(trx, userId, patch.visit_id, cur.museum_id);
+  if (patch.visit_id !== undefined && next === undefined) return { ok: false, reason: 'visit_not_own' };
+  const dateMoved = next !== undefined && next.cited_on !== cur.cited_on;
 
   const content: { rating?: number; body?: string | null } & { [A in Aspect]?: number | null } = {};
   if (patch.rating !== undefined && patch.rating !== cur.rating) content.rating = patch.rating;
@@ -136,7 +145,7 @@ export async function editReview(trx: Db, userId: string, id: string, patch: Rev
       .set({
         ...content,
         ...(patch.visit_id === undefined ? {} : { visit_id: patch.visit_id }),
-        ...(changed ? { edited_at: sql<Date>`now()` } : {}),
+        ...(changed || dateMoved ? { edited_at: sql<Date>`now()` } : {}),
       })
       .where('id', '=', id)
       .where('user_id', '=', userId)
