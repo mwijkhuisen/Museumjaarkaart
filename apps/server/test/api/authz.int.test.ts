@@ -1,18 +1,28 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PasskeyRegistrationOptions, SessionList } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Mount } from '../../src/api/app.ts';
+import { mountMeExports } from '../../src/api/routes/me-exports.ts';
+import { mountMeImports } from '../../src/api/routes/me-imports.ts';
+import { mountMeMuseums } from '../../src/api/routes/me-museums.ts';
+import { mountMeProgress } from '../../src/api/routes/me-progress.ts';
+import { mountMeVisits } from '../../src/api/routes/me-visits.ts';
+import { mountMeWishlist } from '../../src/api/routes/me-wishlist.ts';
 import { banUser } from '../../src/auth/ban.ts';
 import { startSession } from '../../src/auth/session.ts';
 import { accountsApp } from '../auth/app.ts';
-import { type AuthDb, openAuthDb } from '../auth/fixtures.ts';
 import { type SoftCredential, softCredential } from '../auth/soft-authenticator.ts';
+import { openPassportDb, type PassportDb } from '../passport/fixtures.ts';
 import { meApp, SITE } from './me-app.ts';
 
 // A§18: every route has an authorization table test. Here every /me route: signed out, a member, a banned
 // member's session, a session of the other host class, and another member's session ref ("self": a 404).
 
-let a: AuthDb;
+let a: PassportDb;
 beforeAll(async () => {
-  a = await openAuthDb();
+  a = await openPassportDb();
 }, 120_000);
 afterAll(async () => {
   await a?.close();
@@ -270,5 +280,170 @@ describe('the /me/passkeys authorization table', () => {
     // The ban function also deletes the rows; set only the status here, so the check is the status's own.
     await a.admin.query("UPDATE app_user SET status = 'banned' WHERE id = $1", [me.u.id]);
     expect((await send(path, { body, token: me.token })).status).toBe(401);
+  });
+});
+
+// P2c: the passport's /me routes (A§10), over meApp with the six route files mounted. Each row: signed out
+// (401; GET /me/marks answers 200 with null), the member's own resource (2xx), another member's resource
+// where the route names one (404, never 403, and the other member's row survives), then a banned member's
+// session (401; the marks route reads it as signed out, a 200 with null).
+
+const exportsDir = mkdtempSync(join(tmpdir(), 'mjk-authz-exports-'));
+const mountPassport: Mount = (v1, d) => {
+  mountMeVisits(v1, d);
+  mountMeWishlist(v1, d);
+  mountMeMuseums(v1, d);
+  mountMeProgress(v1, d);
+  mountMeImports(v1, d);
+  mountMeExports(v1, { ...d, exportsDir });
+};
+
+type Owned = { token: string; visit: string; museumId: string; slug: string; imp: string; exp: string };
+type PassportRoute = {
+  name: string;
+  method: string;
+  path: (o: Owned) => string;
+  body?: (o: Owned) => unknown;
+  member: number;
+  /** The route names a row of the member's own: another member's is a 404. */
+  foreign?: boolean;
+  /** Signed out is a 200 with no data, not a 401. */
+  openToAnonymous?: boolean;
+};
+
+const PASSPORT_ROUTES: PassportRoute[] = [
+  { name: 'GET /me/visits', method: 'GET', path: () => '/me/visits', member: 200 },
+  {
+    name: 'POST /me/visits',
+    method: 'POST',
+    path: () => '/me/visits',
+    body: (o) => ({ museum_id: o.museumId, visited_on: '2026-01-02' }),
+    member: 201,
+  },
+  {
+    name: 'POST /me/visits/bulk',
+    method: 'POST',
+    path: () => '/me/visits/bulk',
+    body: (o) => ({ museum_ids: [o.museumId] }),
+    member: 200,
+  },
+  {
+    name: 'PATCH /me/visits/:id',
+    method: 'PATCH',
+    path: (o) => `/me/visits/${o.visit}`,
+    body: () => ({ note: 'changed' }),
+    member: 200,
+    foreign: true,
+  },
+  {
+    name: 'DELETE /me/visits/:id',
+    method: 'DELETE',
+    path: (o) => `/me/visits/${o.visit}`,
+    member: 204,
+    foreign: true,
+  },
+  { name: 'GET /me/wishlist', method: 'GET', path: () => '/me/wishlist', member: 200 },
+  { name: 'PUT /me/wishlist/:museum_id', method: 'PUT', path: (o) => `/me/wishlist/${o.museumId}`, member: 204 },
+  { name: 'DELETE /me/wishlist/:museum_id', method: 'DELETE', path: (o) => `/me/wishlist/${o.museumId}`, member: 204 },
+  { name: 'GET /me/marks', method: 'GET', path: () => '/me/marks', member: 200, openToAnonymous: true },
+  { name: 'GET /me/museums', method: 'GET', path: () => '/me/museums', member: 200 },
+  { name: 'GET /me/museums/:slug', method: 'GET', path: (o) => `/me/museums/${o.slug}`, member: 200 },
+  { name: 'GET /me/progress', method: 'GET', path: () => '/me/progress', member: 200 },
+  {
+    name: 'POST /me/imports',
+    method: 'POST',
+    path: () => '/me/imports',
+    body: () => ({ format: 'csv', content: 'museum\nAuthz\n' }),
+    member: 201,
+  },
+  {
+    name: 'POST /me/imports/:id/confirm',
+    method: 'POST',
+    path: (o) => `/me/imports/${o.imp}/confirm`,
+    body: () => ({ choose: [], skip: [] }),
+    member: 200,
+    foreign: true,
+  },
+  { name: 'POST /me/exports', method: 'POST', path: () => '/me/exports', member: 202 },
+  { name: 'GET /me/exports', method: 'GET', path: () => '/me/exports', member: 200 },
+  {
+    name: 'GET /me/exports/:id/:file',
+    method: 'GET',
+    path: (o) => `/me/exports/${o.exp}/export.json`,
+    member: 200,
+    foreign: true,
+  },
+];
+
+describe('the P2c /me authorization table', () => {
+  it.each(PASSPORT_ROUTES)('$name: signed out, member $member, another member 404, banned', async (r) => {
+    const { call, signIn, state } = meApp(a, mountPassport);
+    state.peer = `198.51.${120 + PASSPORT_ROUTES.indexOf(r)}.7`;
+    const museums = [await a.visible(0), await a.visible(1)];
+    // One member's rows: a visit, a pending import, a ready export with its file on disk.
+    const give = async (n: number) => {
+      const u = await a.newMember();
+      const museum = museums[n] as { id: string; slug: string };
+      const visit = await a.addVisit(u.id, museum.id, { on: '2026-03-01' });
+      const imp = (
+        await a.owner.query<{ id: string }>(
+          `INSERT INTO visit_import (user_id, format, rows) VALUES ($1, 'csv', '[]'::jsonb) RETURNING id`,
+          [u.id],
+        )
+      ).rows[0]?.id as string;
+      const exp = (
+        await a.owner.query<{ id: string }>(
+          `INSERT INTO data_export (user_id, state, expires_at) VALUES ($1, 'ready', now() + interval '1 hour') RETURNING id`,
+          [u.id],
+        )
+      ).rows[0]?.id as string;
+      mkdirSync(join(exportsDir, exp));
+      writeFileSync(join(exportsDir, exp, 'export.json'), '{}');
+      return { u, o: { token: await signIn(u.id), visit, museumId: museum.id, slug: museum.slug, imp, exp } };
+    };
+    const me = await give(0);
+    const other = await give(1);
+    const send = (o: Owned, token?: string) => {
+      const body = r.body?.(o);
+      return call(r.path(o), {
+        method: r.method,
+        ...(body === undefined ? {} : { body }),
+        ...(token === undefined ? {} : { token }),
+      });
+    };
+
+    const anon = await send(me.o);
+    if (r.openToAnonymous) {
+      expect(anon.status).toBe(200);
+      expect(await anon.json()).toEqual({ marks: null });
+    } else {
+      expect(anon.status).toBe(401);
+      expect(await anon.json()).toEqual({ error: 'unauthorized' });
+    }
+
+    if (r.foreign) {
+      // The other member's resource, with my session: 404, and theirs is untouched.
+      const foreign = await send(other.o, me.o.token);
+      expect(foreign.status).toBe(404);
+      expect(await foreign.json()).toEqual({ error: 'not_found' });
+      const rows = await a.owner.query(
+        `SELECT (SELECT count(*) FROM visit WHERE id = $1 AND note IS NULL) AS v,
+                (SELECT count(*) FROM visit_import WHERE id = $2 AND state = 'pending') AS i`,
+        [other.o.visit, other.o.imp],
+      );
+      expect(rows.rows[0]).toMatchObject({ v: '1', i: '1' });
+    }
+
+    const ok = await send(me.o, me.o.token);
+    expect(ok.status).toBe(r.member);
+    expect(ok.headers.get('cache-control')).toBe('private, no-store');
+
+    // Only the status is set here, so the check is the status's own.
+    await a.admin.query("UPDATE app_user SET status = 'banned' WHERE id = $1", [me.u.id]);
+    const banned = await send(me.o, me.o.token);
+    if (r.openToAnonymous) {
+      expect(banned.status).toBe(200);
+      expect(await banned.json()).toEqual({ marks: null });
+    } else expect(banned.status).toBe(401);
   });
 });
