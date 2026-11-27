@@ -304,7 +304,7 @@ for name in mjk-update mjk-tick mjk-resolvers mjk-ping mjk-envcheck; do
   [[ $(stat -c '%u:%g:%a' "$BIN/$name") == 0:0:755 ]] || fail "$BIN/$name is not root:root 0755"
 done
 [[ $(stat -c '%u:%g:%a' "$ETC/secrets") == 0:0:700 ]] || fail "$ETC/secrets is not root:root 0700"
-for dir in originals quarantine exports tiles-build backup-staging; do
+for dir in originals quarantine exports tiles-build backup-staging media-work; do
   [[ $(stat -c '%u:%g:%a' "$SRVD/$dir") == 63532:63532:700 ]] || fail "$SRVD/$dir is not 63532:63532 0700"
 done
 [[ $(stat -c '%u:%g:%a' "$TESTROOT/run/mjk") == 0:0:700 ]] || fail "the lock directory run/mjk is not root:root 0700"
@@ -398,7 +398,7 @@ for line in "MJK_SERVER_IMAGE=$SERVER_IMAGE" "MJK_WEB_IMAGE=$WEB_IMAGE" "MJK_BAC
   grep -qx "$line" "$STATE/current.env" || fail "current.env does not hold $line"
 done
 [[ ! -e $STATE/failed.env ]] || fail "failed.env exists after a good deploy"
-for svc in db api ssr worker caddy cloudflared; do
+for svc in db api ssr worker media caddy cloudflared; do
   id=$(docker ps -q --filter label=com.docker.compose.project=mjk --filter "label=com.docker.compose.service=$svc" --filter label=com.docker.compose.oneoff=False)
   [[ -n $id ]] || fail "no running container for $svc"
   [[ $(docker inspect -f '{{.State.Health.Status}}' "$id") == healthy ]] || fail "$svc is not healthy"
@@ -565,7 +565,7 @@ grep -q 'rollback done' <<<"$rb_out" || fail "no 'rollback done' in the output"
 [[ $cur_before == "$(sha256sum "$STATE/current.env")" ]] || fail "current.env changed after a failed deploy"
 [[ -f $STATE/failed.env ]] || fail "failed.env was not written"
 grep -qx "MJK_SERVER_IMAGE=$BROKEN_IMAGE" "$STATE/failed.env" || fail "failed.env does not name the broken image"
-for svc in db api ssr worker caddy cloudflared; do
+for svc in db api ssr worker media caddy cloudflared; do
   id=$(docker ps -q --filter label=com.docker.compose.project=mjk --filter "label=com.docker.compose.service=$svc" --filter label=com.docker.compose.oneoff=False)
   [[ -n $id ]] || fail "after the rollback there is no running container for $svc"
   [[ $(docker inspect -f '{{.State.Health.Status}}' "$id") == healthy ]] || fail "after the rollback $svc is not healthy"
@@ -582,7 +582,7 @@ if ((HAVE_NFT)); then
   "$BIN/mjk-tick" >/dev/null || fail "mjk-tick failed with the table deleted"
   nft list table inet mjk >/dev/null 2>&1 || fail "mjk-tick did not reload the deleted table"
   nft list set inet mjk resolvers4 | grep -q '192.0.2.53' || fail "mjk-tick did not refill resolvers4"
-  grep -Eq '^free_pct=[0-9]+$' "$STATE/disk" || fail "mjk-tick did not write the disk file"
+  grep -Eq '^free_pct=[0-9]+$' "$STATE/guard/disk" || fail "mjk-tick did not write the disk file"
   ok "a deleted table is loaded again, resolvers4 is refilled, the disk file is written"
 else
   skip "mjk-tick's table steps need a host nftables that can load a table"
@@ -607,22 +607,22 @@ docker rm -f mjk-e2e-stray >/dev/null
 ok "an unhealthy container of the project is restarted, also while a backup holds the lock shared"
 
 # As during a deploy: the lock is held exclusive. The tick only checks the table, resolvers4 and the disk.
-rm -f "$STATE/disk"
+rm -f "$STATE/guard/disk"
 exec 8>"$TESTROOT/run/mjk/deploy.lock"
 flock -x -n 8 || fail "could not take the deploy lock in the test"
 tick_out=$(MJK_TICK_LOCK_WAIT=1 "$BIN/mjk-tick" 2>&1) || fail "mjk-tick with a deploy holding the lock did not exit 0: $tick_out"
 exec 8>&-
 grep -q 'busy' <<<"$tick_out" || fail "mjk-tick with a deploy holding the lock did not say busy: $tick_out"
-grep -Eq '^free_pct=[0-9]+$' "$STATE/disk" || fail "mjk-tick did not write the disk file while a deploy held the lock"
+grep -Eq '^free_pct=[0-9]+$' "$STATE/guard/disk" || fail "mjk-tick did not write the disk file while a deploy held the lock"
 ok "while a deploy holds the lock mjk-tick still writes the disk file and says busy"
 
 # A lock directory that is not root 0700 (as if someone else had made it): the tick still does the
 # firewall and disk steps and exits 1; mjk-update refuses.
 chmod 0755 "$TESTROOT/run/mjk"
-rm -f "$STATE/disk"
+rm -f "$STATE/guard/disk"
 if tick_out=$("$BIN/mjk-tick" 2>&1); then fail "mjk-tick exited 0 with an unusable lock directory: $tick_out"; fi
 grep -q 'cannot be opened' <<<"$tick_out" || fail "mjk-tick did not name the unusable lock: $tick_out"
-grep -Eq '^free_pct=[0-9]+$' "$STATE/disk" || fail "mjk-tick did not write the disk file with an unusable lock"
+grep -Eq '^free_pct=[0-9]+$' "$STATE/guard/disk" || fail "mjk-tick did not write the disk file with an unusable lock"
 if upd_out=$(run_update --server "$SERVER_IMAGE" --web "$WEB_IMAGE" --backup "$BACKUP_IMAGE" 2>&1); then fail "mjk-update ran with an unusable lock directory"; fi
 grep -q 'lock_unusable' <<<"$upd_out" || fail "mjk-update did not say lock_unusable: $upd_out"
 chmod 0700 "$TESTROOT/run/mjk"

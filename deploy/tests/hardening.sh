@@ -7,6 +7,8 @@
 # paths. Only 127.0.0.1:8280 is published; the eight mjk-* networks match A§17.3; the secrets
 # come from /etc/mjk/secrets and group_add matches A§17.3's table; no environment key looks like
 # a secret and none is DATABASE_URL; no name holds `rws` or `f1` (names only, never digests).
+# P3b: `media` (the photo decoder) has network_mode none, no network, secret or GID; no other service
+# may set network_mode.
 #   deploy/tests/hardening.sh [compose file]    (default: deploy/compose.yaml)
 # The argument exists for the mutation checks on a temporary copy. The production paths
 # (/etc/mjk, /srv/mjk) stay literal in the file. Compose v5 renders it with `--no-env-resolution`
@@ -72,6 +74,7 @@ expected=$(
     "migrate": {"networks": ["mjk-db"], "secrets": ["db_mjk_migrator"]},
     "api": {"networks": ["mjk-edge", "mjk-db", "mjk-api-egress"], "secrets": ["db_mjk_api", "app_keys"]},
     "ssr": {"networks": ["mjk-edge", "mjk-db"], "secrets": ["db_mjk_ssr"]},
+    "media": {"networks": [], "secrets": []},
     "worker": {"networks": ["mjk-egress", "mjk-db"],
                "secrets": ["db_mjk_worker", "hc_ping_key", "r2_media_rw", "app_keys", "lettermint_api_token"]},
     "caddy": {"networks": ["mjk-edge", "mjk-tunnel-edge", "mjk-publish"], "secrets": []},
@@ -129,7 +132,8 @@ def forbidden_path: test("docker\\.sock|^/(etc|srv)/(rws|f1)(/|$)|(^|/)\\.\\.(/|
       (if ($s.pids_limit | num) <= 0 then fail("\($n): no pids_limit") else empty end),
       (if $s.privileged == true then fail("\($n): privileged") else empty end),
       (if ($s.cap_add // []) | length > 0 then fail("\($n): cap_add \($s.cap_add | tojson)") else empty end),
-      (if $s.network_mode != null then fail("\($n): network_mode \($s.network_mode)") else empty end),
+      (if $n == "media" then (if $s.network_mode != "none" then fail("media: network_mode \($s.network_mode | tojson), not \"none\"") else empty end)
+       elif $s.network_mode != null then fail("\($n): network_mode \($s.network_mode)") else empty end),
       (["pid", "ipc", "uts", "userns_mode", "cgroup"][] as $k
         | select($s[$k] != null and $s[$k] != "private") | fail("\($n): \($k) \($s[$k])")),
       (if ($s.devices // []) | length > 0 then fail("\($n): devices") else empty end),

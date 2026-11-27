@@ -3,8 +3,9 @@ import { parseCredentials, R2Client } from '../src/media/r2.ts';
 import { JobError } from '../src/worker/types.ts';
 
 // CI e2e only (deploy/e2e): stands in for the owner's [box] tiles upload. Against the MinIO stand-in of R2 it
-// creates the bucket, makes `tiles/*` (and nothing else) readable anonymously, uploads the fixture tiles as
-// `tiles/nl-20261001.pmtiles` and then `tiles/current.json` (A§15.3, Q3), through the production R2 client.
+// creates the bucket, makes `tiles/*` and `p/*` (the published photos, P3b), and nothing else, readable anonymously,
+// uploads the fixture tiles as `tiles/nl-20261001.pmtiles` and then `tiles/current.json` (A§15.3, Q3), through the
+// production R2 client.
 // The credentials are the file secret /run/secrets/r2_media_rw (the format of the real one). Prints counts only.
 
 const BUCKET = 'mjk-media';
@@ -39,7 +40,7 @@ try {
         Effect: 'Allow',
         Principal: { AWS: ['*'] },
         Action: ['s3:GetObject'],
-        Resource: [`arn:aws:s3:::${BUCKET}/tiles/*`],
+        Resource: [`arn:aws:s3:::${BUCKET}/tiles/*`, `arn:aws:s3:::${BUCKET}/p/*`],
       },
     ],
   });

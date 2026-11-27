@@ -97,6 +97,18 @@ api.lettermint.co {
 	reverse_proxy mailsink:8025
 }
 
+# R2's S3 API for the worker's media_publish and media_delete (P3b): MJK_R2_ENDPOINT=https://r2.mjk.test, under the
+# throw-away CA, in front of the MinIO stand-in. The Host header passes unchanged (SigV4 signs it); the
+# X-Forwarded-* headers Caddy would add are dropped, so MinIO checks the request exactly as the worker signed it.
+r2.mjk.test {
+	tls /pki/r2.mjk.test.pem /pki/r2.mjk.test.key
+	reverse_proxy minio:9000 {
+		header_up -X-Forwarded-For
+		header_up -X-Forwarded-Host
+		header_up -X-Forwarded-Proto
+	}
+}
+
 # A visitor on plain http, as Cloudflare forwards it without "Always Use HTTPS": caddy answers with the 308.
 http://mjk.test, http://admin.mjk.test {
 	reverse_proxy caddy:80 {
