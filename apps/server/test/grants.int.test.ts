@@ -46,10 +46,20 @@ const AUTH_TABLES = [
   'audit_log',
   'content_ip_log',
 ] as const;
+// P2c: the passport tables (db/migrations/20261128000001_passport.sql).
+const PASSPORT_TABLES = ['visit', 'wishlist', 'visit_import', 'data_export'] as const;
 const P1A = [...TABLES, VIEW];
-const ALL = [...P1A, ...AUTH_TABLES];
+const ALL = [...P1A, ...AUTH_TABLES, ...PASSPORT_TABLES];
 // P1b's public views: the only objects mjk_ssr may read (A§8).
-const PUB_VIEWS = ['pub_museum', 'pub_museum_alias', 'pub_slug_redirect', 'pub_province', 'pub_mk_list'] as const;
+const PUB_VIEWS = [
+  'pub_museum',
+  'pub_museum_alias',
+  'pub_slug_redirect',
+  'pub_province',
+  'pub_mk_list',
+  'pub_profile',
+  'pub_mk_list_province',
+] as const;
 const PUB_SELECT = Object.fromEntries(PUB_VIEWS.map((v) => [v, ['SELECT']]));
 const LOGINS = ['mjk_api', 'mjk_worker', 'mjk_ssr', 'mjk_backup'] as const;
 const PRIVS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'] as const;
@@ -73,6 +83,11 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     invite: ['DELETE'],
     content_ip_log: ['DELETE'],
     audit_log: ['INSERT'],
+    // P2c: the export job and the purges
+    visit: ['SELECT'],
+    wishlist: ['SELECT'],
+    visit_import: ['SELECT', 'DELETE'],
+    data_export: ['SELECT', 'DELETE'],
   },
   mjk_api: {
     ...Object.fromEntries(P1A.map((t) => [t, ['SELECT']])),
@@ -91,6 +106,10 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     rate_limit: ['SELECT', 'INSERT', 'UPDATE'],
     audit_log: ['SELECT', 'INSERT'],
     content_ip_log: ['INSERT'],
+    visit: ['SELECT', 'INSERT', 'DELETE'],
+    wishlist: ['SELECT', 'INSERT', 'DELETE'],
+    visit_import: ['SELECT', 'INSERT', 'DELETE'],
+    data_export: ['SELECT', 'INSERT'],
   },
   mjk_ssr: { ...PUB_SELECT },
   // pg_read_all_data: SELECT on everything and nothing else
@@ -208,7 +227,7 @@ describe('the catalog', () => {
 
   it('no login holds a column-level REFERENCES, and no sequence is granted', async () => {
     for (const login of LOGINS) {
-      for (const table of [...TABLES, ...AUTH_TABLES]) {
+      for (const table of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES]) {
         const { rows } = await owner.query<{ has: boolean }>(
           "SELECT has_any_column_privilege($1, $2, 'REFERENCES') AS has",
           [login, `public.${table}`],
@@ -254,9 +273,11 @@ describe('the catalog', () => {
     expect(await columnGrants('mjk_worker', 'museum', 'UPDATE')).not.toContain('search');
   });
 
-  it('EXECUTE on the P1b functions: pub_search for mjk_api and mjk_ssr, the definer triggers for nobody', async () => {
+  it('EXECUTE on the public functions: pub_search, pub_visit_log and pub_wishlist_of for mjk_api and mjk_ssr, the definer triggers for nobody', async () => {
     const EXECUTE: Record<string, readonly string[]> = {
       'public.pub_search(text)': ['mjk_api', 'mjk_ssr'],
+      'public.pub_visit_log(text)': ['mjk_api', 'mjk_ssr'],
+      'public.pub_wishlist_of(text)': ['mjk_api', 'mjk_ssr'],
       'public.museum_slug_keep()': [],
       'public.museum_alias_search_touch()': [],
       'public.municipality_search_touch()': [],
@@ -609,13 +630,25 @@ describe('mjk_ssr and mjk_backup', () => {
 
 describe('no login can DELETE or TRUNCATE, except the worker on its purge tables', () => {
   // mjk_worker's DELETE grants (P2a): purges and the delete-on-success mail jobs. Never TRUNCATE.
-  const WORKER_DELETE = ['job', 'session', 'email_code', 'auth_challenge', 'rate_limit', 'invite', 'content_ip_log'];
+  // P2c adds the import purge and the export purge.
+  const WORKER_DELETE = [
+    'job',
+    'session',
+    'email_code',
+    'auth_challenge',
+    'rate_limit',
+    'invite',
+    'content_ip_log',
+    'visit_import',
+    'data_export',
+  ];
   it.each(LOGINS)('%s gets 42501 for DELETE and TRUNCATE on every table it holds no DELETE on', async (login) => {
     const c = { mjk_api: api, mjk_worker: worker, mjk_ssr: ssr, mjk_backup: backup }[login];
-    for (const t of [...TABLES, ...AUTH_TABLES]) {
+    for (const t of [...TABLES, ...AUTH_TABLES, ...PASSPORT_TABLES]) {
       const mayDelete = login === 'mjk_worker' && WORKER_DELETE.includes(t);
-      // mjk_api holds DELETE on session and email_code (sign-out, used codes)
-      const apiDelete = login === 'mjk_api' && ['session', 'email_code'].includes(t);
+      // mjk_api holds DELETE on session and email_code (sign-out, used codes), and P2c's visit, wishlist, import
+      const apiDelete =
+        login === 'mjk_api' && ['session', 'email_code', 'visit', 'wishlist', 'visit_import'].includes(t);
       expect(await attempt(c, `DELETE FROM ${t}`), `${login} DELETE ${t}`).toBe(mayDelete || apiDelete ? 'ok' : DENIED);
       expect(await attempt(c, `TRUNCATE ${t}`), `${login} TRUNCATE ${t}`).toBe(DENIED);
     }
@@ -653,12 +686,25 @@ describe('P2a: the accounts grants', () => {
 
   it('mjk_worker may SELECT only the listed columns, never password_hash or code_hmac', async () => {
     const SELECT: Record<string, string[]> = {
-      app_user: ['email', 'status'],
+      // P2c adds the export's columns: never password_hash, never session.id (the token hash)
+      app_user: [
+        'id',
+        'email',
+        'handle',
+        'display_name',
+        'email_verified_at',
+        'status',
+        'age_confirmed_at',
+        'terms_version',
+        'terms_accepted_at',
+        'settings',
+        'created_at',
+      ],
       email_code: ['id', 'email', 'purpose', 'expires_at', 'created_at'],
-      session: ['expires_at', 'absolute_expires_at'],
+      session: ['user_id', 'host', 'method', 'created_at', 'last_used_at', 'expires_at', 'absolute_expires_at'],
       auth_challenge: ['expires_at'],
       invite: ['id', 'expires_at', 'used_at', 'uses', 'max_uses'],
-      content_ip_log: ['created_at'],
+      content_ip_log: ['user_id', 'target_kind', 'target_id', 'ip', 'created_at'],
     };
     for (const [table, allowed] of Object.entries(SELECT))
       for (const col of await columnsOf(table)) {
@@ -681,6 +727,7 @@ describe('P2a: the accounts grants', () => {
     expect(await attempt(worker, 'SELECT code_hmac FROM email_code')).toBe(DENIED);
     expect(await attempt(worker, 'SELECT * FROM app_user')).toBe(DENIED);
     expect(await attempt(worker, 'SELECT email, status FROM app_user')).toBe('ok');
+    expect(await attempt(worker, 'SELECT id FROM session')).toBe(DENIED);
     expect(await attempt(worker, "DELETE FROM email_code WHERE expires_at < now() - interval '1 day'")).toBe('ok');
     expect(await attempt(worker, "DELETE FROM job WHERE state = 'done'")).toBe('ok');
     expect(await attempt(worker, 'TRUNCATE job')).toBe(DENIED);
@@ -796,6 +843,29 @@ describe('P2a: the accounts grants', () => {
 
   it('mjk_ssr holds nothing on the new tables', async () => {
     for (const t of AUTH_TABLES) expect(await attempt(ssr, `SELECT 1 FROM ${t} LIMIT 1`), t).toBe(DENIED);
+  });
+});
+
+describe('P2c: the passport grants', () => {
+  it('mjk_api holds exactly its UPDATE columns, mjk_worker only the export and purge columns', async () => {
+    expect(await columnGrants('mjk_api', 'visit', 'UPDATE')).toEqual(['note', 'visited_on']);
+    expect(await columnGrants('mjk_api', 'visit_import', 'UPDATE')).toEqual(['confirmed_at', 'state']);
+    expect(await columnGrants('mjk_api', 'data_export', 'UPDATE')).toEqual(['state']);
+    expect(await columnGrants('mjk_api', 'wishlist', 'UPDATE')).toEqual([]);
+    expect(await columnGrants('mjk_worker', 'data_export', 'UPDATE')).toEqual(['expires_at', 'state']);
+    for (const t of ['visit', 'wishlist', 'visit_import'])
+      expect(await columnGrants('mjk_worker', t, 'UPDATE'), t).toEqual([]);
+    for (const t of PASSPORT_TABLES) expect(await columnGrants('mjk_worker', t, 'INSERT'), t).toEqual([]);
+    // the api cannot move a visit to another member or museum, or change its source
+    for (const col of ['id', 'user_id', 'museum_id', 'source', 'created_at'])
+      expect(await attempt(api, `UPDATE visit SET ${col} = ${col} WHERE false`), col).toBe(DENIED);
+  });
+
+  it('mjk_ssr holds nothing on the passport tables, and can run the views and functions', async () => {
+    for (const t of PASSPORT_TABLES) expect(await attempt(ssr, `SELECT 1 FROM ${t} LIMIT 1`), t).toBe(DENIED);
+    expect(await attempt(ssr, "SELECT * FROM pub_visit_log('nobody')")).toBe('ok');
+    expect(await attempt(ssr, "SELECT * FROM pub_wishlist_of('nobody')")).toBe('ok');
+    expect(await attempt(worker, "SELECT * FROM pub_visit_log('nobody')")).toBe(DENIED);
   });
 });
 
