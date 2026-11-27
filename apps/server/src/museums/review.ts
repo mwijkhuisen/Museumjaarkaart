@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { parseDate } from '../admin/dates.ts';
 import type { Db } from '../db/kysely.ts';
 import type { DB } from '../db/types.ts';
+import { enqueueStats } from '../reviews/stats-queue.ts';
 import { AdminError, EXIT_DATA, EXIT_NOT_FOUND, EXIT_USAGE, findMuseum } from './curation.ts';
 import { fieldsFromSources } from './diff.ts';
 import { CATEGORIES, CBS_CODE, CHANGE_FIELDS, LIMITS, POSTCODE, QID, SOURCES, type Source } from './fields.ts';
@@ -255,6 +256,7 @@ export function resolveMatch(db: Db, ref: SourceRef, action: ResolveAction): Pro
           .execute();
       }
       await link(created.id);
+      await enqueueStats(trx);
       await record(trx, {
         museumId: created.id,
         field: 'new_museum',
@@ -349,7 +351,10 @@ export function applyChange(db: Db, id: string, choice: PresenceChoice): Promise
         }
         if (choice.hide === true) {
           await trx.updateTable('museum').set({ hidden: true }).where('id', '=', m.id).execute();
-          if (!m.hidden) await record(trx, { museumId: m.id, field: 'hidden', old: m.hidden, new: true });
+          if (!m.hidden) {
+            await record(trx, { museumId: m.id, field: 'hidden', old: m.hidden, new: true });
+            await enqueueStats(trx);
+          }
         } else {
           const closedOn = choice.close as string;
           await trx.updateTable('museum').set({ closed_on: closedOn }).where('id', '=', m.id).execute();

@@ -6,6 +6,7 @@ import {
   MuseumList as MuseumListSchema,
   PROVINCE_CODES,
   Provinces,
+  type ReviewList,
   UserProfile,
 } from '@mjk/contracts';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -14,6 +15,7 @@ import { App } from '../src/App.tsx';
 import { createQueryClient } from '../src/lib/api.ts';
 import { apiPath, apiPathsOf, type Route, routeOf } from '../src/lib/routes.ts';
 import { setLocale } from '../src/paraglide/runtime.js';
+import { REVIEW_ID, review, reviewList } from './review-fixture.ts';
 
 const provinces = Provinces.parse({
   items: PROVINCE_CODES.map((code, i) => ({
@@ -41,6 +43,8 @@ const item = (over: Record<string, unknown> = {}) => ({
   registered: true,
   closed_on: null,
   temp_closed: false,
+  rating_count: 0,
+  rating_mean: null,
   ...over,
 });
 
@@ -62,6 +66,14 @@ const detail = (over: Record<string, unknown> = {}): MuseumDetail =>
     photo_policy: 'unknown',
     temp_closed_until: null,
     mk_list: { published_on: '2026-11-05', n: 512, member: true },
+    aspects: {
+      collection: { mean: null, count: 0 },
+      presentation: { mean: null, count: 0 },
+      kid_friendly: { mean: null, count: 0 },
+      accessibility: { mean: null, count: 0 },
+      facilities: { mean: null, count: 0 },
+      value_for_money: { mean: null, count: 0 },
+    },
     ...over,
   });
 
@@ -76,11 +88,13 @@ const list = (): MuseumList =>
   });
 
 /** The cache keys a route needs, seeded with fixtures (the same data on the server and in the browser). */
-function seed(route: Route, museum: MuseumDetail, profile: unknown): Map<string, unknown> {
+function seed(route: Route, museum: MuseumDetail, profile: unknown, userReviews: ReviewList): Map<string, unknown> {
   const data = new Map<string, unknown>();
   for (const path of apiPathsOf(route)) {
     if (path === apiPath.provinces) data.set(path, provinces);
     else if (path === apiPath.mkList) data.set(path, mkList);
+    else if (path.endsWith('/reviews')) data.set(path, path.startsWith('/api/v1/users/') ? userReviews : reviewList());
+    else if (path.startsWith('/api/v1/reviews/')) data.set(path, review());
     else if (path.startsWith('/api/v1/museums/')) data.set(path, museum);
     else if (path.startsWith('/api/v1/users/')) data.set(path, profile);
     else data.set(path, list());
@@ -88,12 +102,17 @@ function seed(route: Route, museum: MuseumDetail, profile: unknown): Map<string,
   return data;
 }
 
-function render(path: string, museum: MuseumDetail = detail(), profile: unknown = null): string {
+function render(
+  path: string,
+  museum: MuseumDetail = detail(),
+  profile: unknown = null,
+  userReviews: ReviewList = reviewList([]),
+): string {
   const resolved = routeOf(path);
   if (resolved.kind !== 'route') throw new Error('not a route');
   setLocale(resolved.route.locale, { reload: false });
   const queryClient = createQueryClient();
-  for (const [key, value] of seed(resolved.route, museum, profile)) queryClient.setQueryData([key], value);
+  for (const [key, value] of seed(resolved.route, museum, profile, userReviews)) queryClient.setQueryData([key], value);
   return renderToStaticMarkup(
     <App
       path={path}
@@ -107,6 +126,8 @@ const PATHS = [
   '/',
   '/musea',
   '/musea/voorbeeld-museum',
+  '/musea/voorbeeld-museum/reviews',
+  `/reviews/${REVIEW_ID}`,
   '/provincie/noord-holland',
   '/zoeken',
   '/zoeken?q=haarlem',
@@ -124,6 +145,8 @@ const EN_PATHS = [
   '/en/',
   '/en/museums',
   '/en/museums/voorbeeld-museum',
+  '/en/museums/voorbeeld-museum/reviews',
+  `/en/reviews/${REVIEW_ID}`,
   '/en/province/noord-holland',
   '/en/search',
   '/en/search?q=haarlem',
@@ -248,6 +271,58 @@ describe('the museum page', () => {
   });
 });
 
+describe('the museum page scores and the review pages (P3a)', () => {
+  const rated = (over: Record<string, unknown> = {}) =>
+    detail({
+      rating_count: 12,
+      rating_mean: 4.3,
+      aspects: { ...detail().aspects, collection: { mean: 4.5, count: 6 } },
+      ...over,
+    });
+
+  it('shows the score in the fold with the reviews link, or "Nog geen beoordelingen"', () => {
+    const html = render('/musea/voorbeeld-museum', rated());
+    expect(html).toContain('<h2 id="museum-score">Beoordelingen</h2>');
+    expect(html).toContain('4,3 van 5');
+    expect(html).toContain('href="/musea/voorbeeld-museum/reviews"');
+    expect(html).toContain('href="/hoe-wij-reviews-controleren"');
+    expect(render('/en/museums/voorbeeld-museum', rated())).toContain('4.3 out of 5');
+    const none = render('/musea/voorbeeld-museum');
+    expect(none).toContain('Nog geen beoordelingen');
+    expect(none).not.toContain('/musea/voorbeeld-museum/reviews');
+  });
+
+  it('shows the card score on a list card with a rating, and nothing on one without', () => {
+    // The list fixture's museums have no rating: no card score at all.
+    expect(render('/musea')).not.toContain('card-score');
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(
+      [apiPath.museums('')],
+      MuseumListSchema.parse({ items: [item({ rating_count: 3, rating_mean: 4 })], next_cursor: null, total: 1 }),
+    );
+    queryClient.setQueryData([apiPath.provinces], provinces);
+    setLocale('nl', { reload: false });
+    const html = renderToStaticMarkup(
+      <App path="/musea" queryClient={queryClient} config={{ brand: 'T', controller: 'T', contactEmail: 'a@b.nl' }} />,
+    );
+    expect(html).toContain('class="card-score cluster"');
+    expect(html).toContain('<strong>4,0</strong>');
+    expect(html).toContain('aria-label="Hoe wij reviews controleren"');
+  });
+
+  it("shows a museum's reviews under its name, a closed museum's too, and one review with a link back", () => {
+    const closed = render('/musea/voorbeeld-museum/reviews', rated({ closed_on: '2025-12-31' }));
+    expect(closed).toContain('<h1><a href="/musea/voorbeeld-museum">Voorbeeldmuseum</a></h1>');
+    expect(closed).toContain('Gesloten per 31 december 2025');
+    expect(closed).toContain('Mooie collectie.');
+    expect(closed).toContain('Bezocht op 12 september 2026');
+    const single = render(`/en/reviews/${REVIEW_ID}`);
+    expect(single).toContain('<h1>Review of Example Museum</h1>');
+    expect(single).toContain('href="/en/museums/voorbeeld-museum/reviews"');
+    expect(single).toContain('Mooie collectie.');
+  });
+});
+
 describe('the list page', () => {
   it('pre-fills the filters from the query and links the next page', () => {
     const html = render('/musea?q=haarlem&province=NL-NH&category=art&mk=participating');
@@ -261,6 +336,21 @@ describe('the list page', () => {
       'href="/musea?q=haarlem&amp;province=NL-NH&amp;category=art&amp;mk=participating&amp;cursor=abc123"',
     );
     expect(html).toContain('Aantal musea: 2');
+  });
+
+  it('offers the rating filters as a GET form that works without JavaScript, pre-filled from the query', () => {
+    const html = render('/musea?min_rating=4&kid_friendly=true');
+    expect(html).toContain('<select id="f-min-rating" name="min_rating">');
+    expect(html).toContain('<option value="4" selected="">4+</option>');
+    expect(html).toContain('<option value="5">5</option>');
+    expect(html).toContain('<input type="checkbox" name="kid_friendly" checked="" value="true"/>');
+    expect(html).toContain('Minimale beoordeling (sterren)');
+    expect(html).toContain('Kindvriendelijk (4 of hoger)');
+    const plain = render('/musea');
+    expect(plain).not.toContain('<input type="checkbox" name="kid_friendly" checked=""');
+    expect(plain).not.toMatch(/<option value="[1-5]" selected/);
+    // The map page shows the same filters.
+    expect(render('/en/map?min_rating=2')).toContain('<option value="2" selected="">2+</option>');
   });
 
   it('leaves the filters empty without a query and shows an empty state', () => {
@@ -416,6 +506,22 @@ describe('the profile page', () => {
     const none = render('/u/anna_b', detail(), profile({ progress: null, visits: null, wishlist: null }));
     expect(none).toContain('Anna de Vries deelt nog niets.');
     expect(none).not.toContain('Voortgang');
+  });
+
+  it("lists the member's reviews with the museum named, hides the section when there are none, and counts as sharing", () => {
+    const withReview = render(
+      '/u/anna_b',
+      detail(),
+      profile({ progress: null, visits: null, wishlist: null }),
+      reviewList([review({ body: 'Mooi <b>huis</b>' })], 'abc'),
+    );
+    expect(withReview).toContain('<h2 id="profile-reviews">Reviews</h2>');
+    expect(withReview).toContain('<h3><a href="/musea/voorbeeld-museum">Voorbeeldmuseum</a></h3>');
+    expect(withReview).toContain('Mooi &lt;b&gt;huis&lt;/b&gt;');
+    expect(withReview).toContain('>Meer<');
+    expect(withReview).not.toContain('deelt nog niets');
+    const none = render('/u/anna_b', detail(), profile());
+    expect(none).not.toContain('profile-reviews');
   });
 
   it('escapes a hostile name', () => {

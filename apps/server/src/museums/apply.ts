@@ -5,6 +5,7 @@
 
 import { sql, type Transaction } from 'kysely';
 import type { DB } from '../db/types.ts';
+import { enqueueStats } from '../reviews/stats-queue.ts';
 import type {
   MatchReason,
   MatchRuleState,
@@ -159,6 +160,8 @@ export async function applyPlan(tx: Tx, plan: Plan, runId: string): Promise<void
       .execute();
     for (const r of rows) if (r.wikidata_qid !== null) idOfKey.set(r.wikidata_qid, r.id);
   }
+  // A new museum has no museum_stats row until the recompute runs (it ranks last meanwhile, A§14).
+  if (plan.create.length > 0) await enqueueStats(tx);
   const idOf = (ref: MuseumRef): string => {
     if ('id' in ref) return ref.id;
     const id = idOfKey.get(ref.key);

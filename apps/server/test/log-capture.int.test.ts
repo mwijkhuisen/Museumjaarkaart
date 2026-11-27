@@ -22,6 +22,7 @@ import { meApp } from './api/me-app.ts';
 import { accountsApp, altchaPayload, codeFor, tokenOf } from './auth/app.ts';
 import { softCredential } from './auth/soft-authenticator.ts';
 import { openPassportDb, type PassportDb } from './passport/fixtures.ts';
+import { mountReviewRoutes, openMuseum } from './reviews/app.ts';
 
 // Criterion 15 and invariant 8 (A§17.7 "Logs"): every account flow, in-process, on the api's and
 // the worker's loggers; then no line may hold an email, a code, a password, a session token, the
@@ -368,6 +369,79 @@ describe('the logs of the passport routes', () => {
       'wishlist.csv',
       ...named,
       ...museums.flatMap((m) => [m.id, m.slug]),
+    ];
+    for (const s of secrets) expect(text, 'a log line holds a secret value').not.toContain(s);
+    for (const line of lines) expect(String(line.msg)).toMatch(/^[a-z_]{1,40}$/);
+  });
+});
+
+// P3a (invariant 8): the review routes log fixed codes only. Every route is driven with marker strings in the
+// review text and the handle, through the refusals too (a 422 on the text, a 409, a 404, a 429); no marker, id,
+// handle, museum name or address may reach a line.
+
+describe('the logs of the review routes', () => {
+  it('hold no review text, handle, id, museum name or address', async () => {
+    const BODY = 'REVIEW-LOGMARK-7c3d</script>';
+    const BODY_2 = 'REVIEW-LOGMARK-edit-19ab';
+    const HANDLE = 'revlog_member';
+    const PEER_R = '198.51.100.99';
+    const app = meApp(a, mountReviewRoutes);
+    app.state.peer = PEER_R;
+    const u = await a.newMember({ handle: HANDLE, status: 'active' });
+    const token = await app.signIn(u.id);
+    const m = await openMuseum(a, 700);
+    const m2 = await openMuseum(a, 701);
+    const names = (
+      await a.owner.query<{ name: string }>('SELECT name FROM museum WHERE id = ANY($1::uuid[])', [[m.id, m2.id]])
+    ).rows.map((r) => r.name);
+    const visitId = await a.addVisit(u.id, m.id);
+    const visit2 = await a.addVisit(u.id, m2.id);
+    const ok = async (status: number, path: string, o: Parameters<typeof app.call>[1] = {}) => {
+      const r = await app.call(path, { token, ...o });
+      expect(r.status, `${o.method ?? 'GET'} ${path}`).toBe(status);
+      return r;
+    };
+
+    const made = (await (
+      await ok(201, '/reviews', { body: { museum_id: m.id, visit_id: visitId, rating: 4, body: BODY } })
+    ).json()) as { id: string };
+    await ok(409, '/reviews', { body: { museum_id: m.id, visit_id: visitId, rating: 4, body: BODY } });
+    await ok(422, '/reviews', { body: { museum_id: m2.id, visit_id: visitId, rating: 4, body: BODY } });
+    await ok(422, '/reviews', { body: { museum_id: m2.id, visit_id: visit2, rating: 4, body: `${BODY}\u{202E}` } });
+    await ok(400, '/reviews', { body: { museum_id: m2.id, visit_id: visit2, rating: 9, body: BODY } });
+    await ok(200, `/reviews/${made.id}`, { method: 'PATCH', body: { body: BODY_2 } });
+    await ok(404, `/reviews/${made.id.replace(/.$/, '0')}x`, { method: 'PATCH', body: { body: BODY_2 } });
+    await ok(200, `/reviews/${made.id}`);
+    await ok(200, `/museums/${m.slug}/reviews`);
+    await ok(200, `/users/${HANDLE}/reviews`);
+    await ok(404, '/users/nobody_here/reviews');
+    await ok(200, `/me/museums/${m.slug}`);
+    await ok(409, `/me/visits/${visitId}`, { method: 'DELETE' });
+    await ok(204, `/reviews/${made.id}`, { method: 'DELETE' });
+    await ok(404, `/reviews/${made.id}`, { method: 'DELETE' });
+    await ok(204, `/me/visits/${visitId}`, { method: 'DELETE' });
+    // A 429: no client address.
+    app.state.peer = undefined;
+    await ok(429, '/reviews', { body: { museum_id: m2.id, visit_id: visit2, rating: 4, body: BODY } });
+
+    const lines = app.lines();
+    expect(lines.length).toBeGreaterThan(10);
+    const text = JSON.stringify(lines);
+    const secrets = [
+      BODY,
+      BODY_2,
+      'REVIEW-LOGMARK',
+      HANDLE,
+      PEER_R,
+      made.id,
+      visitId,
+      visit2,
+      u.id,
+      ...names,
+      m.id,
+      m.slug,
+      m2.id,
+      m2.slug,
     ];
     for (const s of secrets) expect(text, 'a log line holds a secret value').not.toContain(s);
     for (const line of lines) expect(String(line.msg)).toMatch(/^[a-z_]{1,40}$/);

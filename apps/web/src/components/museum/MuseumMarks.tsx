@@ -1,9 +1,10 @@
-import { VISIT_NOTE_MAX, VisitCreate } from '@mjk/contracts';
+import { VISIT_NOTE_MAX, Visit, VisitCreate } from '@mjk/contracts';
 import { type FormEvent, useState } from 'react';
 import { ApiError, sendJson } from '../../lib/api.ts';
 import { markVisited, setWishlisted, useMarks } from '../../lib/member.ts';
 import { m } from '../../paraglide/messages.js';
 import { describeError } from '../auth/errors.ts';
+import { isClosed, offerReview, openReview, useReviewSignal } from '../reviews/signal.ts';
 import { IconCheck } from '../ui/icons.tsx';
 
 // A member's own marks on the public pages (A§15.1). The markup of a visitor and of a member is the
@@ -63,8 +64,18 @@ const textOf = (error: unknown): string => {
 };
 
 /** The member's own form, after hydration only: an empty fixed slot for a visitor (A§15.1). */
-export function VisitForm({ museumId }: { museumId: string }) {
+export function VisitForm({
+  museumId,
+  name,
+  closedOn = null,
+}: {
+  museumId: string;
+  name?: string;
+  closedOn?: string | null;
+}) {
   const marks = useMarks();
+  const signal = useReviewSignal();
+  const [logged, setLogged] = useState(false);
   const [date, setDate] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -81,12 +92,15 @@ export function VisitForm({ museumId }: { museumId: string }) {
     setBusy(true);
     setStatus(null);
     try {
-      await sendJson('POST', '/api/v1/me/visits', parsed.data);
+      const visit = await sendJson('POST', '/api/v1/me/visits', parsed.data, Visit);
       markVisited(museumId);
+      offerReview(visit.id);
+      setLogged(true);
       setDate('');
       setNote('');
       setStatus({ ok: true, text: m.marks_visit_saved() });
     } catch (error) {
+      setLogged(false);
       setStatus({ ok: false, text: textOf(error) });
     } finally {
       setBusy(false);
@@ -132,6 +146,11 @@ export function VisitForm({ museumId }: { museumId: string }) {
         <button type="submit" className="button" disabled={busy}>
           {m.marks_visit_submit()}
         </button>
+        {logged && name !== undefined && !signal.hasReview && !isClosed(closedOn) ? (
+          <button type="button" className="button" onClick={openReview}>
+            {m.review_mine_prompt({ name })}
+          </button>
+        ) : null}
       </form>
     </section>
   );

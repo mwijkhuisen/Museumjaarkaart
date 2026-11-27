@@ -38,6 +38,8 @@ export const MuseumListQuery = z.strictObject({
   municipality: CbsCode.optional(),
   category: CategorySchema.optional(),
   mk: z.literal('participating').optional(),
+  min_rating: z.enum(['1', '2', '3', '4', '5']).optional(),
+  kid_friendly: z.literal('true').optional(),
   sort: z.enum(['rank', 'name']).prefault('rank'),
   limit: Limit,
   cursor: Cursor.optional(),
@@ -51,6 +53,8 @@ export const PointsQuery = MuseumListQuery.pick({
   municipality: true,
   category: true,
   mk: true,
+  min_rating: true,
+  kid_friendly: true,
 });
 export type PointsQuery = z.infer<typeof PointsQuery>;
 

@@ -42,10 +42,30 @@ export function MuseumFilters({
           ))}
         </select>
       </div>
+      <div className="field">
+        <label htmlFor="f-min-rating">{m.score_filter_min()}</label>
+        <select id="f-min-rating" name="min_rating" defaultValue={query.get('min_rating') ?? ''}>
+          <option value="">{m.option_all()}</option>
+          <option value="1">{m.score_filter_plus({ n: '1' })}</option>
+          <option value="2">{m.score_filter_plus({ n: '2' })}</option>
+          <option value="3">{m.score_filter_plus({ n: '3' })}</option>
+          <option value="4">{m.score_filter_plus({ n: '4' })}</option>
+          <option value="5">{m.score_filter_five()}</option>
+        </select>
+      </div>
       <div className="cluster">
         <label>
           <input type="checkbox" name="mk" value="participating" defaultChecked={query.get('mk') === 'participating'} />{' '}
           {m.field_mk()}
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="kid_friendly"
+            value="true"
+            defaultChecked={query.get('kid_friendly') === 'true'}
+          />{' '}
+          {m.score_filter_kid()}
         </label>
         <button type="submit" className="button">
           {m.action_filter()}

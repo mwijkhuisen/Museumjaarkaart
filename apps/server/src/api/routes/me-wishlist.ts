@@ -1,6 +1,7 @@
 import { EmptyQuery, Marks, Wishlist } from '@mjk/contracts';
 import { sql } from 'kysely';
 import { z } from 'zod';
+import { settingsOf } from '../../auth/me.ts';
 import { toVisitMuseum } from '../../passport/visits.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
@@ -65,6 +66,17 @@ export function mountMeWishlist(v1: ApiApp, deps: ApiDeps): void {
         .execute(db)
         .then((r) => r.rows.map((x) => x.museum_id));
     const [visited, wishlist] = await Promise.all([marked('visit'), marked('wishlist')]);
-    return sendJson(c, Marks, { marks: { visited, wishlist } }, CACHE_PRIVATE);
+    return sendJson(
+      c,
+      Marks,
+      {
+        marks: {
+          visited,
+          wishlist,
+          hide_ratings_until_visited: settingsOf(session.user.settings).hide_ratings_until_visited,
+        },
+      },
+      CACHE_PRIVATE,
+    );
   });
 }

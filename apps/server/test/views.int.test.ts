@@ -22,6 +22,7 @@ const VIEWS = [
   'pub_mk_list',
   'pub_profile',
   'pub_mk_list_province',
+  'pub_museum_stats', // P3a
 ] as const;
 
 const PUB_MUSEUM_COLUMNS = [
@@ -188,6 +189,25 @@ describe('definitions', () => {
       'visits_public',
       'wishlist_public',
       'indexable',
+    ]);
+    // P3a: the scores, without visit_count and updated_at (Q8)
+    expect(await colsOf('pub_museum_stats')).toEqual([
+      'museum_id',
+      'rating_count',
+      'rating_mean',
+      'bayes_score',
+      'collection_count',
+      'collection_mean',
+      'presentation_count',
+      'presentation_mean',
+      'kid_friendly_count',
+      'kid_friendly_mean',
+      'accessibility_count',
+      'accessibility_mean',
+      'facilities_count',
+      'facilities_mean',
+      'value_for_money_count',
+      'value_for_money_mean',
     ]);
   });
 });

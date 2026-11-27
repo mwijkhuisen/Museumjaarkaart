@@ -18,6 +18,8 @@ const ALIASES = {
   url: ['museumnl', 'museumnl_url'],
   id: ['museum_id'],
   added: ['added_on'],
+  rating: ['rating', 'beoordeling', 'sterren', 'stars'],
+  review: ['review', 'recensie'],
 } as const;
 type Column = keyof typeof ALIASES;
 const COLUMN_OF = new Map<string, Column>(
@@ -81,6 +83,8 @@ export function parseCsv(input: string, today: string): ParseResult {
           place: get('place'),
           date: kind === 'wishlist' ? null : get('date'),
           note: kind === 'wishlist' ? null : get('note'),
+          rating: kind === 'wishlist' ? null : get('rating'),
+          review: kind === 'wishlist' ? null : get('review'),
         },
         today,
       ),

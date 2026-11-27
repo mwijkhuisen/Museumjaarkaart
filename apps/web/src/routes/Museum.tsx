@@ -6,6 +6,8 @@ import { CATEGORY_LABEL } from '../components/museum/categories.ts';
 import { MuseumkaartStatus } from '../components/museum/MuseumkaartStatus.tsx';
 import { MarkSlot, VisitForm } from '../components/museum/MuseumMarks.tsx';
 import { PROVINCE_NAME, provinceSlugOf } from '../components/museum/provinces.ts';
+import { MyReviewSlot } from '../components/reviews/MyReviewSlot.tsx';
+import { ScoreSummary } from '../components/reviews/ScoreSummary.tsx';
 import { IconCheck, IconExternal, IconMapPin } from '../components/ui/icons.tsx';
 import { useApi } from '../lib/api.ts';
 import { museumName } from '../lib/names.ts';
@@ -87,6 +89,10 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
         locale={locale}
       />
       {description === null ? null : <p>{description}</p>}
+      <section className="stack" aria-labelledby="museum-score">
+        <h2 id="museum-score">{m.score_h()}</h2>
+        <ScoreSummary museum={museum} locale={locale} readSlug={museum.slug} />
+      </section>
       <section>
         <h2>{m.museum_facts()}</h2>
         <dl className="facts">
@@ -134,7 +140,8 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
           <IconMapPin /> {m.museum_on_map()}
         </Link>
       </p>
-      <VisitForm museumId={museum.id} />
+      <VisitForm museumId={museum.id} name={museumName(museum, locale)} closedOn={museum.closed_on} />
+      <MyReviewSlot museum={museum} locale={locale} />
     </article>
   );
 }

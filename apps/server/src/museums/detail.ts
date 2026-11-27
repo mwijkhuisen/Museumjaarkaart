@@ -1,5 +1,6 @@
-import type { MuseumDetail, ProvinceCode } from '@mjk/contracts';
+import { ASPECTS, type MuseumDetail, type ProvinceCode } from '@mjk/contracts';
 import type { Db } from '../db/kysely.ts';
+import { ASPECT_MIN } from '../reviews/score.ts';
 import { currentMkList } from './reference.ts';
 
 // The public detail of one museum and the old-slug lookup (A§14, A§15.2). Reads only the pub_*
@@ -51,6 +52,18 @@ export async function getMuseumDetail(db: Db, slug: string): Promise<DetailRow |
     .executeTakeFirst();
   if (r === undefined) return null;
   const list = await currentMkList(db);
+  const stats = await db
+    .selectFrom('pub_museum_stats')
+    .selectAll()
+    .where('museum_id', '=', r.id as string)
+    .executeTakeFirst();
+  // The mean of an aspect shows from ASPECT_MIN ratings of it (owner Q2); the count is always true.
+  const aspects = Object.fromEntries(
+    ASPECTS.map((a) => {
+      const count = stats?.[`${a}_count`] ?? 0;
+      return [a, { mean: count >= ASPECT_MIN ? (stats?.[`${a}_mean`] ?? null) : null, count }];
+    }),
+  ) as MuseumDetail['aspects'];
   return {
     id: r.id as string,
     slug: r.slug as string,
@@ -82,6 +95,9 @@ export async function getMuseumDetail(db: Db, slug: string): Promise<DetailRow |
     photo_policy: r.photo_policy as DetailRow['photo_policy'],
     temp_closed_until: r.temp_closed_until,
     mk_list: list === null ? null : { ...list, member: r.mk_list_member === true },
+    rating_count: stats?.rating_count ?? 0,
+    rating_mean: stats?.rating_mean ?? null,
+    aspects,
   };
 }
 

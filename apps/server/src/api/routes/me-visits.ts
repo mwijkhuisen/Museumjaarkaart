@@ -14,6 +14,10 @@ import { sendJson } from '../respond.ts';
 // keyed on the session's user, so another member's visit is a 404, never a 403. Notes are never logged.
 
 const UNIQUE_VIOLATION = '23505';
+// ON DELETE RESTRICT raises 23001 (NO ACTION would raise 23503), pinned in test/reviews/schema.int.test.ts.
+const RESTRICT_VIOLATION = '23001';
+const FK_VIOLATION = '23503';
+const CITED_VISIT = 'review_cites_own_visit';
 const sqlstate = (err: unknown): string | undefined => (err as { code?: unknown }).code as string | undefined;
 
 export function mountMeVisits(v1: ApiApp, deps: ApiDeps): void {
@@ -75,14 +79,25 @@ export function mountMeVisits(v1: ApiApp, deps: ApiDeps): void {
       ...(body.note === undefined ? {} : { note: body.note }),
     };
     try {
-      const done = await db
-        .updateTable('visit')
-        .set(set)
-        .where('id', '=', id)
-        .where('user_id', '=', userId)
-        .returning('id')
-        .executeTakeFirst();
-      if (done === undefined) throw new ApiError('not_found');
+      await db.transaction().execute(async (trx) => {
+        // PostgreSQL 18's RETURNING old/new: whether the date moved, decided under the visit's row lock.
+        const done = await trx
+          .updateTable('visit')
+          .set(set)
+          .where('id', '=', id)
+          .where('user_id', '=', userId)
+          .returning(sql<boolean>`old.visited_on IS DISTINCT FROM new.visited_on`.as('moved'))
+          .executeTakeFirst();
+        if (done === undefined) throw new ApiError('not_found');
+        // The date a review shows is part of its content (A§11 Edits): the member's review citing it is edited.
+        if (done.moved)
+          await trx
+            .updateTable('review')
+            .set({ edited_at: sql<Date>`now()` })
+            .where('visit_id', '=', id)
+            .where('user_id', '=', userId)
+            .execute();
+      });
     } catch (err) {
       if (sqlstate(err) === UNIQUE_VIOLATION) throw new ApiError('conflict');
       throw err;
@@ -92,16 +107,30 @@ export function mountMeVisits(v1: ApiApp, deps: ApiDeps): void {
     return sendJson(c, Visit, visit, CACHE_PRIVATE);
   });
 
+  // A visit that a review cites cannot go (P3a): the member deletes the review or cites another visit first.
+  // The NOT EXISTS decides in SQL, so the normal flow raises no database error; the foreign key
+  // (review_cites_own_visit, RESTRICT) is the backstop for a review created at the same moment.
   v1.delete('/me/visits/:id', async (c) => {
     const session = requireMember(c);
     const id = parseParam('id', c.req.param('id'), z.uuid());
-    const gone = await db
-      .deleteFrom('visit')
-      .where('id', '=', id)
-      .where('user_id', '=', session.user.id)
-      .returning('id')
-      .executeTakeFirst();
-    if (gone === undefined) throw new ApiError('not_found');
+    const userId = session.user.id;
+    let gone: { id: string } | undefined;
+    try {
+      const { rows } = await sql<{ id: string }>`DELETE FROM visit
+        WHERE id = ${id}::uuid AND user_id = ${userId}::uuid
+          AND NOT EXISTS (SELECT 1 FROM review r WHERE r.visit_id = visit.id)
+        RETURNING id`.execute(db);
+      gone = rows[0];
+    } catch (err) {
+      const constraint = (err as { constraint?: unknown }).constraint;
+      if (sqlstate(err) === RESTRICT_VIOLATION || (sqlstate(err) === FK_VIOLATION && constraint === CITED_VISIT))
+        throw new ApiError('conflict');
+      throw err;
+    }
+    if (gone === undefined) {
+      const own = await sql`SELECT 1 FROM visit WHERE id = ${id}::uuid AND user_id = ${userId}::uuid`.execute(db);
+      throw new ApiError(own.rows.length > 0 ? 'conflict' : 'not_found');
+    }
     c.header('Cache-Control', CACHE_PRIVATE);
     return c.body(null, 204);
   });

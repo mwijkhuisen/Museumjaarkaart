@@ -2,7 +2,7 @@
 // reads back (only `visits` and `wishlist`; see import/mjk.ts). Bump `version` for any change that an
 // old reader would misread.
 
-import { IsoDate, IsoDateTime, Settings, Slug } from '@mjk/contracts';
+import { IsoDate, IsoDateTime, Rating, Settings, Slug } from '@mjk/contracts';
 import { z } from 'zod';
 
 /** The export's two CSV files. The CSV import reads `visits.csv` back through its column aliases. */
@@ -16,6 +16,18 @@ const MjkMuseum = z.strictObject({
   place: z.string().nullable(),
   wikidata_qid: z.string().nullable(),
 });
+
+const aspect = Rating.nullable();
+const MjkReviewContent = {
+  rating: Rating,
+  collection: aspect,
+  presentation: aspect,
+  kid_friendly: aspect,
+  accessibility: aspect,
+  facilities: aspect,
+  value_for_money: aspect,
+  body: z.string().nullable(),
+};
 
 export const MjkExportV1 = z.strictObject({
   format: z.literal('mjk'),
@@ -42,6 +54,21 @@ export const MjkExportV1 = z.strictObject({
     }),
   ),
   wishlist: z.array(z.strictObject({ museum: MjkMuseum, created_at: IsoDateTime })),
+  // P3a: the member's own reviews with their revisions, oldest first. Optional: the importer ignores the key and
+  // an older v1 file has none.
+  reviews: z
+    .array(
+      z.strictObject({
+        museum: MjkMuseum,
+        visited_on: IsoDate.nullable(),
+        ...MjkReviewContent,
+        state: z.enum(['visible', 'removed']),
+        created_at: IsoDateTime,
+        edited_at: IsoDateTime.nullable(),
+        revisions: z.array(z.strictObject({ ...MjkReviewContent, created_at: IsoDateTime })),
+      }),
+    )
+    .optional(),
   sessions: z.array(
     z.strictObject({ host: z.string(), method: z.string(), created_at: IsoDateTime, last_used_at: IsoDateTime }),
   ),

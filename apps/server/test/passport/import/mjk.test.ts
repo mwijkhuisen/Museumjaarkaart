@@ -57,6 +57,8 @@ it('round-trips an export: the schema accepts it and the parser reads its visits
       ref: { mjkId: ID, qid: 'Q190804', museumnlUrl: null, name: 'Rijksmuseum', place: 'Amsterdam' },
       visited_on: '2026-05-06',
       note: 'top',
+      rating: null,
+      review: null,
       error: null,
     },
     {
@@ -65,6 +67,8 @@ it('round-trips an export: the schema accepts it and the parser reads its visits
       ref: { mjkId: ID, qid: null, museumnlUrl: null, name: 'Mauritshuis', place: null },
       visited_on: null,
       note: null,
+      rating: null,
+      review: null,
       error: null,
     },
   ]);

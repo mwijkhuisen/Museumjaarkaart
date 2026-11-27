@@ -4,7 +4,7 @@ import * as icons from '../src/components/ui/icons.tsx';
 
 describe('icons', () => {
   const all = Object.entries(icons);
-  it('exports the nine icons', () => expect(all).toHaveLength(9));
+  it('exports the ten icons', () => expect(all).toHaveLength(10));
   it.each(all)('%s is decorative and style-free', (_name, Icon) => {
     const html = renderToStaticMarkup(<Icon className="x" />);
     expect(html).toContain('aria-hidden="true"');

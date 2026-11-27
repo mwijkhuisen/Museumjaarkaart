@@ -30,6 +30,10 @@ export type Route =
   /** `query`: the kept list parameters, URL-encoded, '' for none. */
   | { page: 'museums'; locale: Locale; query: string }
   | { page: 'museum'; locale: Locale; slug: string }
+  /** A museum's reviews (P3a): `/musea/<slug>/reviews`, the one three-segment path. */
+  | { page: 'museum-reviews'; locale: Locale; slug: string }
+  /** One review (P3a): `/reviews/<id>`, a lower-case uuid. */
+  | { page: 'review'; locale: Locale; id: string }
   | { page: 'province'; locale: Locale; province: ProvinceSlug; query: string }
   | { page: 'search'; locale: Locale; query: string }
   | { page: 'map'; locale: Locale; query: string }
@@ -49,6 +53,7 @@ const SEGMENT = {
   map: { nl: 'kaart', en: 'map' },
   search: { nl: 'zoeken', en: 'search' },
   profile: { nl: 'u', en: 'u' },
+  reviews: { nl: 'reviews', en: 'reviews' },
 } as const;
 
 const LEGAL: Record<LegalDoc, Record<Locale, string>> = {
@@ -72,15 +77,15 @@ const SHELL: Record<ShellApp, Record<Locale, string>> = {
  * API's to validate.
  */
 const KEPT = {
-  museums: ['q', 'province', 'municipality', 'category', 'mk', 'sort', 'limit', 'cursor'],
+  museums: ['q', 'province', 'municipality', 'category', 'mk', 'min_rating', 'kid_friendly', 'sort', 'limit', 'cursor'],
   // The map page shows the list's filters and the same list.
-  map: ['q', 'province', 'municipality', 'category', 'mk', 'sort', 'limit', 'cursor'],
+  map: ['q', 'province', 'municipality', 'category', 'mk', 'min_rating', 'kid_friendly', 'sort', 'limit', 'cursor'],
   province: ['cursor'],
   search: ['q', 'cursor'],
 } as const;
 
 /** The parameters of `GET /museums/points` (the contract's PointsQuery: any other one is a 400). */
-const POINTS = ['q', 'province', 'municipality', 'category', 'mk'] as const;
+const POINTS = ['q', 'province', 'municipality', 'category', 'mk', 'min_rating', 'kid_friendly'] as const;
 
 function keep(search: string, names: readonly string[]): string {
   const given = new URLSearchParams(search);
@@ -97,6 +102,7 @@ const find = <K extends string>(table: Record<K, Record<Locale, string>>, locale
   (Object.keys(table) as K[]).find((key) => table[key][locale] === segment);
 
 const isSlug = (s: string) => s.length <= SLUG_MAX && SLUG_RE.test(s);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const isProvince = (s: string): s is ProvinceSlug => Object.hasOwn(PROVINCE_SLUGS, s);
 
 /** The locale of a path: EN for `/en` and everything under `/en/`, else NL. */
@@ -130,6 +136,17 @@ export function routeOf(path: string): Resolved {
   if (!rest.startsWith('/')) return route({ page: 'not_found', locale });
   const parts = rest.slice(1).split('/');
   const [first = '', second, ...more] = parts;
+  // The one three-segment form: `/musea/<slug>/reviews`. Every other path of three or more is a 404.
+  if (
+    more.length === 1 &&
+    more[0] === SEGMENT.reviews[locale] &&
+    first === SEGMENT.museums[locale] &&
+    second !== undefined
+  ) {
+    return isSlug(second)
+      ? route({ page: 'museum-reviews', locale, slug: second })
+      : route({ page: 'not_found', locale });
+  }
   if (more.length > 0) return route({ page: 'not_found', locale });
   if (second === undefined) {
     if (first === SEGMENT.museums[locale]) return route({ page: 'museums', locale, query: keep(search, KEPT.museums) });
@@ -145,6 +162,7 @@ export function routeOf(path: string): Resolved {
   if (first === SEGMENT.province[locale] && isProvince(second)) {
     return route({ page: 'province', locale, province: second, query: keep(search, KEPT.province) });
   }
+  if (first === SEGMENT.reviews[locale] && UUID_RE.test(second)) return route({ page: 'review', locale, id: second });
   if (first === SEGMENT.profile[locale] && HANDLE_RE.test(second))
     return route({ page: 'profile', locale, handle: second });
   return route({ page: 'not_found', locale });
@@ -163,6 +181,10 @@ export function pathOf(route: Route): string {
       return withQuery(`${prefix}/${SEGMENT.museums[locale]}`, route.query);
     case 'museum':
       return `${prefix}/${SEGMENT.museums[locale]}/${route.slug}`;
+    case 'museum-reviews':
+      return `${prefix}/${SEGMENT.museums[locale]}/${route.slug}/${SEGMENT.reviews[locale]}`;
+    case 'review':
+      return `${prefix}/${SEGMENT.reviews[locale]}/${route.id}`;
     case 'province':
       return withQuery(`${prefix}/${SEGMENT.province[locale]}/${route.province}`, route.query);
     case 'search':
@@ -195,6 +217,11 @@ export const apiPath = {
   near: (lat: string, lon: string) => `/api/v1/museums/near?lat=${lat}&lon=${lon}`,
   /** A public profile with the first page of each public list (P2c). */
   user: (handle: string) => `/api/v1/users/${handle}`,
+  /** A museum's reviews, newest first (P3a); `?cursor=` pages it. */
+  museumReviews: (slug: string) => `/api/v1/museums/${slug}/reviews`,
+  review: (id: string) => `/api/v1/reviews/${id}`,
+  /** A member's public reviews, newest first (P3a). */
+  userReviews: (handle: string) => `/api/v1/users/${handle}/reviews`,
 };
 
 /** The province list query: the province first, then the kept parameters. */
@@ -214,12 +241,16 @@ export function apiPathsOf(route: Route): readonly string[] {
       return [apiPath.museums(route.query), apiPath.provinces];
     case 'museum':
       return [apiPath.museum(route.slug)];
+    case 'museum-reviews':
+      return [apiPath.museum(route.slug), apiPath.museumReviews(route.slug)];
+    case 'review':
+      return [apiPath.review(route.id)];
     case 'province':
       return [apiPath.provinces, apiPath.museums(provinceQuery(route))];
     case 'search':
       return new URLSearchParams(route.query).has('q') ? [apiPath.museums(route.query)] : [];
     case 'profile':
-      return [apiPath.user(route.handle)];
+      return [apiPath.user(route.handle), apiPath.userReviews(route.handle)];
     default:
       return [];
   }

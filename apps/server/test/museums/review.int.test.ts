@@ -266,6 +266,9 @@ describe('match resolve', () => {
       )
     )[0] as { id: string; rce_id: string; wikidata_qid: string | null };
     expect(created).toMatchObject({ rce_id: QUEUED[3], wikidata_qid: null });
+    expect((await rows<{ state: string }>('SELECT state FROM job WHERE kind = $1', ['stats_recompute'])).length).toBe(
+      1,
+    );
     expect(await changeRows(created.id, 'new_museum')).toEqual([
       { old: null, new: { source: 'rce', external_id: QUEUED[3] }, origin: 'admin', state: 'applied' },
     ]);

@@ -674,3 +674,108 @@ altcha-widget {
   margin: 0;
   font-weight: 600;
 }
+
+/* P3a WP5: the rating fold. The flag is <html data-hide-ratings>, set by src/prefs.ts before the first
+   paint. Only then do the body and the button share one grid cell, so opening the fold moves nothing;
+   without the flag the button is not rendered at all and the block takes no extra room. `visibility:
+   hidden` also hides the folded body from assistive technology and from the tab order. */
+.fold-show {
+  display: none;
+}
+html[data-hide-ratings] .fold {
+  display: grid;
+}
+html[data-hide-ratings] .fold > * {
+  grid-area: 1 / 1;
+}
+html[data-hide-ratings] .fold-show {
+  display: block;
+  visibility: hidden;
+  align-self: center;
+  justify-self: start;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--color-link);
+  background: var(--color-bg);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+html[data-hide-ratings] .fold:not([data-open]) > .fold-body {
+  visibility: hidden;
+}
+html[data-hide-ratings] .fold:not([data-open]) > .fold-show {
+  visibility: visible;
+}
+
+/* WP7: the member's review form and slot (P3a). Native radio groups; no inline style. */
+.choice-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+}
+/* P3a WP6: scores and reviews. The stars are decorative (the rating is text beside them); the filled ones use
+   the accent token, the empty ones the strong border token. The review body is ONE text node: its line breaks come
+   from CSS, never from markup. */
+.stars {
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.stars-off {
+  color: var(--color-border-strong);
+}
+.score-mean strong {
+  font-size: var(--font-size-xl);
+}
+.score-aspects {
+  max-width: 28rem;
+}
+.card-score {
+  align-items: center;
+}
+.howcheck {
+  font-size: var(--font-size-sm);
+}
+.howcheck--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+}
+.review-list {
+  margin: 0;
+  padding: 0;
+}
+.review-card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.review-aspects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.review-body {
+  margin: 0;
+  white-space: pre-line;
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+.review-meta {
+  margin: 0;
+}

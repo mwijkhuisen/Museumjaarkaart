@@ -292,6 +292,8 @@ it('an edited file writes exactly the changed cells', async () => {
   set(rows, 'b-museum', 'price_verified_at', '2026-03-01T10:30:00+01:00');
   set(rows, 'c-museum', 'temp_closed', 'true');
   set(rows, 'c-museum', 'temp_closed_until', '2027-01-15');
+  const statsJobs = async () => (await h.api.query("SELECT state FROM job WHERE kind = 'stats_recompute'")).rows;
+  expect(await statsJobs()).toEqual([]);
   const r = await importRows(rows);
   expect(r.code).toBe(0);
   expect(r.out).toEqual([
@@ -305,6 +307,8 @@ it('an edited file writes exactly the changed cells', async () => {
     '  hidden: 1',
   ]);
   expect((await changesOf('a-museum')).map((c) => c.field)).toEqual(['hidden']);
+  // P3a: a hide changes m and the public scores, so it queues the recompute (one job for the whole file).
+  expect(await statsJobs()).toEqual([{ state: 'queued' }]);
   expect((await changesOf('b-museum')).map((c) => c.field)).toEqual([
     'admission_adult_cents',
     'mk_since',

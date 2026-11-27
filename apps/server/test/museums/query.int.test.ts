@@ -195,11 +195,12 @@ describe('filters', () => {
     expect(await okPage({ municipality: 'GM9999' })).toEqual({ items: [], next_cursor: null, total: 0 });
   }, 120_000);
 
-  it('answers sort=rank and sort=name alike (rank orders like name until P3a)', async () => {
+  it('a catalogue without scores yet ranks like name (the real rank order: reviews/ranking.int.test.ts)', async () => {
     const a = await okPage({ sort: 'rank', limit: '50', province: 'NL-NH' });
     const b = await okPage({ sort: 'name', limit: '50', province: 'NL-NH' });
     const c = await okPage({ limit: '50', province: 'NL-NH' });
-    expect(a).toEqual(b);
+    // the rows and the total agree; the next cursors differ by mode (rank `r`, name `n`)
+    expect({ ...a, next_cursor: null }).toEqual({ ...b, next_cursor: null });
     expect(a).toEqual(c);
     const q1 = await okPage({ sort: 'rank', q: 'museum', limit: '50' });
     const q2 = await okPage({ sort: 'name', q: 'museum', limit: '50' });
@@ -376,15 +377,23 @@ describe('bad requests', () => {
   it('answers 400 for a cursor of the other mode', async () => {
     const name = encodeCursor({ m: 'n', k: 'a', i: ID });
     const search = encodeCursor({ m: 's', t: 1, s: 0.5, k: 'a', i: ID });
+    const rank = encodeCursor({ m: 'r', s: 4.2, k: 'a', i: ID });
     await expectBad({ cursor: search }, badCursor);
+    await expectBad({ cursor: search, sort: 'name' }, badCursor);
     await expectBad({ cursor: name, q: 'museum' }, badCursor);
-    expect((await get({ cursor: name })).status).toBe(200);
+    await expectBad({ cursor: rank, q: 'museum' }, badCursor);
+    // rank is the default: a name cursor wants sort=name, a rank cursor wants no sort or sort=rank
+    await expectBad({ cursor: name }, badCursor);
+    await expectBad({ cursor: rank, sort: 'name' }, badCursor);
+    expect((await get({ cursor: name, sort: 'name' })).status).toBe(200);
+    expect((await get({ cursor: rank })).status).toBe(200);
+    expect((await get({ cursor: rank, sort: 'rank' })).status).toBe(200);
     expect((await get({ cursor: search, q: 'museum' })).status).toBe(200);
   });
 
   it('accepts an odd but valid cursor and answers the rows after it', async () => {
     for (const k of ["'; DROP TABLE museum;--", '𝔸'.repeat(250), '', '\\', '%_']) {
-      const page = await okPage({ cursor: encodeCursor({ m: 'n', k, i: ID }), limit: '50' });
+      const page = await okPage({ cursor: encodeCursor({ m: 'n', k, i: ID }), sort: 'name', limit: '50' });
       const after = expected({}, null).filter((id) => {
         const r = visible.find((v) => v.id === id) as Visible;
         return byCodePoint(r.sort_name, k) > 0 || (byCodePoint(r.sort_name, k) === 0 && byCodePoint(r.id, ID) > 0);
@@ -401,7 +410,8 @@ describe('bad requests', () => {
   it('answers 400 for an unknown, a repeated and an invalid parameter, naming only schema paths', async () => {
     await expectBad({ x: '1' }, { error: 'bad_request', fields: [] });
     await expectBad({ offset: '20' }, { error: 'bad_request', fields: [] });
-    await expectBad({ min_rating: '4' }, { error: 'bad_request', fields: [] });
+    await expectBad({ min_rating: '6' }, { error: 'bad_request', fields: ['min_rating'] });
+    await expectBad({ kid_friendly: 'false' }, { error: 'bad_request', fields: ['kid_friendly'] });
     await expectBad({ province: 'NL-XX' }, { error: 'bad_request', fields: ['province'] });
     await expectBad({ municipality: "GM1' OR 1=1" }, { error: 'bad_request', fields: ['municipality'] });
     await expectBad({ category: 'x' }, { error: 'bad_request', fields: ['category'] });

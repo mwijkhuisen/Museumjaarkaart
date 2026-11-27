@@ -1,8 +1,18 @@
-import { EmptyQuery, HANDLE_RE, PublicListQuery, PublicVisitList, PublicWishlist, UserProfile } from '@mjk/contracts';
+import {
+  EmptyQuery,
+  HANDLE_RE,
+  PublicListQuery,
+  PublicVisitList,
+  PublicWishlist,
+  ReviewList,
+  ReviewListQuery,
+  UserProfile,
+} from '@mjk/contracts';
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../../db/kysely.ts';
 import { decodeCursor, encodeCursor } from '../../museums/cursor.ts';
 import { publicProgress } from '../../passport/progress.ts';
+import { InvalidReviewCursor, reviewsOfUser } from '../../reviews/public.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
 import { CACHE_PUBLIC } from '../cache.ts';
 import { ApiError } from '../errors.ts';
@@ -139,5 +149,18 @@ export function mountUsers(v1: ApiApp, deps: ApiDeps): void {
     const q = parseQuery(c, PublicListQuery);
     if (!(await findProfile(db, handle))?.wishlist_public) throw new ApiError('not_found');
     return sendJson(c, PublicWishlist, await wishlistPage(db, handle, q), CACHE_PUBLIC);
+  });
+
+  // P3a: the member's visible reviews, newest first (an active member only; no setting hides them, D17).
+  v1.get('/users/:handle/reviews', async (c) => {
+    const handle = handleOf(c.req.param('handle'));
+    const q = parseQuery(c, ReviewListQuery);
+    if ((await findProfile(db, handle)) === undefined) throw new ApiError('not_found');
+    try {
+      return sendJson(c, ReviewList, await reviewsOfUser(db, handle, q), CACHE_PUBLIC);
+    } catch (err) {
+      if (err instanceof InvalidReviewCursor) throw new ApiError('bad_request', ['cursor']);
+      throw err;
+    }
   });
 }

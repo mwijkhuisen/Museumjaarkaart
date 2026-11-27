@@ -21,6 +21,14 @@ export type SsrResponse = {
 export type SsrBundle = {
   /** `path` is the pathname plus the query string of the request, never a Host-derived URL. */
   render(path: string, fetchApi: FetchApi, config: SsrConfig): Promise<SsrResponse>;
-  /** `sitemap.xml` for the visible museums' slugs and the opted-in profiles' handles. */
-  sitemap(slugs: readonly string[], handles: readonly string[], config: SsrConfig): string;
+  /**
+   * `sitemap.xml` for the visible museums' slugs, the opted-in profiles' handles and (P3a) the slugs of the
+   * museums with at least one rating, whose review pages are listed too.
+   */
+  sitemap(
+    slugs: readonly string[],
+    handles: readonly string[],
+    config: SsrConfig,
+    reviewed?: readonly string[],
+  ): string;
 };

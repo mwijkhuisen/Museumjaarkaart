@@ -231,6 +231,27 @@ export interface MuseumSourceRow {
   source: string;
 }
 
+export interface MuseumStats {
+  accessibility_count: number;
+  accessibility_mean: number | null;
+  bayes_score: number;
+  collection_count: number;
+  collection_mean: number | null;
+  facilities_count: number;
+  facilities_mean: number | null;
+  kid_friendly_count: number;
+  kid_friendly_mean: number | null;
+  museum_id: string;
+  presentation_count: number;
+  presentation_mean: number | null;
+  rating_count: number;
+  rating_mean: number | null;
+  updated_at: Generated<Timestamp>;
+  value_for_money_count: number;
+  value_for_money_mean: number | null;
+  visit_count: number;
+}
+
 export interface MuseumSyncRun {
   accept_changes: Generated<boolean>;
   accept_drop: string | null;
@@ -316,6 +337,25 @@ export interface PubMuseumAlias {
   museum_id: string | null;
 }
 
+export interface PubMuseumStats {
+  accessibility_count: number | null;
+  accessibility_mean: number | null;
+  bayes_score: number | null;
+  collection_count: number | null;
+  collection_mean: number | null;
+  facilities_count: number | null;
+  facilities_mean: number | null;
+  kid_friendly_count: number | null;
+  kid_friendly_mean: number | null;
+  museum_id: string | null;
+  presentation_count: number | null;
+  presentation_mean: number | null;
+  rating_count: number | null;
+  rating_mean: number | null;
+  value_for_money_count: number | null;
+  value_for_money_mean: number | null;
+}
+
 export interface PubProfile {
   display_name: string | null;
   handle: string | null;
@@ -343,6 +383,40 @@ export interface RateLimit {
   key: string;
   window_end: Timestamp;
   window_start: Timestamp;
+}
+
+export interface Review {
+  accessibility: number | null;
+  body: string | null;
+  collection: number | null;
+  created_at: Generated<Timestamp>;
+  edited_at: Timestamp | null;
+  facilities: number | null;
+  former_member: Generated<boolean>;
+  former_visited_on: string | null;
+  id: Generated<string>;
+  kid_friendly: number | null;
+  museum_id: string;
+  presentation: number | null;
+  rating: number;
+  state: Generated<string>;
+  user_id: string | null;
+  value_for_money: number | null;
+  visit_id: string | null;
+}
+
+export interface ReviewRevision {
+  accessibility: number | null;
+  body: string | null;
+  collection: number | null;
+  created_at: Generated<Timestamp>;
+  facilities: number | null;
+  id: Generated<string>;
+  kid_friendly: number | null;
+  presentation: number | null;
+  rating: number;
+  review_id: string;
+  value_for_money: number | null;
 }
 
 export interface Session {
@@ -402,6 +476,7 @@ export interface DB {
   museum_change: MuseumChange;
   museum_slug_redirect: MuseumSlugRedirect;
   museum_source_row: MuseumSourceRow;
+  museum_stats: MuseumStats;
   museum_sync_run: MuseumSyncRun;
   passkey: Passkey;
   province: Province;
@@ -409,10 +484,13 @@ export interface DB {
   pub_mk_list_province: PubMkListProvince;
   pub_museum: PubMuseum;
   pub_museum_alias: PubMuseumAlias;
+  pub_museum_stats: PubMuseumStats;
   pub_profile: PubProfile;
   pub_province: PubProvince;
   pub_slug_redirect: PubSlugRedirect;
   rate_limit: RateLimit;
+  review: Review;
+  review_revision: ReviewRevision;
   session: Session;
   visit: Visit;
   visit_import: VisitImport;

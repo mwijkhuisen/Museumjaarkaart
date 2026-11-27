@@ -1,19 +1,8 @@
 import { Accepted, EmailChangeRequest, EmailVerifyRequest, Me, MePatchRequest, SessionList } from '@mjk/contracts';
-import type { Context } from 'hono';
 import { sql } from 'kysely';
 import { z } from 'zod';
 import { checkCode, consumeCode, issueCode } from '../../auth/codes.ts';
-import {
-  BUCKETS,
-  type Bucket,
-  codeEmailLimits,
-  enforce,
-  hit,
-  hitIp,
-  ipKeys,
-  peek,
-  refund,
-} from '../../auth/limiter.ts';
+import { BUCKETS, codeEmailLimits, enforce, hit, hitIp, ipKeys, peek, refund } from '../../auth/limiter.ts';
 import { settingsOf, toMeUser } from '../../auth/me.ts';
 import { endUserSessions, requireReauth, type SessionHost, type SessionMethod } from '../../auth/session.ts';
 import { enqueueMailNotice } from '../../mail/payloads.ts';
@@ -21,8 +10,7 @@ import type { ApiApp, ApiDeps } from '../app.ts';
 import { readJson } from '../body.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
 import { ApiError } from '../errors.ts';
-import type { ClientAddress } from '../middleware/client-address.ts';
-import type { ApiEnv } from '../middleware/request.ts';
+import { clientOr429 } from '../middleware/client-address.ts';
 import { hostClass, requireMember } from '../middleware/session.ts';
 import { parseParam } from '../query.ts';
 import { sendJson } from '../respond.ts';
@@ -33,16 +21,6 @@ import { sendJson } from '../respond.ts';
 /** Stands in for the address of a member without a pending code, so the check runs the same statements and fails. */
 const NO_EMAIL = 'none@invalid';
 const UNIQUE_VIOLATION = '23505';
-
-/** The client address, or the limiter's 429: a write that logs the address, or counts against it, never runs without one. */
-function clientOr429(c: Context<ApiEnv>, deps: ApiDeps, bucket: Bucket): ClientAddress {
-  const client = c.var.client;
-  if (client === undefined) {
-    enforce(deps.logger, bucket, null);
-    throw new ApiError('rate_limited');
-  }
-  return client;
-}
 
 /** A pg error's SQLSTATE, never its message. */
 const sqlstate = (err: unknown): string | undefined => (err as { code?: unknown }).code as string | undefined;
@@ -64,7 +42,7 @@ export function mountMe(v1: ApiApp, deps: ApiDeps): void {
     const settings = { ...settingsOf(user.settings), ...body.settings };
     const nameChanged = displayName !== user.display_name;
     // Q7: a display-name change creates content, so its address is logged; no address, no write.
-    const client = nameChanged ? clientOr429(c, deps, BUCKETS.codePrefix) : undefined;
+    const client = nameChanged ? clientOr429(c, deps.logger, BUCKETS.codePrefix) : undefined;
     await db.transaction().execute(async (trx) => {
       await trx
         .updateTable('app_user')
@@ -86,7 +64,7 @@ export function mountMe(v1: ApiApp, deps: ApiDeps): void {
     requireReauth(session);
     const body = await readJson(c, EmailChangeRequest);
     if (body.email === session.user.email) throw new ApiError('invalid', ['email']);
-    const client = clientOr429(c, deps, BUCKETS.codePrefix);
+    const client = clientOr429(c, deps.logger, BUCKETS.codePrefix);
     enforce(deps.logger, BUCKETS.codePrefix, await hitIp(db, BUCKETS.codePrefix, client));
     await codeEmailLimits(db, deps.logger, keys, hostClass(c, site), client, body.email);
     // The worker drops the mail when the address already has an account: the answer is the same either way.
@@ -104,7 +82,7 @@ export function mountMe(v1: ApiApp, deps: ApiDeps): void {
   v1.post('/me/email/verify', async (c) => {
     const session = requireMember(c);
     const body = await readJson(c, EmailVerifyRequest);
-    const client = clientOr429(c, deps, BUCKETS.verifyFailPrefix);
+    const client = clientOr429(c, deps.logger, BUCKETS.verifyFailPrefix);
     const userId = session.user.id;
 
     // The newest email-change code this member asked for, matched on a bound text parameter.

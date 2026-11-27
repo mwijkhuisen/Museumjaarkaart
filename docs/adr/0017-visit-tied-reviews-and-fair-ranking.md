@@ -17,9 +17,9 @@
 
 - **One review per member per museum** (D13), editable at any time. Earlier versions go to `review_revision` (for moderation, never public), and the review shows "bewerkt op <date>".
 - **Tied to a visit** (D17): a review cites one of the member's visits to that museum, shown as "Bezocht op <date>" ("Bezocht" if undated). Visits are self-declared. Deleting the cited visit asks the member to pick another one or delete the review.
-- **Scores** (A§11): overall 1–5 stars, required, which drives every average. Optional aspects 1–5: collection, presentation, kid-friendly, accessibility, facilities, value for money (D13) [U final list in P3a]. An aspect mean shows from 3 ratings [U].
+- **Scores** (A§11): overall 1–5 stars, required, which drives every average. Optional aspects 1–5: collection, presentation, kid-friendly, accessibility, facilities, value for money (D13; the final list, owner, P3a Q1). An aspect mean shows from 3 ratings (owner, P3a Q2).
 - **Text:** optional, plain (line breaks only), any language, ≤ 5,000 characters. Up to 10 photos (ADR-0008).
-- **Ranking:** the museum page shows the plain mean and the count. Lists order by the Bayesian average `(C·m + Σ ratings) / (C + n)`, with C = 5 and m = the global mean of visible ratings [U tune after the beta] [U: with C = 5 a single 5-star review still outranks a 4.6 average when m > 4.5; P3a and the beta tune C]. The worker recomputes `museum_stats` in a debounced job.
+- **Ranking:** the museum page shows the plain mean and the count. Lists order by the Bayesian average `(C·m + Σ ratings) / (C + n)`, with C = 5 and m = the global mean of visible ratings [U tune after the beta] [U beta: with C = 5 a single 5-star review still outranks a 4.6 average when m > 4.5; P3a kept C = 5 (owner, Q3) and the beta tunes it]. The worker recomputes `museum_stats` in a debounced job.
 - **"Hide ratings until I've visited"** (D20): a member setting that folds scores and texts on museums the member has not visited (A§11).
 - **"Hoe wij reviews controleren"** beside every score: visits are self-declared; one review per member per museum; how the mean and the ranking are computed; negative reviews are never suppressed or demoted; staff and rewarded reviews are forbidden; how to report a review.
 - A closed museum's reviews are read-only (ADR-0005).

@@ -91,6 +91,7 @@ export async function findNearest(db: Db, q: { lat: number; lon: number; limit: 
         const box = boundingBox(lat, lon, radius);
         const rows = await trx
           .selectFrom('pub_museum as m')
+          .leftJoin('pub_museum_stats as s', 's.museum_id', 'm.id')
           .select([
             'm.id',
             'm.slug',
@@ -107,6 +108,8 @@ export async function findNearest(db: Db, q: { lat: number; lon: number; limit: 
             'm.registered',
             'm.closed_on',
             'm.temp_closed',
+            's.rating_count',
+            's.rating_mean',
             distance.as('distance'),
           ])
           .where('m.lat', 'is not', null)
@@ -142,6 +145,8 @@ export async function findNearest(db: Db, q: { lat: number; lon: number; limit: 
               registered: r.registered === true,
               closed_on: r.closed_on,
               temp_closed: r.temp_closed === true,
+              rating_count: r.rating_count ?? 0,
+              rating_mean: r.rating_mean,
               distance_m: Math.round(r.distance),
             })),
           };

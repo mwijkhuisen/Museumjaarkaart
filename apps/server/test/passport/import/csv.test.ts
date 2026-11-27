@@ -143,6 +143,8 @@ it('reads our own wishlist.csv as wishlist entries, with no date or note', () =>
       ref: { mjkId: ID, qid: null, museumnlUrl: null, name: 'Rijksmuseum', place: 'Amsterdam' },
       visited_on: null,
       note: null,
+      rating: null,
+      review: null,
       error: null,
     },
   ]);
@@ -203,5 +205,46 @@ it('never throws, for any text', () => {
           expect(s === null || (isStorable(s) && s.length <= max)).toBe(true);
     }),
     { numRuns: 300 },
+  );
+});
+
+it('reads the rating and review columns by every alias, and a file without them as before', () => {
+  for (const r of ['rating', 'Beoordeling', 'sterren', 'STARS']) {
+    expect(one(`museum,${r}`, 'A,4')).toMatchObject({ rating: 4, review: null, error: null });
+  }
+  for (const r of ['review', 'Recensie']) {
+    expect(one(`museum,rating,${r}`, 'A,5,"Mooi\r\n\tdag"')).toMatchObject({ rating: 5, review: 'Mooi\n dag' });
+  }
+  expect(one('museum', 'A')).toMatchObject({ rating: null, review: null, error: null });
+});
+
+it('gives a bad rating, a review without one, and a bad review text exactly one row error', () => {
+  for (const bad of ['0', '6', '3.5', 'vier', '-1']) {
+    expect(one('museum,rating', `A,${bad}`)).toMatchObject({ rating: null, error: 'bad_rating' });
+  }
+  expect(one('museum,review', 'A,mooi')).toMatchObject({ review: null, error: 'bad_rating' });
+  expect(one('museum,rating,review', 'A,4,\u0007x')).toMatchObject({ error: 'bad_text', rating: null });
+  expect(one('museum,rating,review', `A,4,${'a'.repeat(5001)}`)).toMatchObject({ error: 'too_long' });
+  expect(one('museum,rating,review', `A,4,${'a'.repeat(5000)}`)).toMatchObject({ error: null });
+  // The date error comes first; a wishlist row never carries a rating.
+  expect(one('museum,datum,rating', 'A,gisteren,9')).toMatchObject({ error: 'bad_date' });
+  expect(one('museum,added_on,rating', 'A,2026-01-01,4')).toMatchObject({ kind: 'wishlist', rating: null });
+});
+
+it('never throws on arbitrary rating and review cells, and a rated row is a review or has one error', () => {
+  const cell = fc.oneof(fc.string({ unit: 'binary', maxLength: 12 }), fc.constantFrom('', '1', '5', '9', 'x\ny'));
+  fc.assert(
+    fc.property(fc.array(fc.tuple(cell, cell, cell), { maxLength: 8 }), (rows) => {
+      const r = parseCsv(
+        writeCsv([['museum', 'rating', 'review'], ...rows.map(([a, b, c]) => [`M${a}`, b, c])]),
+        TODAY,
+      );
+      for (const p of r.ok ? r.rows : []) {
+        if (p.error === null) expect(p.rating !== null || p.review === null).toBe(true);
+        else expect([p.rating, p.review]).toEqual([null, null]);
+        if (p.rating !== null) expect(p.rating >= 1 && p.rating <= 5).toBe(true);
+      }
+    }),
+    { numRuns: 500 },
   );
 });

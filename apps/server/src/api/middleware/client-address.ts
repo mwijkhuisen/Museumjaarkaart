@@ -1,5 +1,8 @@
 import { isIP } from 'node:net';
 import type { Context, MiddlewareHandler } from 'hono';
+import { type Bucket, enforce } from '../../auth/limiter.ts';
+import type { Logger } from '../../lib/log.ts';
+import { ApiError } from '../errors.ts';
 import type { ApiEnv } from './request.ts';
 
 // The client address (A§9 "Client IP", A§17.2). Caddy trusts only cloudflared's /32, takes the
@@ -114,4 +117,14 @@ export function clientAddress(deps: ClientAddressDeps): MiddlewareHandler<ApiEnv
     if (address !== null) c.set('client', withPrefixes(address));
     await next();
   };
+}
+
+/** The client address, or the limiter's 429: a write that logs the address, or counts against it, never runs without one. */
+export function clientOr429(c: Context<ApiEnv>, logger: Logger, bucket: Bucket): ClientAddress {
+  const client = c.var.client;
+  if (client === undefined) {
+    enforce(logger, bucket, null);
+    throw new ApiError('rate_limited');
+  }
+  return client;
 }

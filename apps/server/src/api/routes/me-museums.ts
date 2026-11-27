@@ -2,6 +2,7 @@ import { EmptyQuery, MemberMuseum, MemberMuseumsQuery, MuseumList, SlugParam } f
 import { sql } from 'kysely';
 import { InvalidCursor, listMuseums } from '../../museums/query.ts';
 import { visitsOfMuseum } from '../../passport/visits.ts';
+import { ownReviewOfMuseum } from '../../reviews/service.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
 import { ApiError } from '../errors.ts';
@@ -35,10 +36,11 @@ export function mountMeMuseums(v1: ApiApp, deps: ApiDeps): void {
     const museumId = found.rows[0]?.id;
     if (museumId === undefined) throw new ApiError('not_found');
     const userId = session.user.id;
-    const [visits, wished] = await Promise.all([
+    const [visits, wished, review] = await Promise.all([
       visitsOfMuseum(db, userId, museumId),
       sql`SELECT 1 FROM wishlist WHERE user_id = ${userId}::uuid AND museum_id = ${museumId}::uuid`.execute(db),
+      ownReviewOfMuseum(db, userId, museumId),
     ]);
-    return sendJson(c, MemberMuseum, { visits, wishlist: wished.rows.length > 0 }, CACHE_PRIVATE);
+    return sendJson(c, MemberMuseum, { visits, wishlist: wished.rows.length > 0, review }, CACHE_PRIVATE);
   });
 }

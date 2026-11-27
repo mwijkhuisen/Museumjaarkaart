@@ -10,15 +10,20 @@ import { sql } from 'kysely';
 import { z } from 'zod';
 import { todayAmsterdam } from '../../admin/dates.ts';
 import { BUCKETS, enforce, hit, userKey } from '../../auth/limiter.ts';
+import type { Db } from '../../db/kysely.ts';
+import { NL_TODAY } from '../../museums/near.ts';
 import { parseCsv } from '../../passport/import/csv.ts';
 import { type ImportMuseum, loadMuseums, matchRows } from '../../passport/import/match.ts';
 import { parseMjk } from '../../passport/import/mjk.ts';
 import type { ParseResult } from '../../passport/import/types.ts';
+import { createReview } from '../../reviews/service.ts';
+import { enqueueStats } from '../../reviews/stats-queue.ts';
 import type { ApiApp, ApiDeps } from '../app.ts';
 import { readJson } from '../body.ts';
 import { CACHE_PRIVATE } from '../cache.ts';
 import { ApiError } from '../errors.ts';
-import { requireMember } from '../middleware/session.ts';
+import { clientOr429 } from '../middleware/client-address.ts';
+import { requireMember, requirePoster } from '../middleware/session.ts';
 import { parseParam } from '../query.ts';
 import { sendJson } from '../respond.ts';
 
@@ -36,11 +41,67 @@ type StoredRow = {
   place: string | null;
   visited_on: string | null;
   note: string | null;
+  rating?: number | null;
+  review?: string | null;
   status: 'matched' | 'ambiguous' | 'unmatched' | 'invalid';
   error: ImportPreview['rows'][number]['error'];
   museum_id: string | null;
   candidate_ids: string[];
 };
+
+/**
+ * One rated row in its own savepoint: the visit (the existing one by `visit_once`'s key, or a new one), then the
+ * review. A refusal or a lost race (a constraint error) rolls the savepoint back, so a new visit goes with it and
+ * nothing of the row applies (null); any other database error propagates. No rate-limit hit (plan Q7); one `content_ip_log` row per review.
+ */
+async function applyRated(
+  trx: Db,
+  userId: string,
+  museumId: string,
+  r: StoredRow,
+  client: { address: string } | undefined,
+): Promise<{ newVisit: boolean } | null> {
+  await sql`SAVEPOINT import_row`.execute(trx);
+  try {
+    const inserted = await trx
+      .insertInto('visit')
+      .values({ user_id: userId, museum_id: museumId, visited_on: r.visited_on, note: r.note, source: 'import' })
+      .onConflict((oc) => oc.constraint('visit_once').doNothing())
+      .returning('id')
+      .executeTakeFirst();
+    const visitId =
+      inserted?.id ??
+      (
+        await sql<{ id: string }>`SELECT id FROM visit WHERE user_id = ${userId}::uuid AND museum_id = ${museumId}::uuid
+          AND visited_on IS NOT DISTINCT FROM ${r.visited_on}::date`.execute(trx)
+      ).rows[0]?.id;
+    const made =
+      visitId === undefined || client === undefined || r.rating == null
+        ? null
+        : await createReview(trx, userId, {
+            museum_id: museumId,
+            visit_id: visitId,
+            rating: r.rating,
+            body: r.review ?? null,
+          });
+    if (made === null || !made.ok) {
+      await sql`ROLLBACK TO SAVEPOINT import_row`.execute(trx);
+      return null;
+    }
+    await trx
+      .insertInto('content_ip_log')
+      .values({ user_id: userId, target_kind: 'review', target_id: made.id, ip: client?.address as string })
+      .execute();
+    await sql`RELEASE SAVEPOINT import_row`.execute(trx);
+    return { newVisit: inserted !== undefined };
+  } catch (err) {
+    // Only a constraint error (class 23, a lost race) skips the row; anything else (a timeout, a deadlock, a lost
+    // connection) fails the whole confirm, so the import stays pending and the member retries.
+    if (!String((err as { code?: unknown }).code).startsWith('23')) throw err;
+    await sql`ROLLBACK TO SAVEPOINT import_row`.execute(trx);
+    return null;
+  }
+}
 
 const toMuseum = (m: ImportMuseum): VisitMuseum => ({
   id: m.id,
@@ -49,6 +110,45 @@ const toMuseum = (m: ImportMuseum): VisitMuseum => ({
   name_en: m.name_en,
   place: m.place,
 });
+
+/**
+ * The rated rows (matched, valid) that cannot become a review, by row: the second rated row for a museum in
+ * the file (the first stands), a review the member already has (any state: `review_once`) and a closed museum.
+ * Ambiguous and unmatched rows are judged at confirm, when the member has chosen. ponytail: the confirm's
+ * createReview is the authority; this is the preview's early word.
+ */
+async function refusedRatings(
+  db: Db,
+  userId: string,
+  rated: { row: number; museumId: string }[],
+): Promise<Map<number, 'review_exists' | 'museum_closed'>> {
+  const out = new Map<number, 'review_exists' | 'museum_closed'>();
+  if (rated.length === 0) return out;
+  const ids = [...new Set(rated.map((r) => r.museumId))];
+  const had = new Set(
+    (
+      await db
+        .selectFrom('review')
+        .select('museum_id')
+        .where('user_id', '=', userId)
+        .where('museum_id', 'in', ids)
+        .execute()
+    ).map((r) => r.museum_id),
+  );
+  const closed = new Set(
+    (
+      await sql<{ id: string }>`SELECT id FROM museum WHERE id IN (${sql.join(ids)}) AND closed_on IS NOT NULL
+        AND closed_on <= ${NL_TODAY}`.execute(db)
+    ).rows.map((r) => r.id),
+  );
+  const seen = new Set<string>();
+  for (const { row, museumId } of rated) {
+    if (closed.has(museumId)) out.set(row, 'museum_closed');
+    else if (had.has(museumId) || seen.has(museumId)) out.set(row, 'review_exists');
+    else seen.add(museumId);
+  }
+  return out;
+}
 
 export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
   const { db, logger, keys } = deps;
@@ -67,8 +167,19 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
 
     const museums = await loadMuseums(db);
     const matches = matchRows(parsed.rows, museums);
+    const refused = await refusedRatings(
+      db,
+      userId,
+      parsed.rows.flatMap((r, i) => {
+        const m = matches[i] as (typeof matches)[number];
+        return r.rating !== null && r.error === null && m.status === 'matched' && m.museumId !== null
+          ? [{ row: r.row, museumId: m.museumId }]
+          : [];
+      }),
+    );
     const stored: StoredRow[] = parsed.rows.map((r, i) => {
       const m = matches[i] as (typeof matches)[number];
+      const refusal = refused.get(r.row);
       return {
         row: r.row,
         kind: r.kind,
@@ -76,8 +187,10 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
         place: r.ref.place,
         visited_on: r.visited_on,
         note: r.note,
-        status: m.status,
-        error: r.error,
+        rating: r.rating,
+        review: r.review,
+        status: refusal === undefined ? m.status : 'invalid',
+        error: refusal ?? r.error,
         museum_id: m.museumId,
         candidate_ids: m.candidateIds,
       };
@@ -120,6 +233,8 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
           place: r.place,
           visited_on: r.visited_on,
           note: r.note,
+          rating: r.rating ?? null,
+          review: r.review ?? null,
           status: r.status,
           error: r.error,
           museum: museumOf(r.museum_id),
@@ -158,6 +273,11 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
         throw new ApiError(own === undefined ? 'not_found' : 'conflict');
       }
       const rows = claimed.rows as StoredRow[];
+      // A file with ratings publishes reviews: it needs the current terms (403, as POST /reviews) and logs the
+      // client address once per review (without one, 429). Either refusal rolls the claim back: still pending.
+      const ratedFile = rows.some((r) => r.status !== 'invalid' && (r.rating ?? null) !== null);
+      if (ratedFile) requirePoster(c);
+      const client = ratedFile ? clientOr429(c, logger, BUCKETS.importUserHour) : undefined;
       const byRow = new Map(rows.map((r) => [r.row, r]));
 
       const chosen = new Map<number, string>();
@@ -196,11 +316,13 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
         source: 'import';
       }[] = [];
       const wishlist: { user_id: string; museum_id: string }[] = [];
+      const rated: { row: StoredRow; museumId: string }[] = [];
       for (const r of rows) {
         if (r.status === 'invalid' || skip.has(r.row)) continue;
         const museumId = chosen.get(r.row) ?? (r.status === 'matched' ? r.museum_id : null);
         if (museumId === null || !visible.has(museumId)) continue;
-        if (r.kind === 'visit') {
+        if (r.kind === 'visit' && (r.rating ?? null) !== null) rated.push({ row: r, museumId });
+        else if (r.kind === 'visit') {
           visits.push({
             user_id: userId,
             museum_id: museumId,
@@ -234,10 +356,24 @@ export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
                 .returning('museum_id')
                 .execute()
             ).length;
+      // A rated row is all or nothing: its visit (new or already there) and its review, inside a savepoint.
+      let insertedReviews = 0;
+      let ratedVisits = 0;
+      let ratedSkipped = 0;
+      for (const { row: r, museumId } of rated) {
+        const done = await applyRated(trx, userId, museumId, r, client);
+        if (done === null) ratedSkipped++;
+        else {
+          insertedReviews++;
+          if (done.newVisit) ratedVisits++;
+        }
+      }
+      if (insertedReviews > 0) await enqueueStats(trx);
       return {
-        visits: insertedVisits,
+        visits: insertedVisits + ratedVisits,
         wishlist: insertedWishlist,
-        skipped: visits.length + wishlist.length - insertedVisits - insertedWishlist,
+        reviews: insertedReviews,
+        skipped: visits.length + wishlist.length - insertedVisits - insertedWishlist + ratedSkipped,
       };
     });
     return sendJson(c, ImportResult, result, CACHE_PRIVATE);

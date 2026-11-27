@@ -1,5 +1,5 @@
 import { EmptyQuery, Healthz } from '@mjk/contracts';
-import { type Context, Hono } from 'hono';
+import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import type { AppKeys } from '../auth/keys.ts';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
@@ -20,13 +20,14 @@ import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountMuseumsPoints } from './routes/museums-points.ts';
 import { mountProvinces } from './routes/provinces.ts';
+import { mountReviewsPublic } from './routes/reviews-public.ts';
 import { mountUsers } from './routes/users.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2, P2a design 6):
 // request id and log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) →
 // /api/admin/* is a 404 whatever the method and body unless the admin host's JWT passed → the
 // header-only body cap (64 KiB; 2 MiB for an import, `bodyLimit`) → CSRF on every unsafe method (403) → JSON-only
-// mutations (415) → the session cookie, on the auth, me and admin paths only → each route parses its
+// mutations (415) → the session cookie, on the auth, me and admin paths and the review writes only → each route parses its
 // query and body strictly → the route → the fixed error handler.
 
 export type ApiDeps = {
@@ -126,6 +127,10 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   if (deps.site !== undefined && deps.keys !== undefined) {
     const withSession = sessionMiddleware(deps.db, deps.site);
     for (const path of ['/api/v1/auth/*', '/api/v1/me', '/api/v1/me/*', '/api/admin/*']) app.use(path, withSession);
+    // The review writes need a member; a public GET of a review never reads the cookie (P3a).
+    const onWrite: MiddlewareHandler<ApiEnv> = (c, next) =>
+      c.req.method === 'GET' || c.req.method === 'HEAD' ? next() : withSession(c, next);
+    for (const path of ['/api/v1/reviews', '/api/v1/reviews/*']) app.use(path, onWrite);
     // Sign-up and uploads do not exist on the admin host (A§14).
     const notOnAdmin = publicOnly(deps.site);
     for (const path of ['/api/v1/auth/signup', '/api/v1/uploads', '/api/v1/uploads/*']) app.use(path, notOnAdmin);
@@ -164,6 +169,8 @@ export const mountCatalogue: Mount = (v1, d) => {
   mountMuseumDetail(v1, d);
   // P2c: the public profiles; outside the session paths, readable as mjk_ssr.
   mountUsers(v1, d);
+  // P3a: one review and a museum's reviews; the member's own writes are in mountAccounts.
+  mountReviewsPublic(v1, d);
 };
 
 // The api role's own app (the catalogue plus the account routes, mountAccounts and createApp) lives

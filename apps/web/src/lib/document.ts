@@ -6,7 +6,13 @@ import type { Locale } from './routes.ts';
 // hashed asset path from our own build. No inline script, no <style>, no style= (A§15.6).
 
 /** The client build's files for the entry, from Vite's manifest. */
-export type Assets = { script: string; css: readonly string[]; preload: readonly string[] };
+export type Assets = {
+  script: string;
+  /** The classic prefs script (src/prefs.ts): the fold flag, applied before the first paint. */
+  prefs: string;
+  css: readonly string[];
+  preload: readonly string[];
+};
 
 /** Every asset path is ours: `/assets/` plus a hashed file name. */
 const ASSET = /^\/assets\/[A-Za-z0-9._-]+$/;
@@ -36,6 +42,8 @@ export function documentHtml(d: DocumentParts): string {
   const head = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    // Blocking on purpose: it sets <html data-hide-ratings> before the first paint. Hydrated documents only.
+    ...(d.hydrate ? [`<script src="${assetPath(d.assets.prefs)}"></script>`] : []),
     d.head,
     ...d.assets.css.map((href) => `<link rel="stylesheet" href="${assetPath(href)}">`),
   ];

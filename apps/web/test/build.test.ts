@@ -16,6 +16,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildWeb } from '../build.ts';
 import { parseHex } from '../src/lib/map/museumLayer.ts';
+import { REVIEW_ID, review, reviewList } from './review-fixture.ts';
 
 // P1c criterion 3: the built client and the rendered HTML of every page kind make no inline script,
 // style, handler or third-party fetch (A§15.6, A§18). The scan output goes into the PR as evidence.
@@ -82,6 +83,8 @@ const item = {
   registered: true,
   closed_on: null,
   temp_closed: false,
+  rating_count: 12,
+  rating_mean: 4.3,
 };
 const detail = MuseumDetail.parse({
   ...item,
@@ -100,6 +103,14 @@ const detail = MuseumDetail.parse({
   photo_policy: 'unknown',
   temp_closed_until: null,
   mk_list: { published_on: '2026-11-05', n: 512, member: true },
+  aspects: {
+    collection: { mean: 4.5, count: 6 },
+    presentation: { mean: null, count: 2 },
+    kid_friendly: { mean: null, count: 0 },
+    accessibility: { mean: null, count: 0 },
+    facilities: { mean: null, count: 0 },
+    value_for_money: { mean: null, count: 0 },
+  },
 });
 const list = MuseumList.parse({ items: [item], next_cursor: 'abc123', total: 1 });
 const provinces = Provinces.parse({
@@ -131,6 +142,8 @@ const fake =
     if (path === '/api/v1/provinces') return answer(200, provinces);
     if (path === '/api/v1/mk-list') return answer(200, mkList);
     if (path === '/api/v1/users/anna_b') return answer(200, profile);
+    if (/\/reviews$/.test(path)) return answer(200, reviewList());
+    if (path.startsWith('/api/v1/reviews/')) return answer(200, review());
     if (/^\/api\/v1\/museums\/[^/?]+$/.test(path)) return answer(200, detail);
     return answer(200, list);
   };
@@ -148,6 +161,8 @@ const KINDS: Kind[] = [
   ['signin', '/inloggen', '/en/sign-in'],
   ['account', '/account', '/en/account'],
   ['profile', '/u/anna_b', '/en/u/anna_b'],
+  ['museum-reviews', '/musea/voorbeeld-museum/reviews', '/en/museums/voorbeeld-museum/reviews'],
+  ['review', `/reviews/${REVIEW_ID}`, `/en/reviews/${REVIEW_ID}`],
   ['404', '/nergens/naartoe', '/en/nowhere/at/all'],
   ['400', '/musea', '/en/museums', 400],
   ['5xx', '/musea', '/en/museums', 503],
@@ -243,6 +258,50 @@ describe('the rendered HTML of every page kind', () => {
     console.log(
       `build scan: ${htmls.length} pages (${PAGES.length / 2} kinds x nl/en), link-outs (<a href>, navigations): ${JSON.stringify([...linkOuts])}, findings 0`,
     );
+  });
+});
+
+describe('the prefs script (P3a: the rating fold, src/prefs.ts)', () => {
+  const PREFS = 'src/prefs.ts';
+  const SRC = /^<script src="\/assets\/prefs-[A-Za-z0-9_-]+\.js"><\/script>$/;
+
+  it('is a manifest entry whose file is a classic script under 1 kB: no import, export or preload polyfill', () => {
+    const entry = manifest[PREFS];
+    expect(entry?.isEntry).toBe(true);
+    expect(entry?.imports ?? []).toEqual([]);
+    expect(entry?.file).toMatch(/^assets\/prefs-[A-Za-z0-9_-]+\.js$/);
+    const text = readFileSync(join(tmp, 'client', entry?.file ?? 'missing'), 'utf8');
+    expect(text.length).toBeLessThan(1024);
+    expect(text).not.toMatch(/\bimport\b|\bexport\b|modulepreload/);
+    expect(text).toContain('mjk-hide-ratings');
+    expect(text).toContain('data-hide-ratings');
+  });
+
+  it('comes right after the two metas of a hydrated document, as a classic script with no async, defer or type', () => {
+    for (const { name, html } of htmls.filter((h) => !/^(404|400|5xx) /.test(h.name))) {
+      const head = /<head>(.*?)<\/head>/s.exec(html)?.[1] ?? '';
+      const [charset, viewport, prefs] = head.match(/<(?:meta|script)\b[^>]*>(?:<\/script>)?/g) ?? [];
+      expect(charset, name).toBe('<meta charset="utf-8">');
+      expect(viewport, name).toBe('<meta name="viewport" content="width=device-width, initial-scale=1">');
+      expect(prefs, name).toMatch(SRC);
+      expect(head.indexOf(prefs ?? '?'), name).toBe((charset?.length ?? 0) + (viewport?.length ?? 0));
+    }
+  });
+
+  it('is the only script besides the entry module and the two data blocks, and an error document has none', () => {
+    for (const { name, html } of htmls) {
+      const scripts = tagsOf(html).filter((t) => t.tag === 'script');
+      if (/^(404|400|5xx) /.test(name)) {
+        expect(scripts, name).toEqual([]);
+        continue;
+      }
+      const bySrc = scripts.filter((t) => /\bsrc=/.test(t.attrs));
+      expect(bySrc, name).toHaveLength(2);
+      expect(
+        bySrc.map((t) => t.attrs.trim()).filter((a) => /^src="\/assets\/prefs-[\w-]+\.js"$/.test(a)),
+        name,
+      ).toHaveLength(1);
+    }
   });
 });
 

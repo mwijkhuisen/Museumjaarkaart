@@ -1,4 +1,4 @@
-import { MuseumDetail, Provinces, type SsrConfig, UserProfile } from '@mjk/contracts';
+import { MuseumDetail, Provinces, PublicReview, type SsrConfig, UserProfile } from '@mjk/contracts';
 import { m } from '../../paraglide/messages.js';
 import { formatMonth } from '../format.ts';
 import { museumName, provinceName } from '../names.ts';
@@ -37,6 +37,20 @@ export function titleOf(route: Route, data: PageData, brand: string): string {
       return pageTitle(m.page_museums(), brand);
     case 'museum':
       return pageTitle(museumName(MuseumDetail.parse(data.get(apiPath.museum(route.slug))), route.locale), brand);
+    case 'museum-reviews':
+      return pageTitle(
+        m.review_head_title({
+          name: museumName(MuseumDetail.parse(data.get(apiPath.museum(route.slug))), route.locale),
+        }),
+        brand,
+      );
+    case 'review':
+      return pageTitle(
+        m.review_single_h({
+          name: museumName(PublicReview.parse(data.get(apiPath.review(route.id))).museum, route.locale),
+        }),
+        brand,
+      );
     case 'province': {
       const code = PROVINCE_SLUGS[route.province];
       const province = Provinces.parse(data.get(apiPath.provinces)).items.find((p) => p.code === code);
@@ -98,6 +112,10 @@ function descriptionOf(route: Route, data: PageData): string | null {
       return m.head_description_museums();
     case 'museum':
       return museumDescription(museumOf(route, data), route.locale);
+    case 'museum-reviews':
+      return m.review_head_description({
+        name: museumName(MuseumDetail.parse(data.get(apiPath.museum(route.slug))), route.locale),
+      });
     case 'province': {
       const code = PROVINCE_SLUGS[route.province];
       const province = Provinces.parse(data.get(apiPath.provinces)).items.find((p) => p.code === code);
@@ -117,10 +135,13 @@ function descriptionOf(route: Route, data: PageData): string | null {
   }
 }
 
-/** `noindex` for the app shell, `noindex, follow` for search, and for a profile unless its member opted in (Q2). */
+/**
+ * `noindex` for the app shell, `noindex, follow` for search and for a single review (thin content that names a
+ * member; a museum's reviews page is indexable), and for a profile unless its member opted in (Q2).
+ */
 function robotsOf(route: Route, data: PageData): string | null {
   if (route.page === 'shell') return 'noindex';
-  if (route.page === 'search') return 'noindex, follow';
+  if (route.page === 'search' || route.page === 'review') return 'noindex, follow';
   if (route.page === 'profile') return profileOf(route, data).indexable ? null : 'noindex';
   return null;
 }

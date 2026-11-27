@@ -121,7 +121,7 @@ describe('POST /me/imports/:id/confirm', () => {
     const ok = await app.call(url(id), { token: mine, body });
     expect(ok.status).toBe(200);
     expect(ok.headers.get('cache-control')).toBe('private, no-store');
-    expect(await ok.json()).toEqual({ visits: 0, wishlist: 0, skipped: 0 });
+    expect(await ok.json()).toEqual({ visits: 0, wishlist: 0, reviews: 0, skipped: 0 });
     const again = await app.call(url(id), { token: mine, body });
     expect(again.status).toBe(409);
     expect(await again.json()).toEqual({ error: 'conflict' });

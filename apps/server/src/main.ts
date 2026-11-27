@@ -13,6 +13,7 @@ import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
 import { EXPORTS_DIR } from './passport/export/files.ts';
 import { DATA_EXPORT_JOB, dataExportJob } from './passport/export/job.ts';
+import { STATS_RECOMPUTE_JOB, statsRecomputeJob } from './reviews/stats-job.ts';
 import { runSsr } from './ssr/server.ts';
 import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB, tilesRefreshJob, tilesRollbackJob } from './tiles/job.ts';
 import { mailJobs } from './worker/mail.ts';
@@ -133,6 +134,7 @@ async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promis
       ...mailJobs({ db, keys, mailer, logger, env }),
       [MUSEUM_SYNC_JOB]: museumSyncJob(db, fetchers, logger),
       [DATA_EXPORT_JOB]: dataExportJob({ db, exportsDir: EXPORTS_DIR }),
+      [STATS_RECOMPUTE_JOB]: statsRecomputeJob(db),
       // MJK_R2_* are read when a tiles job runs, so a worker without them still runs the rest. The secret
       // file r2_media_rw is not optional: Compose does not start the worker without it.
       [TILES_REFRESH_JOB]: tilesRefreshJob({ logger, env }),

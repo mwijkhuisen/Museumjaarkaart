@@ -157,7 +157,7 @@ describe('GET /me/museums/:slug', () => {
     const empty = MemberMuseum.parse(
       await (await call(`/me/museums/${m.slug}`, await as((await p.newMember()).id))).json(),
     );
-    expect(empty).toEqual({ visits: [], wishlist: false });
+    expect(empty).toEqual({ visits: [], wishlist: false, review: null });
   });
 
   it('an unknown or hidden museum is 404, an invalid slug 400', async () => {

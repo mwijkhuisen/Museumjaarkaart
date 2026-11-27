@@ -1,4 +1,4 @@
-import type { ExportFile } from '@mjk/contracts';
+import type { ASPECTS, ExportFile } from '@mjk/contracts';
 import { sql } from 'kysely';
 import { z } from 'zod';
 import { settingsOf } from '../../auth/me.ts';
@@ -29,6 +29,18 @@ const museumOf = (r: MuseumCols) => ({
   name: r.name,
   place: r.place,
   wikidata_qid: r.wikidata_qid,
+});
+
+type ReviewContent = { rating: number; body: string | null } & Record<(typeof ASPECTS)[number], number | null>;
+const contentOf = (r: ReviewContent) => ({
+  rating: r.rating,
+  collection: r.collection,
+  presentation: r.presentation,
+  kid_friendly: r.kid_friendly,
+  accessibility: r.accessibility,
+  facilities: r.facilities,
+  value_for_money: r.value_for_money,
+  body: r.body,
 });
 
 /** The bundle's three files for one member. */
@@ -66,6 +78,31 @@ export async function buildBundle(db: Db, userId: string): Promise<Record<Export
         FROM wishlist w JOIN museum m ON m.id = w.museum_id
        WHERE w.user_id = ${userId}::uuid
        ORDER BY w.created_at, w.museum_id`.execute(db)
+  ).rows;
+  // Every review of the member, any state (a removed one is still theirs), with its revisions, oldest first.
+  const reviewRows = (
+    await sql<
+      MuseumCols & {
+        id: string;
+        visited_on: string | null;
+        state: 'visible' | 'removed';
+        created_at: Date;
+        edited_at: Date | null;
+      } & ReviewContent
+    >`SELECT r.id, v.visited_on::text AS visited_on, r.rating, r.collection, r.presentation, r.kid_friendly,
+             r.accessibility, r.facilities, r.value_for_money, r.body, r.state, r.created_at, r.edited_at,
+             m.id AS museum_id, m.slug, m.name, m.place, m.wikidata_qid
+        FROM review r JOIN museum m ON m.id = r.museum_id LEFT JOIN visit v ON v.id = r.visit_id
+       WHERE r.user_id = ${userId}::uuid
+       ORDER BY r.created_at, r.id`.execute(db)
+  ).rows;
+  const revisionRows = (
+    await sql<{ review_id: string; created_at: Date } & ReviewContent>`
+      SELECT q.review_id, q.rating, q.collection, q.presentation, q.kid_friendly, q.accessibility, q.facilities,
+             q.value_for_money, q.body, q.created_at
+        FROM review_revision q JOIN review r ON r.id = q.review_id
+       WHERE r.user_id = ${userId}::uuid
+       ORDER BY q.created_at, q.id`.execute(db)
   ).rows;
   const sessions = await db
     .selectFrom('session')
@@ -122,6 +159,17 @@ export async function buildBundle(db: Db, userId: string): Promise<Record<Export
       created_at: v.created_at.toISOString(),
     })),
     wishlist: wishlist.map((w) => ({ museum: museumOf(w), created_at: w.created_at.toISOString() })),
+    reviews: reviewRows.map((r) => ({
+      museum: museumOf(r),
+      visited_on: r.visited_on,
+      ...contentOf(r),
+      state: r.state,
+      created_at: r.created_at.toISOString(),
+      edited_at: iso(r.edited_at),
+      revisions: revisionRows
+        .filter((q) => q.review_id === r.id)
+        .map((q) => ({ ...contentOf(q), created_at: q.created_at.toISOString() })),
+    })),
     sessions: sessions.map((s) => ({
       host: s.host,
       method: s.method,

@@ -14,6 +14,7 @@ import {
   ProvinceCodeSchema,
   Slug,
 } from './common.ts';
+import { ASPECTS, type Aspect, AspectStat, Mean } from './reviews.ts';
 
 export const Healthz = z.strictObject({ ok: z.boolean() });
 export type Healthz = z.infer<typeof Healthz>;
@@ -34,6 +35,8 @@ export const MuseumListItem = z.strictObject({
   registered: z.boolean(),
   closed_on: IsoDate.nullable(),
   temp_closed: z.boolean(),
+  rating_count: z.int().min(0),
+  rating_mean: Mean.nullable(),
 });
 export type MuseumListItem = z.infer<typeof MuseumListItem>;
 
@@ -68,6 +71,8 @@ export const MuseumDetail = MuseumListItem.extend({
   photo_policy: PhotoPolicySchema,
   temp_closed_until: IsoDate.nullable(),
   mk_list: z.strictObject({ published_on: IsoDate, n: z.int().min(0), member: z.boolean() }).nullable(),
+  /** Per aspect: the mean is null below 3 ratings (WP4 fills it). */
+  aspects: z.strictObject(Object.fromEntries(ASPECTS.map((a) => [a, AspectStat])) as Record<Aspect, typeof AspectStat>),
 });
 export type MuseumDetail = z.infer<typeof MuseumDetail>;
 
