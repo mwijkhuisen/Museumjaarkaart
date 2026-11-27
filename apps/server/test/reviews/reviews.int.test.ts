@@ -128,6 +128,11 @@ describe('POST /reviews', () => {
     const patch = await t.call(`/reviews/${id}`, { method: 'PATCH', token: u.token, body: { rating: 1 } });
     expect([patch.status, await patch.json()]).toEqual([409, { error: 'conflict' }]);
     expect((await p.admin.query('SELECT rating FROM review WHERE id = $1', [id])).rows[0]?.rating).toBe(4);
+    // ... and keeps showing it (criterion 6): the review and the museum's list still answer it.
+    expect((await t.call(`/reviews/${id}`)).status).toBe(200);
+    const list = await t.call(`/museums/${closed.slug}/reviews`);
+    expect(list.status).toBe(200);
+    expect(((await list.json()) as { items: { id: string }[] }).items.map((r) => r.id)).toContain(id);
     expect((await t.call(`/reviews/${id}`, { method: 'DELETE', token: u.token })).status).toBe(204);
   });
 
