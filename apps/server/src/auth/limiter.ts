@@ -21,6 +21,7 @@ export const BUCKETS = {
   verifyFailSite: { name: 'verify_fail_site', limit: 500, windowS: 3_600 }, // site-wide failures: above it verify also needs ALTCHA (a threshold, not a refusal)
   passwordEmail: { name: 'password_email', limit: 5, windowS: 900 }, // password sign-ins per email
   passwordPrefix: { name: 'password_prefix', limit: 20, windowS: 3_600 }, // password sign-ins per IP prefix
+  passwordSet: { name: 'password_set', limit: 5, windowS: 900 }, // PUT /me/password per member (passkeyUserKey), before the hash
   signupSiteDay: { name: 'signup_site_day', limit: 20, windowS: 86_400 }, // anonymous-triggered mails a day, site-wide (A§17.7)
   passkeyFailPrefix: { name: 'passkey_fail_prefix', limit: 30, windowS: 3_600 }, // failed passkey sign-ins per IP prefix (P2b Q4)
   passkeyUserHour: { name: 'passkey_user_hour', limit: 30, windowS: 3_600 }, // successful passkey sign-ins per member (P2b review L1)
