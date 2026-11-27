@@ -78,8 +78,9 @@ export async function support(): Promise<{ webauthn: boolean; autofill: boolean 
   }
 }
 
-// An autofill ceremony that is still fetching its options must not start (and so abort another
-// ceremony) after a modal one began or after `cancel()`.
+// A ceremony that is still fetching its options must not start after `cancel()` (the screen went
+// away), and an autofill one not after a modal one began (it would abort the modal). A ceremony
+// that ends after `cancel()` must not send its verify call either: nobody waits for that sign-in.
 let generation = 0;
 let modalActive = 0;
 
@@ -93,8 +94,9 @@ export async function signIn(mode: 'modal' | 'autofill'): Promise<Me> {
   if (mode === 'modal') modalActive += 1;
   try {
     const optionsJSON = await sendJson('POST', '/api/v1/auth/passkey/options', undefined, PasskeySignInOptions);
-    if (mode === 'autofill' && (generation !== start || modalActive > 0)) throw aborted();
+    if (generation !== start || (mode === 'autofill' && modalActive > 0)) throw aborted();
     const assertion = await startAuthentication({ optionsJSON, useBrowserAutofill: mode === 'autofill' });
+    if (generation !== start) throw aborted();
     const body = PasskeySignInRequest.parse({ credential: projectAssertion(assertion) });
     return await sendJson('POST', '/api/v1/auth/passkey/verify', body, Me);
   } finally {
