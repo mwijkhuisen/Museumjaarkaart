@@ -16,6 +16,7 @@ export type Ctx =
   | 'plain'
   | 'passkey_signin'
   | 'passkey_add'
+  | 'passkey_reauth'
   | 'passkey_manage';
 
 /** A text and a text per field name; fields have no text when the server did not name them. */
@@ -72,10 +73,12 @@ function textOf(error: ApiError, ctx: Ctx): string {
     case 'bad_request':
     case 'invalid':
       if (ctx === 'passkey_signin') return m.auth_err_passkey_failed();
+      if (ctx === 'passkey_reauth') return m.auth_err_passkey_reauth_failed();
       if (ctx === 'passkey_add' && error.code === 'invalid') return m.account_passkey_err_invalid();
       return m.auth_err_bad_request();
     case 'unauthorized':
       if (ctx === 'passkey_signin') return m.auth_err_passkey_failed();
+      if (ctx === 'passkey_reauth') return m.auth_err_passkey_reauth_failed();
       if (ctx === 'password') return m.auth_err_password_wrong();
       return ctx === 'plain' || ctx === 'passkey_add' || ctx === 'passkey_manage'
         ? m.auth_err_session()
@@ -89,6 +92,8 @@ function textOf(error: ApiError, ctx: Ctx): string {
     case 'conflict':
       if (ctx === 'passkey_add') return m.account_passkey_err_conflict({ max: String(PASSKEY_MAX) });
       if (ctx === 'signup') return m.auth_err_conflict_signup();
+      // Reauth options for a member who has no passkey (removed meanwhile): nothing to confirm with.
+      if (ctx === 'passkey_reauth') return m.auth_err_generic();
       return ctx === 'email' ? m.auth_err_conflict_email() : m.auth_err_conflict_verify();
     case 'rate_limited':
       return m.auth_err_rate_limited({ minutes: minutes(error.retryAfter) });
@@ -107,10 +112,12 @@ function textOf(error: ApiError, ctx: Ctx): string {
  */
 function ceremonyText(name: string, ctx: Ctx): string | null {
   const adding = ctx === 'passkey_add';
+  const confirming = ctx === 'passkey_reauth';
   switch (name) {
     case 'AbortError':
       return '';
     case 'NotAllowedError':
+      if (confirming) return m.auth_err_passkey_reauth_cancelled();
       return adding ? m.account_passkey_err_cancelled() : m.auth_err_passkey_cancelled();
     case 'InvalidStateError':
       return adding ? m.account_passkey_err_exists() : m.auth_err_generic();
@@ -121,6 +128,7 @@ function ceremonyText(name: string, ctx: Ctx): string | null {
     case 'UnknownError':
       return m.auth_err_generic();
     case 'PasskeyUnusable':
+      if (confirming) return m.auth_err_passkey_reauth_failed();
       return adding ? m.account_passkey_err_invalid() : m.auth_err_passkey_failed();
     default:
       return null;

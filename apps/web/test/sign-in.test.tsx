@@ -244,7 +244,7 @@ describe('the passkey screens (P2b)', () => {
   });
 
   it.each(['nl', 'en'] as const)(
-    '%s: Reauth never offers a passkey: no webauthn token, no passkey section',
+    '%s: Reauth has no webauthn token and, on the server, no passkey section (it appears client side only)',
     (locale) => {
       setLocale(locale, { reload: false });
       for (const hasPassword of [false, true]) {
@@ -349,6 +349,43 @@ describe('passkey errors have their own text in both languages', () => {
     expect(describeError(new ApiError(422, 'invalid', ['name'], null), 'passkey_manage').fields.name).toContain(
       '1 to 50',
     );
+  });
+
+  it.each(['nl', 'en'] as const)('%s: passkey_reauth has its own fixed texts, by status and by ceremony', (locale) => {
+    setLocale(locale, { reload: false });
+    for (const code of codes) {
+      const { text } = describeError(new ApiError(400, code, [], null), 'passkey_reauth');
+      expect(text, code).not.toBe('');
+      expect(text, code).not.toMatch(/^[a-z_]+$/);
+    }
+    for (const name of ceremony) {
+      const { text } = describeError(named(name), 'passkey_reauth');
+      expect(text, name).not.toBe('');
+      expect(text, name).not.toContain('platform text');
+    }
+    expect(describeError(new ApiError(429, 'rate_limited', [], 125), 'passkey_reauth').text).toContain('3');
+    expect(describeError(new TypeError('Failed to fetch'), 'passkey_reauth').text).not.toBe(
+      describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_reauth').text,
+    );
+    // The cancelled text is the reauth one, not the sign-in's.
+    expect(describeError(named('NotAllowedError'), 'passkey_reauth').text).not.toBe(
+      describeError(named('NotAllowedError'), 'passkey_signin').text,
+    );
+    expect(describeError(named('AbortError'), 'passkey_reauth')).toEqual({ text: '', fields: {} });
+    expect(
+      describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_reauth').text,
+      'a 401 is not "wrong code"',
+    ).not.toBe(describeError(new ApiError(401, 'unauthorized', [], null), 'verify').text);
+  });
+
+  it('says what happened for a passkey confirmation (en)', () => {
+    setLocale('en', { reload: false });
+    expect(describeError(new ApiError(401, 'unauthorized', [], null), 'passkey_reauth').text).toBe(
+      "This passkey did not work, or it is not one of this account's passkeys. Try another one or use a code.",
+    );
+    expect(describeError(named('NotAllowedError'), 'passkey_reauth').text).toContain('cancelled or timed out');
+    expect(describeError(new ApiError(429, 'rate_limited', [], 125), 'passkey_reauth').text).toContain('3 min');
+    expect(describeError(new TypeError('Failed to fetch'), 'passkey_reauth').text).toContain('connection');
   });
 
   it('is silent for an aborted ceremony, and names it by the library marker or the exception name', () => {

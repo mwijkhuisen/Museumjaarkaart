@@ -1,7 +1,7 @@
-import { PasskeyRegisterRequest, PasskeySignInRequest } from '@mjk/contracts';
+import { PasskeyReauthRequest, PasskeyRegisterRequest, PasskeySignInRequest } from '@mjk/contracts';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/browser';
 import { describe, expect, it } from 'vitest';
-import { PasskeyUnusable, projectAssertion, projectAttestation } from '../src/lib/passkey.ts';
+import { PasskeyUnusable, projectAssertion, projectAttestation, projectReauthAssertion } from '../src/lib/passkey.ts';
 
 // The projection of the library's answers onto the server's strict request schemas (P2b). Bytes are
 // canonical base64url, as the library produces them.
@@ -91,6 +91,37 @@ describe('projectAssertion', () => {
     } catch (error) {
       expect((error as Error).name).toBe('PasskeyUnusable');
     }
+  });
+});
+
+describe('projectReauthAssertion', () => {
+  it('keeps userHandle when the library returns one, and drops every extra key', () => {
+    const withExtra = assertion();
+    Object.assign(withExtra.response, { extra: 1 });
+    const projected = projectReauthAssertion({ ...withExtra, ...({ vendorExtra: 'x' } as object) });
+    expect(projected).toEqual({
+      id: ID,
+      rawId: ID,
+      type: 'public-key',
+      response: {
+        clientDataJSON: CLIENT_DATA,
+        authenticatorData: DATA,
+        signature: 'MEUCIQDh',
+        userHandle: 'dXNlci1oYW5kbGU',
+      },
+    });
+    expect(PasskeyReauthRequest.safeParse({ credential: projected }).success).toBe(true);
+  });
+
+  it.each([undefined, ''])('is never refused for a missing userHandle (%j): the key is left out', (userHandle) => {
+    const projected = projectReauthAssertion(assertion({ userHandle }));
+    expect('userHandle' in projected.response).toBe(false);
+    expect(Object.keys(projected.response).sort()).toEqual(['authenticatorData', 'clientDataJSON', 'signature']);
+    expect(PasskeyReauthRequest.safeParse({ credential: projected }).success).toBe(true);
+  });
+
+  it('refuses another credential type', () => {
+    expect(() => projectReauthAssertion({ ...assertion(), type: 'other' as 'public-key' })).toThrow(PasskeyUnusable);
   });
 });
 

@@ -3,6 +3,9 @@ import {
   type PasskeyAssertion,
   type PasskeyAttestation,
   PasskeyItem,
+  type PasskeyReauthAssertion,
+  PasskeyReauthOptions,
+  PasskeyReauthRequest,
   PasskeyRegisterRequest,
   PasskeyRegistrationOptions,
   PasskeySignInOptions,
@@ -46,6 +49,28 @@ export function projectAssertion(json: AuthenticationResponseJSON): PasskeyAsser
   const { clientDataJSON, authenticatorData, signature, userHandle } = response;
   if (type !== 'public-key' || userHandle === undefined || userHandle === '') throw new PasskeyUnusable();
   return { id, rawId, type, response: { clientDataJSON, authenticatorData, signature, userHandle } };
+}
+
+/**
+ * A re-authentication assertion: the browser was given the member's own credentials, so an
+ * authenticator may leave `userHandle` out. It is kept only when the library returns one (the
+ * server still checks it then), and its absence is never a reason to refuse.
+ */
+export function projectReauthAssertion(json: AuthenticationResponseJSON): PasskeyReauthAssertion {
+  const { id, rawId, type, response } = json;
+  const { clientDataJSON, authenticatorData, signature, userHandle } = response;
+  if (type !== 'public-key') throw new PasskeyUnusable();
+  return {
+    id,
+    rawId,
+    type,
+    response: {
+      clientDataJSON,
+      authenticatorData,
+      signature,
+      ...(userHandle === undefined || userHandle === '' ? {} : { userHandle }),
+    },
+  };
 }
 
 /** A registration: the attestation, the transports the browser named and `credProps.rk`. */
@@ -101,6 +126,35 @@ export async function signIn(mode: 'modal' | 'autofill'): Promise<Me> {
     return await sendJson('POST', '/api/v1/auth/passkey/verify', body, Me);
   } finally {
     if (mode === 'modal') modalActive -= 1;
+  }
+}
+
+/**
+ * Confirm it's you with one of the signed-in member's own passkeys (the "confirm it's you" step):
+ * a modal ceremony over the member's `allowCredentials`, then the verify call, which answers with
+ * the new session (a cookie) and `Me`. It counts as a modal ceremony (an autofill never starts
+ * under it), and `cancel()` stops it before the ceremony and before the verify call.
+ */
+export async function reauthenticate(): Promise<Me> {
+  const start = generation;
+  modalActive += 1;
+  try {
+    const options = await sendJson('POST', '/api/v1/auth/passkey/reauth/options', undefined, PasskeyReauthOptions);
+    if (generation !== start) throw aborted();
+    const optionsJSON = {
+      ...options,
+      allowCredentials: options.allowCredentials.map(({ id, type, transports }) => ({
+        id,
+        type,
+        ...(transports === undefined ? {} : { transports }),
+      })),
+    };
+    const assertion = await startAuthentication({ optionsJSON });
+    if (generation !== start) throw aborted();
+    const body = PasskeyReauthRequest.parse({ credential: projectReauthAssertion(assertion) });
+    return await sendJson('POST', '/api/v1/auth/passkey/reauth/verify', body, Me);
+  } finally {
+    modalActive -= 1;
   }
 }
 

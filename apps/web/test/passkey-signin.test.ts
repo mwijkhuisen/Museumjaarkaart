@@ -1,6 +1,6 @@
 import type { AuthenticationResponseJSON } from '@simplewebauthn/browser';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cancel, signIn } from '../src/lib/passkey.ts';
+import { cancel, reauthenticate, signIn } from '../src/lib/passkey.ts';
 
 // lib/passkey.ts's `signIn` guards (P2b review): an autofill must not start its ceremony (which
 // aborts any other) once a modal one began or the screen went away, and no ceremony sends its
@@ -152,4 +152,115 @@ describe('signIn', () => {
       expect(urls()).toEqual(['/api/v1/auth/passkey/options']);
     },
   );
+});
+
+describe('reauthenticate', () => {
+  const REAUTH_OPTIONS = {
+    ...OPTIONS,
+    allowCredentials: [
+      { id: ID, type: 'public-key', transports: ['internal', 'hybrid'] },
+      { id: B64(16, 0x07), type: 'public-key' },
+    ],
+  };
+  const NO_HANDLE: AuthenticationResponseJSON = {
+    ...ASSERTION,
+    clientExtensionResults: { appid: true },
+    response: {
+      clientDataJSON: ASSERTION.response.clientDataJSON,
+      authenticatorData: ASSERTION.response.authenticatorData,
+      signature: ASSERTION.response.signature,
+    },
+  };
+  const bodyOf = (i: number): unknown => {
+    const call = vi.mocked(fetch).mock.calls[i] as unknown as [string, { body?: string }];
+    return JSON.parse(call[1].body ?? 'null');
+  };
+
+  it('posts to the reauth options, runs a modal ceremony over allowCredentials, posts the projected answer and returns Me', async () => {
+    lib.startAuthentication.mockImplementation(async () => NO_HANDLE);
+    const done = reauthenticate();
+    await settle();
+    at(0).release(200, REAUTH_OPTIONS);
+    await settle();
+    expect(lib.startAuthentication).toHaveBeenCalledExactlyOnceWith({ optionsJSON: REAUTH_OPTIONS });
+    const call = lib.startAuthentication.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect('useBrowserAutofill' in call).toBe(false);
+    expect(urls()).toEqual(['/api/v1/auth/passkey/reauth/options', '/api/v1/auth/passkey/reauth/verify']);
+    // The projection: no userHandle (the authenticator gave none), no extension outputs.
+    expect(bodyOf(1)).toEqual({
+      credential: {
+        id: ID,
+        rawId: ID,
+        type: 'public-key',
+        response: {
+          clientDataJSON: ASSERTION.response.clientDataJSON,
+          authenticatorData: ASSERTION.response.authenticatorData,
+          signature: ASSERTION.response.signature,
+        },
+      },
+    });
+    at(1).release(200, { user: null });
+    await expect(done).resolves.toEqual({ user: null });
+  });
+
+  it('passes a userHandle the library returns on to the verify call', async () => {
+    const done = reauthenticate();
+    await settle();
+    at(0).release(200, REAUTH_OPTIONS);
+    await settle();
+    expect(bodyOf(1)).toMatchObject({ credential: { response: { userHandle: ASSERTION.response.userHandle } } });
+    at(1).release(200, { user: null });
+    await done;
+  });
+
+  it('counts as a modal ceremony: an autofill whose options arrive meanwhile aborts', async () => {
+    const modal = reauthenticate();
+    const autofill = signIn('autofill').then(
+      () => 'resolved',
+      (e: unknown) => e,
+    );
+    await settle();
+    expect(urls()).toEqual(['/api/v1/auth/passkey/reauth/options', '/api/v1/auth/passkey/options']);
+    at(1).release(200, OPTIONS);
+    expect(isAbort(await autofill)).toBe(true);
+    at(0).release(200, REAUTH_OPTIONS);
+    await settle();
+    at(2).release(200, { user: null });
+    await expect(modal).resolves.toEqual({ user: null });
+  });
+
+  it('cancel() during the options request aborts before the ceremony', async () => {
+    const done = reauthenticate().then(
+      () => 'resolved',
+      (e: unknown) => e,
+    );
+    await settle();
+    cancel();
+    at(0).release(200, REAUTH_OPTIONS);
+    expect(isAbort(await done)).toBe(true);
+    expect(lib.startAuthentication).not.toHaveBeenCalled();
+    expect(urls()).toEqual(['/api/v1/auth/passkey/reauth/options']);
+  });
+
+  it('cancel() after the ceremony resolved sends no verify call', async () => {
+    let finishCeremony: (value: AuthenticationResponseJSON) => void = () => {};
+    lib.startAuthentication.mockImplementation(
+      () =>
+        new Promise<AuthenticationResponseJSON>((resolve) => {
+          finishCeremony = resolve;
+        }),
+    );
+    const done = reauthenticate().then(
+      () => 'resolved',
+      (e: unknown) => e,
+    );
+    await settle();
+    at(0).release(200, REAUTH_OPTIONS);
+    await settle();
+    expect(lib.startAuthentication).toHaveBeenCalledTimes(1);
+    cancel();
+    finishCeremony(ASSERTION);
+    expect(isAbort(await done)).toBe(true);
+    expect(urls()).toEqual(['/api/v1/auth/passkey/reauth/options']);
+  });
 });
