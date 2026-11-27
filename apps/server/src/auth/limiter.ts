@@ -22,6 +22,7 @@ export const BUCKETS = {
   passwordEmail: { name: 'password_email', limit: 5, windowS: 900 }, // password sign-ins per email
   passwordPrefix: { name: 'password_prefix', limit: 20, windowS: 3_600 }, // password sign-ins per IP prefix
   signupSiteDay: { name: 'signup_site_day', limit: 20, windowS: 86_400 }, // anonymous-triggered mails a day, site-wide (A§17.7)
+  importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (keyed by user id; A§14, P2c)
 } as const satisfies Record<string, Bucket>;
 
 export type Hit = {

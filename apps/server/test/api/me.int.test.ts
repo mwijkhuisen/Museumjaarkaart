@@ -69,6 +69,7 @@ describe('PATCH /me', () => {
       wishlist_visibility: 'private',
       hide_ratings_until_visited: false,
       card_type: 'adult',
+      profile_indexable: false,
       locale: 'en',
     });
     expect(await ipRows(u.id)).toEqual([]);

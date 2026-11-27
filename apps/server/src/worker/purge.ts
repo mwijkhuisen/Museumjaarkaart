@@ -23,6 +23,8 @@ const STEPS: Record<string, RawBuilder<unknown>> = {
   invite: sql`DELETE FROM invite WHERE expires_at < now() - interval '90 days'
     OR (uses >= max_uses AND used_at < now() - interval '90 days')`,
   content_ip_log: sql`DELETE FROM content_ip_log WHERE created_at < now() - interval '30 days'`,
+  // A§10: the parsed rows of an import wait at most 7 days, confirmed or not (P2c pulls this forward from P3d).
+  visit_import: sql`DELETE FROM visit_import WHERE created_at < now() - interval '7 days'`,
 };
 
 export async function purge(db: Db, logger: Logger): Promise<Record<string, number>> {

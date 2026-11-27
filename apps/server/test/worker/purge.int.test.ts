@@ -171,3 +171,22 @@ it('nulls sealed values of expired or failed mail jobs, keeps the other keys, ne
   expect(again.sealed_code).toBe(0);
   expect(again.sealed_failed).toBe(0);
 });
+
+it('purges a visit import after 7 days, pending or confirmed, and keeps a younger one', async () => {
+  const u = await a.newUser();
+  // One pending import per member (a partial unique index), so each pending row has its own member.
+  const imp = async (state: 'pending' | 'confirmed', age: string, userId = u.id) =>
+    q(
+      `INSERT INTO visit_import (user_id, format, state, rows, created_at, confirmed_at)
+       VALUES ($1, 'csv', $2, '[]', now() - $3::interval, CASE WHEN $2 = 'confirmed' THEN now() ELSE NULL END)`,
+      [userId, state, age],
+    );
+  await imp('pending', '7 days 1 minute', (await a.newUser()).id);
+  await imp('confirmed', '8 days');
+  await imp('confirmed', '6 days 23 hours');
+  await imp('pending', '6 days 23 hours');
+
+  expect((await purge(a.worker, quiet)).visit_import).toBe(2);
+  expect(await count('visit_import')).toBe(2);
+  expect((await purge(a.worker, quiet)).visit_import).toBe(0);
+});
