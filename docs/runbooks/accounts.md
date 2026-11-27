@@ -36,9 +36,15 @@ The worker runs `apps/server/src/worker/purge.ts` as `mjk_worker` on the databas
 - finished jobs (`done` or `failed`) after 30 days;
 - invites 90 days after they expired or were last used up;
 - `content_ip_log` rows after 30 days;
+- `visit_import` rows 7 days after creation, in any state (P2c);
+- `data_export` rows and their files 7 days after creation, and the files of an expired export once its 24 h are over (P2c);
 - the sealed values of mail jobs: a code job's once its code expired (10 minutes) or it failed, an invite or notice job's once it failed. Running jobs are untouched.
 
 `audit_log` is never touched here (its purge function arrives in P3c).
+
+### Export requests (P2c)
+
+A member asks for an export on the account page; the worker builds `export.json`, `visits.csv` and `wishlist.csv` under `/srv/mjk/exports` and mails a link to the account page. There is one open export per member and 3 requests a day (`export_user_day`). A queued export older than 1 hour counts as failed, and the member can ask again. The download needs the member's own session and works for 24 hours. The bundle and the row go after 7 days. Nothing here is manual: if an export stays `queued`, look at the worker's logs for the job's fixed error code.
 
 ## 5. The [box] checks after the merge
 
