@@ -12,7 +12,8 @@ import { matches } from './search.ts';
 // without a museum_stats row scoring 0; `sort=name`: (sort_name, id). With `q`: (tier, score descending,
 // sort_name, id), whatever `sort` says. No OFFSET: the next page starts after the cursor's row, compared
 // as one row value, so the comparison and the ORDER BY agree. The scores come from the worker's recompute
-// (stats-job.ts), so a recompute between two pages of a rank list can move a museum (A§14).
+// (stats-job.ts); a rank page starts after its anchor's current score, so a recompute between two pages moves
+// only a museum whose order relative to the anchor changed (A§14).
 
 /** The cursor is malformed, or belongs to another mode than this request's (search, rank or name). */
 export class InvalidCursor extends Error {
@@ -99,7 +100,12 @@ function after(cursor: ListCursor | null): RawBuilder<unknown> {
   if (cursor === null) return sql`TRUE`;
   if (cursor.m === 'n') return sql`(m.sort_name, m.id) > (${cursor.k}::text, ${cursor.i}::uuid)`;
   if (cursor.m === 'r') {
-    return sql`(-coalesce(s.bayes_score, 0), m.sort_name, m.id) > (-${cursor.s}::float8, ${cursor.k}::text, ${cursor.i}::uuid)`;
+    // The anchor's score is read again, not taken from the cursor: every recompute moves m and with it every score
+    // (each unrated museum scores exactly m), so a stored score would skip or repeat a whole tie group on the next
+    // page. Against the anchor's current score only a museum whose order relative to it changed can move. The
+    // cursor's score stands in for an anchor that has no stats row (it scored 0) or is hidden now.
+    const anchor = sql`coalesce((SELECT a.bayes_score FROM pub_museum_stats a WHERE a.museum_id = ${cursor.i}::uuid), ${cursor.s}::float8)`;
+    return sql`(-coalesce(s.bayes_score, 0), m.sort_name, m.id) > (-${anchor}, ${cursor.k}::text, ${cursor.i}::uuid)`;
   }
   return sql`(b.tier, -b.score, m.sort_name, m.id) > (${cursor.t}::int, -${cursor.s}::float8, ${cursor.k}::text, ${cursor.i}::uuid)`;
 }

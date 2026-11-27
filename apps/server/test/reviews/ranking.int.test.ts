@@ -175,6 +175,29 @@ describe('the Bayesian rank (criterion 4)', () => {
     await recomputeStats(p.worker);
     expect((await walk({ limit: '50' })).at(-1)?.id).toBe(weak.id);
   }, 120_000);
+
+  it('a recompute between two pages moves m but skips or repeats no other museum', async () => {
+    // Museums outside `pool` (no coordinates), so the later tests' picks stay the same.
+    const extra = (
+      await p.owner.query<{ id: string }>('SELECT id FROM museum WHERE NOT hidden AND lat IS NULL ORDER BY id LIMIT 2')
+    ).rows.map((r) => r.id);
+    expect(extra.length).toBe(2);
+    const total = (await listOf({ limit: '1' })).total;
+    // m up (a new 5) and m down (a new 1): each shifts the score of every unrated museum, the anchors' too.
+    for (const [museumId, rating] of [
+      [extra[0], 5],
+      [extra[1], 1],
+    ] as const) {
+      const first = await listOf({ limit: '50' });
+      expect(first.next_cursor).not.toBeNull();
+      await rate(museumId as string, rating);
+      await recomputeStats(p.worker);
+      const rest = await walk({ limit: '50', cursor: first.next_cursor as string });
+      const seen = [...first.items, ...rest].map((i) => i.id).filter((id) => id !== museumId);
+      expect(seen.length).toBe(total - 1);
+      expect(new Set(seen).size).toBe(total - 1);
+    }
+  }, 120_000);
 });
 
 describe('min_rating and kid_friendly', () => {
