@@ -1,7 +1,8 @@
 # CI only: the stack Playwright runs against (A§18). Driven by deploy/e2e/stack.sh, which sets
 # E2E_SECRETS (a temp directory of throw-away file secrets) and DBMATE_BIN. Project `mjk-e2e`.
 # Nothing here calls Wikidata, RCE, Lettermint, R2 or Cloudflare: every network is internal, and nothing
-# is published to the host. `edge` and `tunnel-edge` copy A§17.3's mjk-edge and mjk-tunnel-edge with
+# is published to the host. P2a: the edge also answers as Cloudflare Access's certs host and as Lettermint's API
+# (a throw-away CA in E2E_PKI, trusted by `api` and `worker` only; `mailsink` keeps the mails). `edge` and `tunnel-edge` copy A§17.3's mjk-edge and mjk-tunnel-edge with
 # caddy's and cloudflared's fixed addresses, so the production Caddyfile runs here unchanged.
 name: mjk-e2e
 
@@ -114,14 +115,23 @@ services:
   api:
     <<: *node
     command: ["node", "apps/server/src/main.ts", "api"]
-    # The admin host's Access settings (A§9): test values only, never the real ones.
+    # The admin host's Access settings (A§9): test values only, never the real ones. NODE_EXTRA_CA_CERTS: the api
+    # fetches Access's certs from the edge's test-team.cloudflareaccess.com, signed by the throw-away CA.
     environment:
       MJK_DOMAIN: mjk.test
       CF_ACCESS_TEAM: test-team
       CF_ACCESS_AUD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      NODE_EXTRA_CA_CERTS: /e2e-ca.pem
+    volumes:
+      - ../..:/app:ro
+      - ${E2E_PKI:?set E2E_PKI to the PKI directory}/ca.pem:/e2e-ca.pem:ro
     networks: [default, edge]
     secrets:
       - db_mjk_api
+      - app_keys
+    # A§17.2's limits: the load pass (auth-load.spec.ts) must not push the api over them.
+    mem_limit: 384m
+    cpus: 1.0
     healthcheck:
       test: ["CMD", "node", "apps/server/src/main.ts", "healthcheck"]
       interval: 3s
@@ -130,6 +140,57 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # The mail jobs (A§9): sends through the real Lettermint client to api.lettermint.co, which the edge answers.
+  worker:
+    <<: *node
+    command: ["node", "apps/server/src/main.ts", "worker"]
+    environment:
+      MJK_BRAND_NAME: Testmerk
+      MJK_DOMAIN: mjk.test
+      MJK_MAIL_FROM: noreply@mjk.test
+      MJK_MAIL_CAP: "300"
+      MJK_CONTACT_EMAIL: info@mjk.test
+      NODE_EXTRA_CA_CERTS: /e2e-ca.pem
+    volumes:
+      - ../..:/app:ro
+      - ${E2E_PKI:?}/ca.pem:/e2e-ca.pem:ro
+    secrets:
+      - db_mjk_worker
+      - app_keys
+      - lettermint_api_token
+    healthcheck:
+      test: ["CMD", "node", "apps/server/src/main.ts", "healthcheck"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Lettermint's stand-in (deploy/e2e/mail-sink.mjs): the specs read the codes from it.
+  mailsink:
+    <<: *node
+    command: ["node", "deploy/e2e/mail-sink.mjs"]
+
+  # The owner's curation tool, as production's `admin` job (`compose run --rm -T admin invite create …`).
+  admin:
+    <<: *node
+    profiles: [tools]
+    entrypoint: ["node", "apps/server/src/main.ts", "admin"]
+    command: []
+    secrets:
+      - db_mjk_api
+      - app_keys
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Access's stand-in (deploy/e2e/access-stub.mjs): writes jwks.json into E2E_PKI and prints one JWT per owner.
+  access-stub:
+    <<: *node
+    profiles: [tools]
+    command: ["node", "deploy/e2e/access-stub.mjs", "/pki", "owner-chromium@mjk.test", "owner-webkit@mjk.test"]
 
   ssr:
     <<: *node
@@ -179,16 +240,20 @@ services:
 
   # Stands in for Cloudflare's edge and cloudflared: TLS for mjk.test, admin.mjk.test and media.mjk.test (R2's custom
   # domain, in front of minio), X-Forwarded-Proto, the visitor's address appended to X-Forwarded-For, from
-  # cloudflared's fixed 10.63.6.10.
+  # cloudflared's fixed 10.63.6.10. Also the two outside names the api and the worker dial (P2a), under E2E_PKI's CA.
   edge:
     <<: *caddy
     volumes:
       - ./edge.Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${E2E_PKI:?}:/pki:ro
     networks:
       default:
         aliases:
           - mjk.test
+          - admin.mjk.test
           - media.mjk.test
+          - test-team.cloudflareaccess.com
+          - api.lettermint.co
       tunnel-edge:
         ipv4_address: 10.63.6.10
     depends_on:
@@ -244,3 +309,8 @@ secrets:
   # The AWS credentials format of the real secret (A§17.3), with the same two values.
   r2_media_rw:
     file: ${E2E_SECRETS:?}/r2_media_rw
+  # Four lines name=<32 random bytes, base64url> (apps/server/src/auth/keys.ts) and a random token.
+  app_keys:
+    file: ${E2E_SECRETS:?}/app_keys
+  lettermint_api_token:
+    file: ${E2E_SECRETS:?}/lettermint_api_token

@@ -11,6 +11,7 @@
   "dependencies": {
     "@hono/node-server": "2.1.5",
     "@mjk/contracts": "workspace:*",
+    "altcha-lib": "2.8.0",
     "croner": "10.0.1",
     "hono": "4.13.13",
     "kysely": "0.29.7",

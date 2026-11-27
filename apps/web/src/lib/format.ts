@@ -33,6 +33,18 @@ export function formatMonth(iso: string, locale: Locale): string {
   return new Intl.DateTimeFormat(TAG[locale], { timeZone: ZONE, month: 'long', year: 'numeric' }).format(noon(iso));
 }
 
+/** "1 november 2026 14:05" / "1 November 2026 at 14:05": an instant (a contract IsoDateTime) in Amsterdam. */
+export function formatDateTime(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(TAG[locale], {
+    timeZone: ZONE,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+
 /** "1.234" / "1,234". */
 export function formatCount(n: number, locale: Locale): string {
   return new Intl.NumberFormat(TAG[locale]).format(n);

@@ -67,8 +67,10 @@ Each secret is one file in `/etc/mjk/secrets`, owned `root:<gid>`, mode `0440`, 
 | `restic_password` | `mjk_restic_password` (63011) | backup | a long random password (one line) |
 | `r2_media_rw` | `mjk_r2_media_rw` (63009) | worker (the quarterly tiles job, P1d) | an AWS credentials file for the Object Read & Write token on `mjk-media` only, the format of `r2_backup_put` |
 | `hc_ping_key` | `mjk_hc_ping_key` (63013) | worker, and the host unit `mjk-backup.service` as root | the healthchecks.io project's ping key: 16 to 64 characters of `A-Za-z0-9_-` |
+| `app_keys` | `mjk_app_keys` (63012) | api, worker, admin (P2a) | four lines `otp_pepper=…`, `invite_pepper=…`, `code_seal=…`, `altcha_hmac=…`, each value the base64url (no padding, 43 characters) of 32 random bytes; the api, worker and admin exit 78 on any other shape |
+| `lettermint_api_token` | `mjk_lettermint_api_token` (63008) | worker only (P2a) | the Lettermint API token (one line); until owner action A4 is done a placeholder line is acceptable, and every mail then fails with a fixed code |
 
-`lettermint_api_token` (63008) and `app_keys` (63012) come with P2a and P3b; their groups already exist and nothing needs them now. `r2_media_rw` needs the media bucket and its token (`docs/runbooks/tiles-refresh.md` §2): Compose will not start the `worker` without the file. On a first install `mjk-install` lists it as missing and leaves the timers off until it exists. **On a host that already runs P1e** the timers are on: create `r2_media_rw` and set `MJK_R2_BUCKET_MEDIA` in `mjk.env` first, before the `mjk-install` that brings P1d (§11); `mjk-update` refuses a compose file whose secret files are missing (`config_missing: secret file(s) missing: …`, exit 78, the running stack untouched) until they exist. The database passwords are read by `roles.sql` on the first start of the `db` volume only (§5), so they must exist before the first deploy. A database password with any other character fails with `roles.sql: cannot set up login …`.
+`app_keys` and `lettermint_api_token` arrive with P2a (the order of that deploy is in `docs/runbooks/update.md` §8); `mjk-install` lists them as missing and `mjk-update` refuses a compose file without them until they exist. `r2_media_rw` needs the media bucket and its token (`docs/runbooks/tiles-refresh.md` §2): Compose will not start the `worker` without the file. On a first install `mjk-install` lists it as missing and leaves the timers off until it exists. **On a host that already runs P1e** the timers are on: create `r2_media_rw` and set `MJK_R2_BUCKET_MEDIA` in `mjk.env` first, before the `mjk-install` that brings P1d (§11); `mjk-update` refuses a compose file whose secret files are missing (`config_missing: secret file(s) missing: …`, exit 78, the running stack untouched) until they exist. The database passwords are read by `roles.sql` on the first start of the `db` volume only (§5), so they must exist before the first deploy. A database password with any other character fails with `roles.sql: cannot set up login …`.
 
 How to create them without a secret entering the shell history, a process list or a log (run in the root shell; `read -rs` and `printf` are shell builtins, so the value is never an argument of a program; `HISTFILE=` keeps this shell's history off the disk):
 
@@ -91,6 +93,16 @@ printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$id" "
 read -rs -p 'R2 access key id (mjk-media): ' id; echo
 read -rs -p 'R2 secret access key: ' key; echo
 printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' "$id" "$key" > r2_media_rw; unset id key
+
+# app_keys (P2a): four generated values, each from openssl straight into the file (base64url, no padding).
+if [ ! -e app_keys ]; then
+  for k in otp_pepper invite_pepper code_seal altcha_hmac; do
+    printf '%s=%s\n' "$k" "$(openssl rand 32 | base64 | tr '+/' '-_' | tr -d '=\n')"
+  done > app_keys
+fi
+
+# lettermint_api_token (P2a): pasted into a silent prompt (a placeholder until A4 is done).
+read -rs -p 'Lettermint API token: ' v; echo; printf '%s' "$v" > lettermint_api_token; unset v
 ```
 
 Then the exact owner and mode of each, and a check by name (this prints names and modes only, never a value):
@@ -98,7 +110,8 @@ Then the exact owner and mode of each, and a check by name (this prints names an
 ```bash
 cd /etc/mjk/secrets
 for pair in db_postgres:63001 db_mjk_migrator:63002 db_mjk_api:63003 db_mjk_ssr:63004 db_mjk_worker:63005 \
-  db_mjk_backup:63006 cf_tunnel_token:63007 r2_media_rw:63009 r2_backup_put:63010 restic_password:63011 hc_ping_key:63013; do
+  db_mjk_backup:63006 cf_tunnel_token:63007 r2_media_rw:63009 r2_backup_put:63010 restic_password:63011 hc_ping_key:63013 \
+  app_keys:63012 lettermint_api_token:63008; do
   chown "root:${pair##*:}" "${pair%%:*}" && chmod 0440 "${pair%%:*}"
 done
 stat -c '%U:%g %a %n' /etc/mjk/secrets/*
@@ -108,7 +121,7 @@ Expected: every line `root:<gid> 440`. Put each value (not the file) into your p
 
 ### mjk.env
 
-`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_MAIL_CAP` and `MJK_SIGNUP` (later phases) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value. The check is `/usr/local/bin/mjk-envcheck`, and `mjk-update` runs it again before every deploy, so an edit after the install is refused there too (exit 78).
+`/etc/mjk/mjk.env` is config, not secrets (`root:root`, mode 0644 or 0640, one `KEY=value` per line, no quotes, no spaces). Compose gives every key to every Node container as `env_file`, so `mjk-install` refuses the file when its owner or mode is anything else, or when it holds a key outside this allowlist: the keys below, plus `MJK_MAIL_FROM` (the sender address of the sign-in mails) and `MJK_MAIL_CAP` (P2a: the monthly cap, `300` on the free plan; mail needs both, and without either every mail job fails `mail_unconfigured` and the worker's health ping fails) and `MJK_SIGNUP` (a later phase) and the optional `MJK_R2_REGION`. So no `DATABASE_URL` (it would replace every login's file secret), no `NODE_OPTIONS`, no `*_FILE` path and no password ever goes in it. The refusal names the key or the line number, never a value. The check is `/usr/local/bin/mjk-envcheck`, and `mjk-update` runs it again before every deploy, so an edit after the install is refused there too (exit 78).
 
 ```bash
 cat > /etc/mjk/mjk.env <<'EOF'

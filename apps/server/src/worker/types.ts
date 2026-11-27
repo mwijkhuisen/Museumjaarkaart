@@ -27,5 +27,10 @@ export type JobContext = {
   signal: AbortSignal;
 };
 
-/** `payload` is the job row's `jsonb` (ids only); a handler validates it. */
-export type JobHandler = (payload: unknown, ctx: JobContext) => Promise<void>;
+/**
+ * `payload` is the job row's `jsonb` (ids only); a handler validates it. A handler that resolves `'consumed'`
+ * has no use for the row any more (a mail job whose sealed values must not outlive the send): the worker
+ * deletes it instead of marking it done.
+ */
+// biome-ignore lint/suspicious/noConfusingVoidType: the existing handlers are `async () => {}` and resolve void
+export type JobHandler = (payload: unknown, ctx: JobContext) => Promise<void | 'consumed'>;

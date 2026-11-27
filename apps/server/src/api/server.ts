@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { sql } from 'kysely';
+import { readAppKeys } from '../auth/keys.ts';
 import { createDb, type Db } from '../db/kysely.ts';
 import { EXIT_CONFIG } from '../db/migrate.ts';
 import { API_POOL_MAX, API_STATEMENT_TIMEOUT_MS, createPool } from '../db/pool.ts';
@@ -89,11 +90,14 @@ export type ApiRunOpts = {
   hostname?: string;
   /** Test seam: the port it listens on (0 picks a free one). */
   onListening?: (port: number) => void;
+  /** Test seam: the directory holding the file secrets (`app_keys`); `/run/secrets` in production. */
+  secretsDir?: string;
 };
 
 /** The production wiring of the client-address rule and the Access JWT check (A§9, ADR-0004). */
-export function edgeDeps(config: ApiConfig, logger: Logger): Pick<ApiDeps, 'clientAddress' | 'access'> {
+export function edgeDeps(config: ApiConfig, logger: Logger): Pick<ApiDeps, 'clientAddress' | 'access' | 'site'> {
   return {
+    site: { domain: config.domain, adminHost: config.adminHost },
     // The TCP peer of @hono/node-server's socket; the trusted peer is caddy's CADDY_PEER.
     clientAddress: { peer: (c) => getConnInfo(c).remote.address },
     access: {
@@ -112,6 +116,12 @@ export async function runApi(env: Env, opts: ApiRunOpts): Promise<number> {
     opts.log(`api: ${config}`);
     return EXIT_CONFIG;
   }
+  // app_keys (A§17.3): read once at start; a missing or malformed key names the key, never a value.
+  const keys = readAppKeys(opts.secretsDir);
+  if (typeof keys === 'string') {
+    opts.log(`api: ${keys}`);
+    return EXIT_CONFIG;
+  }
   const pool = createPool('mjk_api', env, { max: API_POOL_MAX, statementTimeoutMs: API_STATEMENT_TIMEOUT_MS });
   if (typeof pool === 'string') {
     opts.log(`api: ${pool}`);
@@ -122,7 +132,7 @@ export async function runApi(env: Env, opts: ApiRunOpts): Promise<number> {
   let server: Server;
   try {
     server = await listen(
-      createApp({ db, logger, ping, ...edgeDeps(config, logger) }),
+      createApp({ db, logger, ping, keys, ...edgeDeps(config, logger) }),
       opts.port ?? API_PORT,
       opts.hostname ?? '0.0.0.0',
     );

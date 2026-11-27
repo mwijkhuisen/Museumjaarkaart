@@ -167,9 +167,9 @@ import profile-{$MJK_PROFILE}.caddy
 		}
 	}
 
-	# Behind Cloudflare Access (ADR-0004). Until P2a: the assets, /api/admin/* to the api (which checks the
-	# Access JWT in Cf-Access-Jwt-Assertion on every admin-host request), any other /api path a 404, and a
-	# placeholder page where P2a puts the admin SPA entry.
+	# Behind Cloudflare Access (ADR-0004; A§5): the assets, the api routes of the admin SPA, any other /api
+	# path a 404, and the admin SPA's HTML (admin.html) for every other path. The api checks the Access JWT
+	# in Cf-Access-Jwt-Assertion on every admin-host request; it passes through untouched.
 	handle @admin_host {
 		import admin_headers
 		redir @http https://admin.{$MJK_DOMAIN}{uri} 308
@@ -179,7 +179,13 @@ import profile-{$MJK_PROFILE}.caddy
 
 		import assets "private, no-store" /assets/*
 
-		@admin_api path /api/admin /api/admin/*
+		# One expression: signup (a public-host route), uploads and any write to the catalogue are not
+		# here; the signup exclusion covers its sub-paths too. The two /api handles use `expression`, not
+		# `path`: Caddy re-sorts handles whose matcher holds only a path, which could put the 404 first.
+		@admin_api expression `path('/api/admin', '/api/admin/*')
+			|| (path('/api/v1/auth/*') && !path('/api/v1/auth/signup', '/api/v1/auth/signup/*'))
+			|| path('/api/v1/me', '/api/v1/me/*')
+			|| (path('/api/v1/museums', '/api/v1/museums/*') && method('GET', 'HEAD'))`
 		handle @admin_api {
 			reverse_proxy api:8080 {
 				import client_address
@@ -187,20 +193,16 @@ import profile-{$MJK_PROFILE}.caddy
 			}
 		}
 
-		@other_api path /api /api/*
+		@other_api expression path('/api', '/api/*')
 		handle @other_api {
 			respond 404
 		}
 
+		# The SPA: every other path is the one built page, which routes in the browser.
 		handle {
-			header Content-Type "text/html; charset=utf-8"
-			respond `<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<title>admin</title>
-<p>The admin interface arrives with sign-in (P2a).</p>
-</html>
-` 200
+			root * /srv/web
+			rewrite * /admin.html
+			file_server
 		}
 	}
 

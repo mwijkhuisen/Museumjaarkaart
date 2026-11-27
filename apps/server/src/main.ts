@@ -1,16 +1,19 @@
 import { nodeIo, runAdmin } from './admin/cli.ts';
 import { runApi } from './api/server.ts';
+import { readAppKeys } from './auth/keys.ts';
 import { type BackupDeps, runBackup } from './backup/run.ts';
 import { createDb } from './db/kysely.ts';
 import { EXIT_CONFIG, runMigrate } from './db/migrate.ts';
 import { createPool, WORKER_POOL_MAX } from './db/pool.ts';
 import { HEARTBEAT_PATH, healthy } from './heartbeat.ts';
 import { createLogger } from './lib/log.ts';
+import { lettermintMailer } from './mail/lettermint.ts';
 import type { Source } from './museums/fields.ts';
 import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
 import { runSsr } from './ssr/server.ts';
 import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB, tilesRefreshJob, tilesRollbackJob } from './tiles/job.ts';
+import { mailJobs } from './worker/mail.ts';
 import { runWorkerRole } from './worker/role.ts';
 
 /** Roles of the single server image (A§5); the first argument picks one. */
@@ -46,6 +49,8 @@ export type RunDeps = {
   onListening?: (port: number) => void;
   /** The backup role's paths and tool binaries (tests). */
   backup?: BackupDeps;
+  /** The file secrets' directory (`app_keys`, the Lettermint token); `/run/secrets` in production. */
+  secretsDir?: string;
 };
 
 /** The signal that stops a daemon: the test's, or SIGTERM and SIGINT. */
@@ -114,8 +119,16 @@ async function runSyncRole(args: readonly string[], env: Env, log: (line: string
 async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promise<number> {
   const logger = createLogger({ role: 'worker' });
   const fetchers = deps.fetchers ?? liveFetchers(env);
+  // The mail jobs open sealed values under `code_seal`: read once, at start. The text names the file, never a value.
+  const keys = readAppKeys(deps.secretsDir);
+  if (typeof keys === 'string') {
+    logger.error({ detail: keys }, 'config_invalid');
+    return EXIT_CONFIG;
+  }
+  const mailer = lettermintMailer(env, deps.secretsDir);
   return runWorkerRole(env, {
     handlers: (db) => ({
+      ...mailJobs({ db, keys, mailer, logger, env }),
       [MUSEUM_SYNC_JOB]: museumSyncJob(db, fetchers, logger),
       // MJK_R2_* are read when a tiles job runs, so a worker without them still runs the rest. The secret
       // file r2_media_rw is not optional: Compose does not start the worker without it.
@@ -138,6 +151,7 @@ function runApiRole(env: Env, heartbeatPath: string, log: (line: string) => void
     ...(deps.port === undefined ? {} : { port: deps.port }),
     ...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
     ...(deps.onListening === undefined ? {} : { onListening: deps.onListening }),
+    ...(deps.secretsDir === undefined ? {} : { secretsDir: deps.secretsDir }),
   });
 }
 
@@ -193,7 +207,7 @@ export async function run(
     case 'sync-museums':
       return runSyncRole(rest, env, log, deps);
     case 'admin':
-      return runAdmin(rest, env, deps.out ? { ...nodeIo(), out: deps.out, err: log } : nodeIo());
+      return runAdmin(rest, env, deps.out ? { ...nodeIo(), out: deps.out, err: log } : nodeIo(), deps.secretsDir);
     default:
       log(`role ${role} is not built yet`);
       return EXIT_NOT_BUILT;

@@ -5,10 +5,12 @@ import { ErrorBody } from '@mjk/contracts';
 import { http, passthrough } from 'msw';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { server as msw } from '../../../../test/msw.setup.ts';
-import { createApp } from '../../src/api/app.ts';
+import { buildApp, createApp } from '../../src/api/app.ts';
+import { readJson } from '../../src/api/body.ts';
 import { drain, listen } from '../../src/api/server.ts';
-import { createDb } from '../../src/db/kysely.ts';
+import { createDb, type Db } from '../../src/db/kysely.ts';
 import { silentLogger } from '../../src/lib/log.ts';
 import { type Case, cases, openSweep, type Sweep, V1 } from './sweep.ts';
 
@@ -85,7 +87,10 @@ function expectedPublic(method: Method, kind: BodyKind): { status: number; error
   if (isChunked(kind)) return { status: 400, error: { error: 'bad_request', fields: [] } };
   if (kind === 'large') return { status: 413, error: { error: 'too_large' } };
   if (method === 'GET' || method === 'HEAD') return { status: 200, error: null };
-  return { status: 404, error: { error: 'not_found' } };
+  if (method === 'OPTIONS') return { status: 404, error: { error: 'not_found' } };
+  // P2a: every unsafe method meets the CSRF check after the cap (these requests carry no
+  // Sec-Fetch-Site or Origin), whatever the path; the same-origin case is tested below.
+  return { status: 403, error: { error: 'forbidden' } };
 }
 
 function checkAnswer(a: Answer, method: Method, status: number, error: ErrorBody | null, label: string) {
@@ -109,7 +114,7 @@ describe('every method and body kind over a real socket', () => {
         }
   });
 
-  it('a public route: GET and HEAD answer, other methods 404, a large body 413, a chunked body 400', async () => {
+  it('a public route: GET and HEAD answer, OPTIONS 404, other methods 403, a large body 413, a chunked body 400', async () => {
     const paths = [`${V1}/museums`, `${V1}/museums/${s.cat.named.kroller.slug}`, `${V1}/provinces`];
     for (const path of paths)
       for (const method of METHODS)
@@ -122,10 +127,10 @@ describe('every method and body kind over a real socket', () => {
         }
   });
 
-  it('an unknown method on a public path is a 404', async () => {
+  it('an unknown method on a public path is unsafe: the CSRF 403', async () => {
     for (const method of ['PROPFIND', 'TRACE'] as const) {
       const a = await send(port, method, `${V1}/museums`);
-      expect(a.status, method).toBe(404);
+      expect(a.status, method).toBe(403);
       expect(a.headers['cache-control'], method).toBe('private, no-store');
       noLeaks(a, method);
     }
@@ -174,6 +179,96 @@ describe('a saturated pool', () => {
       held.release();
       await drain(busy, 1_000);
       await db.destroy();
+    }
+  });
+});
+
+describe('mutations over a real socket (P2a: CSRF, JSON only, the body reader)', () => {
+  const Echo = z.strictObject({ a: z.number() });
+  let mut: Server;
+  let mport = 0;
+  beforeAll(async () => {
+    const app = buildApp(
+      {
+        db: {} as Db,
+        logger: silentLogger,
+        ping: async () => true,
+        site: { domain: 'mjk.test', adminHost: 'admin.mjk.test' },
+      },
+      (v1) => {
+        v1.post('/echo', async (c) => c.json(await readJson(c, Echo)));
+        v1.post('/bodyless', (c) => c.body(null, 204));
+      },
+    );
+    mut = await listen(app, 0, '127.0.0.1');
+    mport = (mut.address() as AddressInfo).port;
+  });
+  afterAll(async () => {
+    if (mut !== undefined) await drain(mut, 1_000);
+  });
+
+  const raw = (path: string, headers: Record<string, string>, body?: string): Promise<Answer> =>
+    new Promise((resolve, reject) => {
+      const all = {
+        Host: 'mjk.test',
+        ...headers,
+        ...(body === undefined ? {} : { 'Content-Length': String(Buffer.byteLength(body)) }),
+      };
+      const req = request(
+        { host: '127.0.0.1', port: mport, method: 'POST', path, headers: all, agent: false },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () =>
+            resolve({
+              status: res.statusCode ?? 0,
+              headers: res.headers,
+              body: Buffer.concat(chunks).toString('utf8'),
+            }),
+          );
+          res.on('error', reject);
+        },
+      );
+      req.on('error', reject);
+      if (body !== undefined) req.write(body);
+      req.end();
+    });
+
+  const SAME = { 'Sec-Fetch-Site': 'same-origin' };
+
+  it('a same-origin JSON body reaches the route, read to its length and parsed strictly', async () => {
+    const ok = await raw(`${V1}/echo`, { ...SAME, 'Content-Type': 'application/json' }, '{"a":1}');
+    expect(ok.status).toBe(200);
+    expect(JSON.parse(ok.body)).toEqual({ a: 1 });
+    const strict = await raw(`${V1}/echo`, { ...SAME, 'Content-Type': 'application/json' }, '{"a":1,"b":2}');
+    expect(strict.status).toBe(400);
+    const broken = await raw(`${V1}/echo`, { ...SAME, 'Content-Type': 'application/json' }, '{"a":');
+    expect(ErrorBody.parse(JSON.parse(broken.body))).toEqual({ error: 'bad_request', fields: [] });
+  });
+
+  it('a body-less POST needs no length and no type', async () => {
+    const a = await raw(`${V1}/bodyless`, SAME);
+    expect(a.status).toBe(204);
+    noLeaks(a, 'bodyless');
+  });
+
+  it('a form body → 415; a body without a type → 415', async () => {
+    for (const headers of [{ ...SAME, 'Content-Type': 'application/x-www-form-urlencoded' }, SAME]) {
+      const a = await raw(`${V1}/echo`, headers, 'a=1');
+      expect(a.status, JSON.stringify(headers)).toBe(415);
+      expect(ErrorBody.parse(JSON.parse(a.body))).toEqual({ error: 'unsupported_type' });
+    }
+  });
+
+  it('a foreign Origin or Sec-Fetch-Site: cross-site → 403', async () => {
+    for (const headers of [
+      { Origin: 'https://evil.example', 'Content-Type': 'application/json' },
+      { 'Sec-Fetch-Site': 'cross-site', 'Content-Type': 'application/json' },
+      { 'Sec-Fetch-Site': 'same-site', Origin: 'https://mjk.test', 'Content-Type': 'application/json' },
+    ]) {
+      const a = await raw(`${V1}/echo`, headers, '{"a":1}');
+      expect(a.status, JSON.stringify(headers)).toBe(403);
+      expect(a.headers['cache-control']).toBe('private, no-store');
     }
   });
 });

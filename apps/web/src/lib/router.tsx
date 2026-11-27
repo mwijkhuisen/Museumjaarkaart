@@ -18,7 +18,7 @@ import { localeOf, pathOf, type Route, routeOf } from './routes.ts';
 // forms are real GET forms, so every page works without JavaScript; with it, a plain left click
 // or a submit navigates in place. Another language or another origin always loads the page.
 
-type Router = { path: string; route: Route; navigate(to: string): void };
+type Router = { path: string; route: Route; navigate(to: string, opts?: { replace?: boolean }): void };
 
 const RouterContext = createContext<Router | null>(null);
 
@@ -54,16 +54,18 @@ export function RouterProvider({ initialPath, children }: { initialPath: string;
   }, [path]);
 
   const navigate = useCallback(
-    (to: string) => {
+    (to: string, opts?: { replace?: boolean }) => {
       const url = new URL(to, location.href);
       const resolved = routeOf(url.pathname + url.search);
       if (url.origin !== location.origin || resolved.kind !== 'route' || resolved.route.locale !== route.locale) {
-        location.assign(url.href);
+        if (opts?.replace === true) location.replace(url.href);
+        else location.assign(url.href);
         return;
       }
       const target = resolved.route.page === 'not_found' ? url.pathname + url.search : pathOf(resolved.route);
       navigated.current = true;
-      history.pushState(null, '', target);
+      if (opts?.replace === true) history.replaceState(null, '', target);
+      else history.pushState(null, '', target);
       setPath(target);
     },
     [route.locale],

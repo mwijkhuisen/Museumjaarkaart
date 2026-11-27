@@ -132,6 +132,34 @@ The `write:packages` token of the `production` environment (`docs/runbooks/cloud
 
 If the token was ever exposed, rotate it at once, and check the recent versions of every package of your account (package → Versions), F1's and Waterheight's included, for any you did not publish (`docs/runbooks/incident.md` §6).
 
-## 8. Secrets that arrive later
+## 8. The app keys (`app_keys`, 63012)
 
-`lettermint_api_token` (63008) and `app_keys` (63012) come with P2a and P3b; their rotation is added to this runbook then. A new `app_keys` pepper invalidates only pending codes and unused invites [U overlap window, A§17.3].
+When: yearly, after a suspected leak. The file holds four lines `name=<base64url of 32 random bytes>` (`otp_pepper`, `invite_pepper`, `code_seal`, `altcha_hmac`); a well-formed line with another name is ignored. There is no overlap window by design: a new value voids what the old one protected. Generate a key straight into a new file, so no value touches argv or the history (as `docs/runbooks/install.md` §4 does). To rotate all four:
+
+```bash
+for k in otp_pepper invite_pepper code_seal altcha_hmac; do
+  printf '%s=%s\n' "$k" "$(openssl rand 32 | base64 | tr '+/' '-_' | tr -d '=\n')"
+done | newsecret app_keys 63012
+mjkc up -d --force-recreate api worker
+```
+
+To rotate one key, edit the file as root and keep the other three lines. What each rotation voids:
+
+- `otp_pepper`: pending email codes, and the email keys of the open rate-limit windows (those counters start again).
+- `invite_pepper`: every unused invite (create new ones with `admin invite create`).
+- `code_seal`: mail jobs not yet sent; they fail as `seal_invalid` and the member asks for a new code.
+- `altcha_hmac`: open ALTCHA challenges, for at most 5 minutes (the page fetches a new one).
+
+Restart `api` and `worker` (they read the file at start); `admin` reads it on each run. A malformed file makes them exit 78 naming the key, never its value.
+
+Check: `mjkc ps` all healthy, then sign in once (`docs/runbooks/accounts.md`).
+
+## 9. The Lettermint token (`lettermint_api_token`, 63008)
+
+When: yearly, after a leak. Create a new project token in Lettermint's dashboard, write it, then delete the old one there:
+
+```bash
+read -rs -p 'new Lettermint token: ' v; echo; printf '%s' "$v" | newsecret lettermint_api_token 63008; unset v
+```
+
+No restart is needed: the worker reads the file on every send. Check: request a sign-in code for your own account and read `mjkc logs --tail 20 worker` (a wrong token ends the job `mail_refused`).

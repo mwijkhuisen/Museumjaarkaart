@@ -92,3 +92,14 @@ Do not stop `mjk-tick.timer`: it reloads a missing firewall table and restarts u
 ## 7. What `mjk-install` is for, and what it is not
 
 Compose, the Caddyfile (inside the web image), `mjk.nft`, the units and the scripts change rarely and are applied with `deploy/bin/mjk-install` from a checkout (`docs/runbooks/install.md` §11). `mjk-update` never runs a file of the checkout.
+
+## 8. P2a deploy order (accounts)
+
+P2a adds two secret files, `app_keys` (the api, worker and admin) and `lettermint_api_token` (the worker), and two settings that mail needs, `MJK_MAIL_FROM` and `MJK_MAIL_CAP`. The order matters:
+
+1. **Before the merge**, create both files, `root:<gid> 0440` (`app_keys` 63012, `lettermint_api_token` 63008; `docs/runbooks/install.md` §4 has the format and the commands that keep the value out of the history). A placeholder token is fine until A4.
+2. **After the merge, before you approve the `release` job**, run `deploy/bin/mjk-install` from the merged checkout (§7). It installs the new compose file and `mjk-envcheck` (which now allows `MJK_MAIL_FROM`). The old images keep running with the new mounts.
+3. Add `MJK_MAIL_FROM` and `MJK_MAIL_CAP` (the plan's monthly cap: `300` on the free plan) to `/etc/mjk/mjk.env`. Without either, every mail job fails `mail_unconfigured` (no code reaches anyone) and the worker's health ping fails; its other jobs run. The install does not check them.
+4. Approve `release`.
+
+Why: the new `api` reads `app_keys` at start and exits 78 without it. Under the old compose file that is the case, because the file is not mounted, so the deploy fails `not_healthy`, `mjk-update` rolls back and writes `failed.env` (§5). Doing step 2 first mounts the files before the new images start.

@@ -35,7 +35,19 @@ const TABLES = [
   'museum_slug_redirect',
 ] as const;
 const VIEW = 'mk_list';
-const ALL = [...TABLES, VIEW];
+// P2a: accounts and the auth tables (db/migrations/20261127000001_accounts.sql).
+const AUTH_TABLES = [
+  'invite',
+  'app_user',
+  'session',
+  'email_code',
+  'auth_challenge',
+  'rate_limit',
+  'audit_log',
+  'content_ip_log',
+] as const;
+const P1A = [...TABLES, VIEW];
+const ALL = [...P1A, ...AUTH_TABLES];
 // P1b's public views: the only objects mjk_ssr may read (A§8).
 const PUB_VIEWS = ['pub_museum', 'pub_museum_alias', 'pub_slug_redirect', 'pub_province', 'pub_mk_list'] as const;
 const PUB_SELECT = Object.fromEntries(PUB_VIEWS.map((v) => [v, ['SELECT']]));
@@ -47,15 +59,23 @@ const CHECK = '23514';
 /** The table-level privileges each login holds (the rest are column grants, tested below). */
 const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly string[]>> = {
   mjk_worker: {
-    ...Object.fromEntries(ALL.map((t) => [t, ['SELECT']])),
+    ...Object.fromEntries(P1A.map((t) => [t, ['SELECT']])),
     municipality: ['SELECT', 'INSERT', 'UPDATE'],
     museum_source_row: ['SELECT', 'INSERT', 'UPDATE'],
     museum_sync_run: ['SELECT', 'INSERT', 'UPDATE'],
-    job: ['SELECT', 'INSERT', 'UPDATE'],
+    job: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], // DELETE since P2a: the purge and the mail jobs
     museum_alias: ['SELECT', 'INSERT'],
+    // P2a: column grants only (below) except these
+    session: ['DELETE'],
+    email_code: ['DELETE'],
+    auth_challenge: ['DELETE'],
+    rate_limit: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+    invite: ['DELETE'],
+    content_ip_log: ['DELETE'],
+    audit_log: ['INSERT'],
   },
   mjk_api: {
-    ...Object.fromEntries(ALL.map((t) => [t, ['SELECT']])),
+    ...Object.fromEntries(P1A.map((t) => [t, ['SELECT']])),
     ...PUB_SELECT,
     museum_alias: ['SELECT', 'INSERT'],
     // museum_slug_redirect: SELECT only; the definer trigger museum_slug_keep writes it
@@ -63,6 +83,14 @@ const TABLE_LEVEL: Record<(typeof LOGINS)[number], Record<string, readonly strin
     mk_list_version: ['SELECT', 'INSERT'],
     mk_list_member: ['SELECT', 'INSERT'],
     job: ['SELECT', 'INSERT'],
+    app_user: ['SELECT', 'INSERT'],
+    session: ['SELECT', 'INSERT', 'DELETE'],
+    email_code: ['SELECT', 'INSERT', 'DELETE'],
+    auth_challenge: ['SELECT', 'INSERT'],
+    invite: ['SELECT', 'INSERT'],
+    rate_limit: ['SELECT', 'INSERT', 'UPDATE'],
+    audit_log: ['SELECT', 'INSERT'],
+    content_ip_log: ['INSERT'],
   },
   mjk_ssr: { ...PUB_SELECT },
   // pg_read_all_data: SELECT on everything and nothing else
@@ -77,6 +105,17 @@ let worker: pg.Client;
 let ssr: pg.Client;
 let backup: pg.Client;
 let n = 0;
+/** A real app_user for the actor foreign keys (P2a), made as the owner: no login may write it freely. */
+let actorId: string;
+const newUser = async () => {
+  const k = n++;
+  const { rows } = await owner.query<{ id: string }>(
+    `INSERT INTO app_user (email, email_verified_at, handle, display_name, age_confirmed_at, terms_version, terms_accepted_at)
+     VALUES ($1, now(), $2, 'U', now(), 'v1', now()) RETURNING id`,
+    [`u${k}@example.org`, `user_${k}`],
+  );
+  return (rows[0] as { id: string }).id;
+};
 
 const connect = async (url: string) => {
   const c = new pg.Client({ connectionString: url });
@@ -144,6 +183,7 @@ beforeAll(async () => {
   worker = await connect(db.urls.mjk_worker);
   ssr = await connect(db.urls.mjk_ssr);
   backup = await connect(db.urls.mjk_backup);
+  actorId = await newUser();
 });
 afterAll(async () => {
   await Promise.all(clients.map((c) => c.end()));
@@ -151,7 +191,7 @@ afterAll(async () => {
 });
 
 describe('the catalog', () => {
-  it('table-level privileges match the matrix, and nobody holds DELETE, TRUNCATE, REFERENCES or TRIGGER', async () => {
+  it('table-level privileges match the matrix, and nobody holds TRUNCATE, REFERENCES or TRIGGER', async () => {
     for (const login of LOGINS) {
       for (const table of [...ALL, ...PUB_VIEWS]) {
         const expected = TABLE_LEVEL[login][table] ?? [];
@@ -168,7 +208,7 @@ describe('the catalog', () => {
 
   it('no login holds a column-level REFERENCES, and no sequence is granted', async () => {
     for (const login of LOGINS) {
-      for (const table of TABLES) {
+      for (const table of [...TABLES, ...AUTH_TABLES]) {
         const { rows } = await owner.query<{ has: boolean }>(
           "SELECT has_any_column_privilege($1, $2, 'REFERENCES') AS has",
           [login, `public.${table}`],
@@ -498,7 +538,7 @@ describe('mjk_api', () => {
         field: 'hidden',
         state: 'applied',
         origin: 'admin',
-        decided_by: '0197f0a2-0000-7000-8000-000000000001',
+        decided_by: actorId,
       }),
     ).toBe('ok');
     expect(await insertAs(api, 'job', { kind: 'museum_sync' })).toBe('ok');
@@ -533,7 +573,7 @@ describe('mjk_api', () => {
       await code(
         api.query("UPDATE museum_change SET state = 'rejected', decided_by = $2, decided_at = now() WHERE id = $1", [
           chId,
-          '0197f0a2-0000-7000-8000-000000000001',
+          actorId,
         ]),
       ),
     ).toBe('ok');
@@ -567,13 +607,195 @@ describe('mjk_ssr and mjk_backup', () => {
   });
 });
 
-describe('no login can DELETE or TRUNCATE', () => {
-  it.each(LOGINS)('%s gets 42501 for DELETE and TRUNCATE on every P1a table', async (login) => {
+describe('no login can DELETE or TRUNCATE, except the worker on its purge tables', () => {
+  // mjk_worker's DELETE grants (P2a): purges and the delete-on-success mail jobs. Never TRUNCATE.
+  const WORKER_DELETE = ['job', 'session', 'email_code', 'auth_challenge', 'rate_limit', 'invite', 'content_ip_log'];
+  it.each(LOGINS)('%s gets 42501 for DELETE and TRUNCATE on every table it holds no DELETE on', async (login) => {
     const c = { mjk_api: api, mjk_worker: worker, mjk_ssr: ssr, mjk_backup: backup }[login];
-    for (const t of TABLES) {
-      expect(await attempt(c, `DELETE FROM ${t}`), `${login} DELETE ${t}`).toBe(DENIED);
+    for (const t of [...TABLES, ...AUTH_TABLES]) {
+      const mayDelete = login === 'mjk_worker' && WORKER_DELETE.includes(t);
+      // mjk_api holds DELETE on session and email_code (sign-out, used codes)
+      const apiDelete = login === 'mjk_api' && ['session', 'email_code'].includes(t);
+      expect(await attempt(c, `DELETE FROM ${t}`), `${login} DELETE ${t}`).toBe(mayDelete || apiDelete ? 'ok' : DENIED);
       expect(await attempt(c, `TRUNCATE ${t}`), `${login} TRUNCATE ${t}`).toBe(DENIED);
     }
+  });
+});
+
+describe('P2a: the accounts grants', () => {
+  const COLS = {
+    mjk_api: {
+      app_user: [
+        'email',
+        'email_verified_at',
+        'display_name',
+        'password_hash',
+        'role',
+        'status',
+        'banned_until',
+        'ban_reason',
+        'settings',
+      ],
+      session: ['expires_at', 'last_used_at'],
+      email_code: ['attempts', 'used_at'],
+      invite: ['uses', 'used_at'],
+    },
+  } as const;
+
+  it('mjk_api holds exactly its UPDATE columns on the account tables', async () => {
+    for (const [table, cols] of Object.entries(COLS.mjk_api))
+      expect(await columnGrants('mjk_api', table, 'UPDATE'), table).toEqual(sorted(cols));
+    // table-level UPDATE shows up as every column: none of the P2a tables other than rate_limit may
+    for (const table of ['auth_challenge', 'audit_log', 'content_ip_log'])
+      expect(await columnGrants('mjk_api', table, 'UPDATE'), table).toEqual([]);
+    expect(await columnGrants('mjk_api', 'rate_limit', 'UPDATE')).toEqual(sorted(await columnsOf('rate_limit')));
+  });
+
+  it('mjk_worker may SELECT only the listed columns, never password_hash or code_hmac', async () => {
+    const SELECT: Record<string, string[]> = {
+      app_user: ['email', 'status'],
+      email_code: ['id', 'email', 'purpose', 'expires_at', 'created_at'],
+      session: ['expires_at', 'absolute_expires_at'],
+      auth_challenge: ['expires_at'],
+      invite: ['id', 'expires_at', 'used_at', 'uses', 'max_uses'],
+      content_ip_log: ['created_at'],
+    };
+    for (const [table, allowed] of Object.entries(SELECT))
+      for (const col of await columnsOf(table)) {
+        const { rows } = await owner.query<{ has: boolean }>(
+          "SELECT has_column_privilege('mjk_worker', $1, $2, 'SELECT') AS has",
+          [`public.${table}`, col],
+        );
+        expect(rows[0]?.has, `mjk_worker SELECT ${table}.${col}`).toBe(allowed.includes(col));
+      }
+    for (const [table, col] of [
+      ['app_user', 'password_hash'],
+      ['email_code', 'code_hmac'],
+    ] as const)
+      for (const priv of ['INSERT', 'UPDATE'])
+        expect(await columnGrants('mjk_worker', table, priv as 'INSERT' | 'UPDATE')).not.toContain(col);
+  });
+
+  it('mjk_worker cannot read the hashes or write account rows', async () => {
+    expect(await attempt(worker, 'SELECT password_hash FROM app_user')).toBe(DENIED);
+    expect(await attempt(worker, 'SELECT code_hmac FROM email_code')).toBe(DENIED);
+    expect(await attempt(worker, 'SELECT * FROM app_user')).toBe(DENIED);
+    expect(await attempt(worker, 'SELECT email, status FROM app_user')).toBe('ok');
+    expect(await attempt(worker, "DELETE FROM email_code WHERE expires_at < now() - interval '1 day'")).toBe('ok');
+    expect(await attempt(worker, "DELETE FROM job WHERE state = 'done'")).toBe('ok');
+    expect(await attempt(worker, 'TRUNCATE job')).toBe(DENIED);
+    expect(await attempt(worker, 'DELETE FROM app_user')).toBe(DENIED);
+    expect(await attempt(worker, "UPDATE app_user SET status = 'banned' WHERE false")).toBe(DENIED);
+    expect(await attempt(worker, 'UPDATE session SET expires_at = expires_at WHERE false')).toBe(DENIED);
+    expect(await insertAs(worker, 'audit_log', { actor_kind: 'system', action: 'purge.done' })).toBe('ok');
+  });
+
+  it('mjk_api cannot touch the columns it was not given', async () => {
+    expect(await attempt(api, "UPDATE app_user SET handle = 'someone_else' WHERE false")).toBe(DENIED);
+    for (const col of [
+      'id',
+      'handle',
+      'trusted_at',
+      'age_confirmed_at',
+      'terms_version',
+      'terms_accepted_at',
+      'invite_id',
+      'created_at',
+    ])
+      expect(await attempt(api, `UPDATE app_user SET ${col} = ${col} WHERE false`), col).toBe(DENIED);
+    expect(await attempt(api, "UPDATE invite SET code_hmac = '\\x00' WHERE false")).toBe(DENIED);
+    for (const col of ['id', 'ref', 'user_id', 'host', 'method', 'created_at', 'absolute_expires_at', 'reauth_at'])
+      expect(await attempt(api, `UPDATE session SET ${col} = ${col} WHERE false`), col).toBe(DENIED);
+    for (const col of ['code_hmac', 'email', 'purpose', 'expires_at', 'pending'])
+      expect(await attempt(api, `UPDATE email_code SET ${col} = ${col} WHERE false`), col).toBe(DENIED);
+    for (const col of ['max_uses', 'expires_at', 'created_by', 'note'])
+      expect(await attempt(api, `UPDATE invite SET ${col} = ${col} WHERE false`), col).toBe(DENIED);
+    expect(await attempt(api, 'UPDATE auth_challenge SET used_at = now() WHERE false')).toBe(DENIED);
+    expect(await attempt(api, 'DELETE FROM app_user')).toBe(DENIED);
+    expect(await attempt(api, 'DELETE FROM invite')).toBe(DENIED);
+    expect(await attempt(api, 'SELECT 1 FROM content_ip_log')).toBe(DENIED);
+  });
+
+  it('nobody can UPDATE, DELETE or TRUNCATE audit_log', async () => {
+    const owners = [
+      ['mjk_api', api],
+      ['mjk_worker', worker],
+      ['mjk_ssr', ssr],
+      ['mjk_backup', backup],
+    ] as const;
+    for (const [login, c] of owners) {
+      expect(await attempt(c, "UPDATE audit_log SET action = 'x' WHERE false"), `${login} UPDATE`).toBe(DENIED);
+      expect(await attempt(c, 'DELETE FROM audit_log'), `${login} DELETE`).toBe(DENIED);
+      expect(await attempt(c, 'TRUNCATE audit_log'), `${login} TRUNCATE`).toBe(DENIED);
+    }
+  });
+
+  it('mjk_api can run the sign-up flow: user, session, code, challenge, invite, limiter, audit, ip log', async () => {
+    const hash = Buffer.alloc(32, 1);
+    const user = {
+      email: `flow@example.org`,
+      email_verified_at: new Date(),
+      handle: 'flow_user',
+      display_name: 'Flow',
+      age_confirmed_at: new Date(),
+      terms_version: '2026-11-27',
+      terms_accepted_at: new Date(),
+    };
+    const q = insertSql('app_user', user);
+    const id = ((await api.query<{ id: string }>(`${q.sql} RETURNING id`, q.params)).rows[0] as { id: string }).id;
+    const future = new Date(Date.now() + 3_600_000);
+    expect(
+      await insertAs(api, 'session', {
+        id: hash,
+        user_id: id,
+        host: 'public',
+        method: 'code',
+        expires_at: future,
+        absolute_expires_at: future,
+      }),
+    ).toBe('ok');
+    expect(
+      await insertAs(api, 'email_code', {
+        email: 'Flow@Example.org',
+        purpose: 'signin',
+        code_hmac: hash,
+        expires_at: future,
+      }),
+    ).toBe('ok');
+    expect(
+      await insertAs(api, 'auth_challenge', {
+        purpose: 'altcha',
+        host: 'public',
+        value_hash: hash,
+        expires_at: future,
+      }),
+    ).toBe('ok');
+    expect(await insertAs(api, 'invite', { code_hmac: hash, created_by: id })).toBe('ok');
+    expect(
+      await insertAs(api, 'rate_limit', {
+        bucket: 'signin',
+        key: 'ip:1.2.3.0',
+        window_start: new Date(),
+        window_end: future,
+        count: 1,
+      }),
+    ).toBe('ok');
+    expect(
+      await insertAs(api, 'audit_log', {
+        actor_id: id,
+        actor_kind: 'user',
+        action: 'user.signup',
+        target_kind: 'user',
+        target_id: id,
+      }),
+    ).toBe('ok');
+    expect(
+      await insertAs(api, 'content_ip_log', { user_id: id, target_kind: 'review', target_id: id, ip: '203.0.113.7' }),
+    ).toBe('ok');
+  });
+
+  it('mjk_ssr holds nothing on the new tables', async () => {
+    for (const t of AUTH_TABLES) expect(await attempt(ssr, `SELECT 1 FROM ${t} LIMIT 1`), t).toBe(DENIED);
   });
 });
 

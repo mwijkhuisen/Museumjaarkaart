@@ -137,13 +137,31 @@ beforeAll(async () => {
   admin = new pg.Client({ connectionString: db.urls.admin });
   await admin.connect();
   await seedCatalogue(db);
-  // The tables A§17.6 excludes: only `job` exists in P1e, the rest arrive with P2. The test
-  // creates stand-ins so that every name on the list is proven, each with a row of data.
+  // The tables A§17.6 excludes: `job` and, since P2a, the four auth tables. Each gets a row, so that every
+  // name on the list is proven to be left out of the dump.
   await admin.query("INSERT INTO job (kind) VALUES ('museum_sync'), ('museum_sync')");
-  for (const t of EXCLUDED_TABLE_DATA.filter((x) => x !== 'job')) {
-    await admin.query(`CREATE TABLE public.${t} (id int PRIMARY KEY, note text)`);
-    await admin.query(`INSERT INTO public.${t} VALUES (1, 'must not be in the backup')`);
-  }
+  const user = await admin.query<{ id: string }>(
+    `INSERT INTO app_user (email, email_verified_at, handle, display_name, age_confirmed_at, terms_version, terms_accepted_at)
+     VALUES ('bk@example.org', now(), 'bk_user', 'Bk', now(), 'v1', now()) RETURNING id`,
+  );
+  const hash = Buffer.alloc(32, 9);
+  const later = new Date(Date.now() + 3_600_000);
+  await admin.query(
+    "INSERT INTO session (id, user_id, host, method, expires_at, absolute_expires_at) VALUES ($1, $2, 'public', 'code', $3, $3)",
+    [hash, user.rows[0]?.id, later],
+  );
+  await admin.query(
+    "INSERT INTO email_code (email, purpose, code_hmac, expires_at) VALUES ('bk@example.org', 'signin', $1, $2)",
+    [hash, later],
+  );
+  await admin.query(
+    "INSERT INTO auth_challenge (purpose, host, value_hash, expires_at) VALUES ('altcha', 'public', $1, $2)",
+    [hash, later],
+  );
+  await admin.query(
+    "INSERT INTO rate_limit (bucket, key, window_start, window_end, count) VALUES ('signin', 'k', now(), $1, 1)",
+    [later],
+  );
   secretValues.push(...[db.urls.mjk_backup, new URL(db.urls.mjk_backup).password]);
 }, 180_000);
 

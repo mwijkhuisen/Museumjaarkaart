@@ -47,13 +47,14 @@ function payloadText(payload: unknown): string {
   return text;
 }
 
-/** INSERT plus NOTIFY in one transaction: a worker is only woken for a committed job. */
-async function insertAndNotify(
+/** INSERT plus NOTIFY on the caller's transaction: a worker is only woken for a committed job, and a job commits with the row it belongs to. */
+export async function enqueueIn(
   trx: Db,
   kind: string,
   payload: Readonly<Record<string, unknown>>,
   opts: EnqueueOptions,
 ): Promise<string> {
+  checkKind(kind);
   const { maxAttempts } = opts;
   if (maxAttempts !== undefined && (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20)) {
     badInput('options');
@@ -82,7 +83,7 @@ export async function enqueue(
 ): Promise<string> {
   checkKind(kind);
   payloadText(payload);
-  return db.transaction().execute((trx) => insertAndNotify(trx, kind, payload, opts));
+  return db.transaction().execute((trx) => enqueueIn(trx, kind, payload, opts));
 }
 
 /**
@@ -108,7 +109,7 @@ export async function enqueueUnique(
       .limit(1)
       .executeTakeFirst();
     if (open !== undefined) return false;
-    await insertAndNotify(trx, kind, payload, opts);
+    await enqueueIn(trx, kind, payload, opts);
     return true;
   });
 }
@@ -207,6 +208,17 @@ export async function complete(db: Db, job: Pick<ClaimedJob, 'id'>, workerId: st
     .where('locked_by', '=', workerId)
     .executeTakeFirst();
   return r.numUpdatedRows > 0n;
+}
+
+/** Deletes a job the handler consumed, with the same owner guard as complete(). Returns whether a row went. */
+export async function consume(db: Db, job: Pick<ClaimedJob, 'id'>, workerId: string): Promise<boolean> {
+  const r = await db
+    .deleteFrom('job')
+    .where('id', '=', job.id)
+    .where('state', '=', 'running')
+    .where('locked_by', '=', workerId)
+    .executeTakeFirst();
+  return r.numDeletedRows > 0n;
 }
 
 /**

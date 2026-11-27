@@ -3,7 +3,17 @@ import type pg from 'pg';
 import type { Db } from '../db/kysely.ts';
 import { HEARTBEAT_EVERY_MS, touch } from '../heartbeat.ts';
 import type { Logger } from '../lib/log.ts';
-import { type ClaimedJob, claim, complete, fail, LEASE_SECONDS, NOTIFY_CHANNEL, reap, touchLease } from './queue.ts';
+import {
+  type ClaimedJob,
+  claim,
+  complete,
+  consume,
+  fail,
+  LEASE_SECONDS,
+  NOTIFY_CHANNEL,
+  reap,
+  touchLease,
+} from './queue.ts';
 import { JobError, type JobHandler } from './types.ts';
 
 // The worker loop (A§5, plan §2.5): one job at a time. A NOTIFY wakes it; the poll
@@ -172,12 +182,13 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
     const handler = Object.hasOwn(handlers, job.kind) ? handlers[job.kind] : undefined;
     let code: string | undefined;
     let retry = true;
+    let consumed = false;
     if (handler === undefined) {
       code = 'unknown_kind';
       retry = false;
     } else {
       try {
-        await handler(job.payload, { signal });
+        consumed = (await handler(job.payload, { signal })) === 'consumed';
       } catch (err) {
         // Only a JobError's code is kept; anything else is `internal`, never its message.
         code = err instanceof JobError ? err.code : 'internal';
@@ -187,7 +198,7 @@ export async function runWorker(opts: RunWorkerOptions): Promise<void> {
     running = undefined;
     try {
       if (code === undefined) {
-        if (await complete(db, job, workerId)) {
+        if (await (consumed ? consume : complete)(db, job, workerId)) {
           logger.info({ kind: job.kind, id: job.id, ms: Math.round(performance.now() - started) }, 'job_done');
         } else {
           logger.warn({ kind: job.kind, id: job.id }, 'job_lease_lost');

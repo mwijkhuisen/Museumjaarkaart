@@ -233,7 +233,7 @@ step "1. mjk-install"
 RUNLOCK_BEFORE=$(stat -c '%u:%g:%a' /run/lock 2>/dev/null || echo absent)
 install_out=$("$REPO/deploy/bin/mjk-install") || fail "the first mjk-install failed"
 grep -q 'NOT ENABLED' <<<"$install_out" || fail "mjk-install did not say that the timers stay off without secrets"
-for name in db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token r2_backup_put restic_password hc_ping_key r2_media_rw; do
+for name in db_postgres db_mjk_migrator db_mjk_api db_mjk_ssr db_mjk_worker db_mjk_backup cf_tunnel_token r2_backup_put restic_password hc_ping_key r2_media_rw app_keys lettermint_api_token; do
   grep -q "secret $name: missing" <<<"$install_out" || fail "mjk-install did not name the missing secret $name"
 done
 grep -q 'mjk.env: missing' <<<"$install_out" || fail "mjk-install did not name the missing mjk.env"
@@ -243,11 +243,18 @@ ok "without secrets mjk-install installs, names each missing secret and mjk.env,
 declare -A SECRET_GID=(
   [db_postgres]=63001 [db_mjk_migrator]=63002 [db_mjk_api]=63003 [db_mjk_ssr]=63004 [db_mjk_worker]=63005
   [db_mjk_backup]=63006 [cf_tunnel_token]=63007 [r2_backup_put]=63010 [restic_password]=63011 [hc_ping_key]=63013
-  [r2_media_rw]=63009
+  [r2_media_rw]=63009 [app_keys]=63012 [lettermint_api_token]=63008
 )
 for name in "${!SECRET_GID[@]}"; do
   case $name in
     db_*) head -c 24 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n' >"$ETC/secrets/$name" ;;
+    # The api, worker and admin exit 78 on an invalid app_keys: four key=value lines, each value 32 random
+    # bytes in base64url without padding (43 characters).
+    app_keys)
+      for key in otp_pepper invite_pepper code_seal altcha_hmac; do
+        printf '%s=%s\n' "$key" "$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+      done >"$ETC/secrets/$name"
+      ;;
     hc_ping_key) printf 'e2ePingKey%s' "$(head -c 12 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')" >"$ETC/secrets/$name" ;;
     *) head -c 24 /dev/urandom | base64 | tr -d '\n' >"$ETC/secrets/$name" ;;
   esac
@@ -303,7 +310,7 @@ done
 [[ $(stat -c '%u:%g:%a' "$TESTROOT/run/mjk") == 0:0:700 ]] || fail "the lock directory run/mjk is not root:root 0700"
 grep -qx 'd /run/mjk 0700 root root -' "$TESTROOT/etc/tmpfiles.d/mjk.conf" || fail "the tmpfiles entry for /run/mjk is not installed"
 [[ ! -e $TESTROOT/run/lock ]] || fail "mjk-install made a run/lock in the test root"
-ok "with the eleven secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
+ok "with the thirteen secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
 
 snapshot "$TESTROOT" >"$SCRATCH/before.txt"
 groups_before=$(getent group | sort)

@@ -1,4 +1,4 @@
-import type { Context, MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler } from 'hono';
 import { decode, verifyWithJwks } from 'hono/utils/jwt/jwt';
 import {
   JwtPayloadRequiresAud,
@@ -51,12 +51,6 @@ export const certsUrlOf = (team: string) => `${issuerOf(team)}/cdn-cgi/access/ce
 
 /** What a valid JWT proves: the email Access let through. */
 export type AccessIdentity = { email: string };
-
-/**
- * P2a's typed hook: given the verified identity, the admin-host session and the user's role decide
- * whether an `/api/admin/*` request may pass. Unused in P1e, where every admin path is still a 404.
- */
-export type AdminAuthorizer = (c: Context<ApiEnv>, identity: AccessIdentity) => Promise<boolean>;
 
 export type RefusalReason =
   | 'missing'
