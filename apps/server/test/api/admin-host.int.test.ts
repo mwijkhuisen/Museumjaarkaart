@@ -109,6 +109,8 @@ const ROUTES: Array<[string, string, unknown?]> = [
   ['POST', '/api/v1/auth/passkey/verify', { credential: {} }],
   ['GET', '/api/v1/me/passkeys'],
   ['POST', '/api/v1/me/passkeys/options'],
+  ['POST', '/api/v1/auth/passkey/reauth/options'],
+  ['POST', '/api/v1/auth/passkey/reauth/verify', { credential: {} }],
   ['GET', '/api/v1/museums'],
   ['GET', '/api/v1/healthz'],
 ];

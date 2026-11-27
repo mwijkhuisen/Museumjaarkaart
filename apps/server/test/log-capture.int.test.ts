@@ -127,6 +127,19 @@ describe('the logs of every account flow', () => {
     const byPasskey = await r('/auth/passkey/verify', { credential: good });
     expect(byPasskey.status).toBe(200);
     secrets.push(tokenOf(byPasskey) as string);
+    // Re-authentication with the same passkey (owner, 2026-11-27): the session is replaced, and nothing is logged but codes.
+    const passkeyToken = tokenOf(byPasskey) as string;
+    const reauthOptions = (await (await r('/auth/passkey/reauth/options', undefined, passkeyToken, 'POST')).json()) as {
+      challenge: string;
+    };
+    secrets.push(reauthOptions.challenge);
+    const reauth = await r(
+      '/auth/passkey/reauth/verify',
+      { credential: cred.assert({ challenge: reauthOptions.challenge }) },
+      passkeyToken,
+    );
+    expect(reauth.status).toBe(200);
+    secrets.push(tokenOf(reauth) as string);
     expect((await r('/auth/passkey/verify', { credential: good })).status).toBe(401);
     expect(
       (await r('/auth/passkey/verify', { credential: cred.assert({ challenge: await challenge(), counter: 1 }) }))
