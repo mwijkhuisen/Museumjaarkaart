@@ -140,6 +140,10 @@ describe('the seed and an unchanged re-run', () => {
     expect(await count('museum_source_row')).toBe(W_ROWS + R_ROWS);
     expect(await count('museum_change')).toBe(0);
     expect(r.summary.counts).toMatchObject({ created: MUSEUMS });
+    // new museums have no museum_stats row until the recompute runs: the sync queued it (P3a)
+    expect(await q('SELECT state, max_attempts FROM job WHERE kind = $1', ['stats_recompute'])).toEqual([
+      { state: 'queued', max_attempts: 1 },
+    ]);
 
     // Every match the seed makes holds its own rule (A§7.3), checked from the stored rows: the same
     // postcode and a name similarity of at least 0.4, or under 150 m and at least 0.5. The real sample:

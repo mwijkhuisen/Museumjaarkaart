@@ -3,8 +3,12 @@ import pg from 'pg';
 import { createDb } from '../src/db/kysely.ts';
 import { type DbLogin, dbUrl } from '../src/db/migrate.ts';
 import { createPool } from '../src/db/pool.ts';
+import { recomputeStats } from '../src/reviews/stats-job.ts';
 import { insertHostileMuseum } from '../test/hostile-museum.ts';
 import { seedCatalogue } from '../test/seed-catalogue.ts';
+
+/** Hostile to every HTML sink (invariant 5) and to markdown: a script close, markup, a link, a newline, an emoji. */
+const HOSTILE_REVIEW_BODY = '</script><b>x</b> [x](y)\nTweede regel 🦊';
 
 // CI e2e only (deploy/e2e): the catalogue seed plus the hostile museum, written as mjk_worker, mjk_api and
 // mjk_migrator through their file secrets (/run/secrets/db_<login>, the host `db`). Prints counts only.
@@ -13,6 +17,21 @@ import { seedCatalogue } from '../test/seed-catalogue.ts';
 // P2c: one passport member per engine with two dated visits logged three days ago (a public visit log shows
 // a visit only 24 hours after it is logged, A§10, so the passport spec cannot create those itself).
 // One each, because a new code voids the last one and the two engines may sign in on the admin host at once.
+// P3a (ratings and reviews), for the specs of the later work packages; every museum below is neither hostile,
+// closed, hidden nor one of the passport members' two visited museums (the first two by id), and none is
+// relied on for a fixed list position by an older spec (the default list is rank-ordered now: reviewed
+// museums move, and the specs read their museums from the API or the page, never from a position):
+//   - R1 (`seed.reviewed.hostile`): one review, rating 4, whose body is hostile text (`</script>`, markup, a
+//     markdown link, a newline and an emoji: HOSTILE_REVIEW_BODY), by `seed_reviewer_1`.
+//   - R2 (`seed.reviewed.rich`): three reviews (5, 4, 5; kid-friendly 5, 4, 4 so `kid_friendly=true` shows it),
+//     by `seed_reviewer_1..3`; its score is the best, so it ranks first in the default list.
+//   - R3 (`seed.reviewed.plain`): one review, rating 4, by `seed_reviewer_4`.
+//   - Fold members `fold_<engine>` (email `fold-<engine>@mjk.test`, `hide_ratings_until_visited = true`): one
+//     visit, to R2 (rated, visited: unfolds), none to R1 or R3 (rated, unvisited: stay folded).
+//   - Reviewer members `reviewer_<engine>` (email `reviewer-<engine>@mjk.test`, current terms): one dated visit
+//     (2026-09-12, logged three days ago) to R4 (`seed.prompt`, open, no review by anyone), for the prompt spec.
+//   - Last, one stats recompute as mjk_worker, called directly so no spec races the worker's job.
+// The seed prints the slugs (`seed-e2e: reviewed hostile=… rich=… plain=… prompt=…`).
 
 const urls = {} as Record<DbLogin | 'admin', string>;
 for (const login of ['mjk_worker', 'mjk_api', 'mjk_migrator'] as const) {
@@ -28,6 +47,88 @@ urls.admin = ''; // no superuser here, and seedCatalogue does not use it
 
 const seeded = await seedCatalogue({ urls, drop: async () => {} });
 await insertHostileMuseum(urls.mjk_api);
+async function seedReviews(owner: pg.Client): Promise<void> {
+  const rows = (
+    await owner.query<{ id: string; slug: string }>(
+      `SELECT id, slug FROM museum WHERE NOT hidden AND closed_on IS NULL AND slug <> $1
+        ORDER BY id OFFSET 2 LIMIT 4`,
+      ['hostile-museum-zwolle'],
+    )
+  ).rows;
+  const [r1, r2, r3, r4] = rows;
+  if (r1 === undefined || r2 === undefined || r3 === undefined || r4 === undefined)
+    throw new Error('seed-e2e: no museums');
+  const user = async (handle: string, email: string, name: string, settings: object = {}): Promise<string> =>
+    (
+      await db
+        .insertInto('app_user')
+        .values({
+          email,
+          email_verified_at: new Date(),
+          handle,
+          display_name: name,
+          age_confirmed_at: new Date(),
+          terms_version: TERMS_VERSION,
+          terms_accepted_at: new Date(),
+          settings: JSON.stringify(settings),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    ).id;
+  // created_at is the owner's: the visit is logged three days ago.
+  const visit = async (userId: string, museumId: string, on: string): Promise<string> =>
+    (
+      await owner.query<{ id: string }>(
+        `INSERT INTO visit (user_id, museum_id, visited_on, source, created_at)
+         VALUES ($1, $2, $3, 'manual', now() - interval '3 days') RETURNING id`,
+        [userId, museumId, on],
+      )
+    ).rows[0]?.id as string;
+  const review = async (
+    handle: string,
+    museumId: string,
+    rating: number,
+    kid: number | null,
+    body: string | null,
+  ): Promise<void> => {
+    const userId = await user(handle, `${handle}@mjk.test`, `E2E ${handle}`);
+    const visitId = await visit(userId, museumId, '2026-09-12');
+    await db
+      .insertInto('review')
+      .values({ user_id: userId, museum_id: museumId, visit_id: visitId, rating, kid_friendly: kid, body })
+      .execute();
+  };
+  await review('seed_reviewer_1', r1.id, 4, null, HOSTILE_REVIEW_BODY);
+  // R2's three reviews: seed_reviewer_1 also reviewed R1 above, so the same member rates two museums.
+  const rev1 = (await owner.query<{ id: string }>('SELECT id FROM app_user WHERE handle = $1', ['seed_reviewer_1']))
+    .rows[0];
+  if (rev1 === undefined) throw new Error('seed-e2e: seed_reviewer_1');
+  await db
+    .insertInto('review')
+    .values({
+      user_id: rev1.id,
+      museum_id: r2.id,
+      visit_id: await visit(rev1.id, r2.id, '2026-10-03'),
+      rating: 5,
+      kid_friendly: 5,
+      collection: 4,
+      body: 'Prachtige collectie.',
+    })
+    .execute();
+  await review('seed_reviewer_2', r2.id, 4, 4, 'Goed te doen met kinderen.');
+  await review('seed_reviewer_3', r2.id, 5, 4, null);
+  await review('seed_reviewer_4', r3.id, 4, null, 'Leuk voor een middag.');
+  for (const engine of ['chromium', 'webkit'] as const) {
+    const fold = await user(`fold_${engine}`, `fold-${engine}@mjk.test`, `E2E Fold ${engine}`, {
+      hide_ratings_until_visited: true,
+    });
+    await visit(fold, r2.id, '2026-10-03');
+    const reviewer = await user(`reviewer_${engine}`, `reviewer-${engine}@mjk.test`, `E2E Reviewer ${engine}`);
+    await visit(reviewer, r4.id, '2026-09-12');
+  }
+  console.log(`seed-e2e: reviewed hostile=${r1.slug} rich=${r2.slug} plain=${r3.slug} prompt=${r4.slug}`);
+}
+
 const pool = createPool('mjk_api', { DATABASE_URL: urls.mjk_api }, { max: 1 });
 if (typeof pool === 'string') throw new Error(`seed-e2e: ${pool}`);
 const db = createDb(pool);
@@ -77,10 +178,19 @@ try {
           `INSERT INTO visit (user_id, museum_id, visited_on, source, created_at) VALUES ($1, $2, $3, 'manual', now() - interval '3 days')`,
           [userId, museum.id, ['2026-09-12', '2026-10-03'][i]],
         );
+    await seedReviews(owner);
   } finally {
     await owner.end();
   }
 } finally {
   await db.destroy();
+}
+const worker = createPool('mjk_worker', { DATABASE_URL: urls.mjk_worker }, { max: 1 });
+if (typeof worker === 'string') throw new Error(`seed-e2e: ${worker}`);
+const workerDb = createDb(worker);
+try {
+  await recomputeStats(workerDb);
+} finally {
+  await workerDb.destroy();
 }
 console.log(`seed-e2e: ${seeded.total} museums, ${seeded.visibleCount} visible, +1 hostile, list n=${seeded.list.n}`);

@@ -198,13 +198,13 @@ describe('through the barrier views as mjk_api (1,400 museums)', () => {
   }
 
   it('the list keyset page: the keyset qual passes the barrier to museum_sort_idx', async () => {
-    const first = await listMuseums(api, { limit: 20 });
+    const first = await listMuseums(api, { limit: 20, sort: 'name' });
     const cursor = first.next_cursor ?? undefined;
     expect(cursor).toBeDefined();
     // the page query, not the count that follows it
     const nodes = await explainLast(
       'list, second page (keyset), through pub_museum',
-      (db) => listMuseums(db, { limit: 20, cursor }),
+      (db) => listMuseums(db, { limit: 20, sort: 'name', cursor }),
       /order by/i,
     );
     expect(indexScans(nodes).join(' ')).toContain('museum_sort_idx');

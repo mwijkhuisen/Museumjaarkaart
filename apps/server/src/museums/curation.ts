@@ -4,6 +4,7 @@ import { formatInstant, parseDate, parseInstantMs, startOfDayMs, todayAmsterdam 
 import type { Db } from '../db/kysely.ts';
 import type { DB } from '../db/types.ts';
 import { isPriceFresh } from '../passport/savings.ts';
+import { enqueueStats } from '../reviews/stats-queue.ts';
 import { escapeCell, readCsv, unescapeCell, writeCsv } from './csv.ts';
 import { MUSEUMKAART_STATUSES, PHOTO_POLICIES, PINNABLE_FIELDS, QID } from './fields.ts';
 
@@ -165,6 +166,8 @@ async function applyPatch(trx: Trx, id: string, before: Curated, patch: Partial<
   }
   try {
     await trx.updateTable('museum').set(set).where('id', '=', id).execute();
+    // m and the public scores leave hidden museums out (P3a): a hide or unhide queues the recompute.
+    if (changed.includes('hidden')) await enqueueStats(trx);
     for (const f of changed) {
       const json = (v: string | number | boolean | null) => (v === null ? null : sql`${JSON.stringify(v)}::jsonb`);
       await trx
