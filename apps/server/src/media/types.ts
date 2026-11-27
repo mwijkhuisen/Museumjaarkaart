@@ -3,6 +3,11 @@ import type { VariantFormat } from '@mjk/contracts';
 // The seams between the photo packages (P3b plan §2): the worker's handoff to the `media` role (WP3), the variant
 // upload (WP4) and the Commons job (WP6b) code against these types only.
 
+/** The job kinds of the photo pipeline (payloads are `{media_id}` only). */
+export const MEDIA_PROCESS_JOB = 'media_process';
+export const MEDIA_PUBLISH_JOB = 'media_publish';
+export const MEDIA_DELETE_JOB = 'media_delete';
+
 /** The formats sharp reads; each must match what file-type found (A§12). */
 export type SourceFormat = 'jpeg' | 'png' | 'webp';
 

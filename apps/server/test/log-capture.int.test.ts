@@ -21,6 +21,7 @@ import type { JobHandler } from '../src/worker/types.ts';
 import { meApp } from './api/me-app.ts';
 import { accountsApp, altchaPayload, codeFor, tokenOf } from './auth/app.ts';
 import { softCredential } from './auth/soft-authenticator.ts';
+import { jpeg, openUploads, sha256Hex, writeGuard } from './media/fixtures.ts';
 import { openPassportDb, type PassportDb } from './passport/fixtures.ts';
 import { mountReviewRoutes, openMuseum } from './reviews/app.ts';
 
@@ -445,5 +446,40 @@ describe('the logs of the review routes', () => {
     ];
     for (const s of secrets) expect(text, 'a log line holds a secret value').not.toContain(s);
     for (const line of lines) expect(String(line.msg)).toMatch(/^[a-z_]{1,40}$/);
+  });
+});
+
+describe('the logs of the upload routes', () => {
+  it('hold no id, hash, size, museum, handle or address (A§18: the upload flow)', async () => {
+    const f = await openUploads(a);
+    try {
+      const PEER_U = '198.51.100.123';
+      const HANDLE = 'uplog_member';
+      f.t.state.peer = PEER_U;
+      const u = await a.newMember({ handle: HANDLE, status: 'active' });
+      const token = await f.t.signIn(u.id);
+      const m = await openMuseum(a, 702);
+      const bytes = await jpeg(9 * 1024 * 1024);
+      const sha = sha256Hex(bytes);
+      const { id, done } = await f.upload(token, m.id, bytes);
+      expect(done.status).toBe(202);
+      await f.t.call(`/uploads/${id}`, { token });
+      const bad = await f.upload(token, m.id, Buffer.from('<html>LOGMARK-UPLOAD</html>'));
+      expect(bad.done.status).toBe(415);
+      const refused = await f.create(token, {
+        museumId: m.id,
+        size: 1000,
+        consents: { own_photo: false, no_people: true, no_artwork: true },
+      });
+      expect(refused.status).toBe(422);
+      await writeGuard(f.guard, 3);
+      expect((await f.create(token, { museumId: m.id, size: 1000 })).status).toBe(503);
+      const text = JSON.stringify(f.t.lines());
+      for (const s of [PEER_U, HANDLE, id, bad.id, sha, u.id, m.id, m.slug, String(bytes.length), 'LOGMARK-UPLOAD'])
+        expect(text, 'a log line holds a secret value').not.toContain(s);
+      for (const line of f.t.lines()) expect(String(line.msg)).toMatch(/^[a-z_]{1,40}$/);
+    } finally {
+      await f.close();
+    }
   });
 });

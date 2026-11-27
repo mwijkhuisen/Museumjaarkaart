@@ -11,7 +11,7 @@ import { makeTestKeys } from '../auth/test-keys.ts';
 
 export const SITE = { domain: 'mjk.test', adminHost: 'admin.mjk.test' };
 
-export function meApp(a: AuthDb, mount: Mount = mountMe) {
+export function meApp(a: AuthDb, mount: Mount = mountMe, extra: Partial<ApiDeps> = {}) {
   const keys: AppKeys = makeTestKeys();
   const { logger, lines } = memoryLogger('api');
   const state: { peer: string | undefined } = { peer: '203.0.113.7' };
@@ -22,6 +22,7 @@ export function meApp(a: AuthDb, mount: Mount = mountMe) {
     site: SITE,
     keys,
     clientAddress: { peer: () => state.peer },
+    ...extra,
   };
   const app = buildApp(deps, mount);
   const call = (

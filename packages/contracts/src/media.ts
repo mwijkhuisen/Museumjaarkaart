@@ -36,3 +36,44 @@ export type VariantFormat = (typeof VARIANT_FORMATS)[number];
 
 export const MediaStateSchema = z.enum(MEDIA_STATES);
 export const PhotoTypeSchema = z.enum(PHOTO_TYPES);
+
+/** An upload or photo id from a path: a lower-case uuid, checked before any SQL or path is built. */
+export const MediaIdParam = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+/** A chunk index from a path: digits only; the route checks it against the upload's chunk count. */
+export const ChunkIndexParam = z.string().regex(/^[0-9]{1,2}$/);
+
+/**
+ * `POST /uploads` (A§14). The size and the type are checked by the route (422 `["size"]`, 415), so the schema
+ * takes any positive size and short type; a consent that is not `true` is a 422 `["consents"]`, not a 400.
+ */
+export const UploadCreate = z.strictObject({
+  kind: z.literal('photo'),
+  size: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  type: z.string().min(1).max(100),
+  museum_id: z.uuid(),
+  review_id: z.uuid().optional(),
+  consents: z.strictObject({ own_photo: z.boolean(), no_people: z.boolean(), no_artwork: z.boolean() }),
+});
+export type UploadCreate = z.infer<typeof UploadCreate>;
+
+export const UploadCreated = z.strictObject({
+  id: z.uuid(),
+  chunk_size: z.literal(CHUNK_BYTES),
+  chunk_count: z.number().int().min(1).max(4),
+});
+export type UploadCreated = z.infer<typeof UploadCreated>;
+
+/** `POST /uploads/:id/complete`: the whole file's sha256, lower-case hex. */
+export const UploadComplete = z.strictObject({ sha256: z.string().regex(/^[0-9a-f]{64}$/) });
+
+/** `GET /uploads/:id` and the 202 of `complete`: the state, its fixed code and, once approved, the variant keys. */
+export const UploadStatus = z.strictObject({
+  id: z.uuid(),
+  state: MediaStateSchema,
+  error_code: z
+    .string()
+    .regex(/^[a-z_]{1,40}$/)
+    .nullable(),
+  keys: z.array(z.string().regex(/^p\/[0-9a-f]{32}\/[0-9]{1,4}\.(avif|webp)$/)).max(8),
+});
+export type UploadStatus = z.infer<typeof UploadStatus>;

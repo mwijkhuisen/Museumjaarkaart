@@ -340,6 +340,43 @@ async function echoCases() {
     });
   }
 
+  // P3b: an upload chunk takes 8 MiB, and only `PUT /api/v1/uploads/<uuid>/chunks/<n>`.
+  const chunk = '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/chunks/0';
+  await check(`PUT ${chunk}: 8 MiB reaches the api, over 8 MiB is a no-store 413`, async (expect) => {
+    const ok = await send('edge', chunk, { method: 'PUT', body: Buffer.alloc(8 * 1024 * 1024, 'a') });
+    statusIs(expect, ok, 200, '8 MiB');
+    reached(expect, ok, 'api');
+    const big = await send('edge', chunk, { method: 'PUT', body: Buffer.alloc(8 * 1024 * 1024 + 1, 'a') });
+    statusIs(expect, big, 413, '413');
+    headersAre(expect, big, { ...PUBLIC, 'cache-control': 'no-store' }, '413');
+  });
+  for (const [method, path] of [
+    ['POST', chunk],
+    ['PUT', '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/chunks/100'],
+    ['PUT', '/api/v1/uploads/x/chunks/0'],
+    ['PUT', '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/chunks/0/x'],
+  ]) {
+    await check(`${method} ${path}: a body over 64 KiB is a 413`, async (expect) => {
+      const res = await send('edge', path, { method, body: Buffer.alloc(64 * 1024 + 1, 'a') });
+      statusIs(expect, res, 413, '413');
+    });
+  }
+  // P3b: a pending photo's preview gets the media host's sandbox CSP instead of the page CSP (A§12, A§14);
+  // every other api path keeps the page CSP. Through the real Caddy, so the deferred header order is proven.
+  const preview = '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/preview';
+  await check(`${preview} has default-src 'none'; sandbox`, async (expect) => {
+    const res = await send('edge', `${preview}?w=400`);
+    reached(expect, res, 'api');
+    headersAre(expect, res, { ...PUBLIC, 'content-security-policy': "default-src 'none'; sandbox" }, preview);
+  });
+  for (const path of [`${preview}/x`, '/api/v1/uploads/x/preview', '/api/v1/uploads']) {
+    await check(`${path} keeps the page CSP`, async (expect) => {
+      const res = await send('edge', path);
+      reached(expect, res, 'api');
+      headersAre(expect, res, PUBLIC, path);
+    });
+  }
+
   // The admin host (A§5, A§15.6, ADR-0004): the SPA's one page for every path that is not an asset or an api route.
   for (const via of ['edge', CADDY_EDGE]) {
     await check(`admin: the SPA page with the admin headers (via ${via})`, async (expect) => {

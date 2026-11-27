@@ -1,4 +1,4 @@
-import { EmptyQuery, Healthz } from '@mjk/contracts';
+import { CHUNK_BYTES, EmptyQuery, Healthz } from '@mjk/contracts';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import type { AppKeys } from '../auth/keys.ts';
 import type { Db } from '../db/kysely.ts';
@@ -26,8 +26,9 @@ import { mountUsers } from './routes/users.ts';
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2, P2a design 6):
 // request id and log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) →
 // /api/admin/* is a 404 whatever the method and body unless the admin host's JWT passed → the
-// header-only body cap (64 KiB; 2 MiB for an import, `bodyLimit`) → CSRF on every unsafe method (403) → JSON-only
-// mutations (415) → the session cookie, on the auth, me and admin paths and the review writes only → each route parses its
+// header-only body cap (64 KiB; 2 MiB for an import, 8 MiB for an upload chunk, `bodyLimit`) → CSRF on every unsafe
+// method (403) → JSON-only mutations (415; an upload chunk takes only application/octet-stream) → the session cookie,
+// on the auth, me, admin, upload and media paths and the review writes only → each route parses its
 // query and body strictly → the route → the fixed error handler.
 
 export type ApiDeps = {
@@ -46,6 +47,10 @@ export type ApiDeps = {
   keys?: AppKeys;
   /** The export bundles (A§17.1: `/srv/mjk/exports`, read-only for the api); set only by runApi (P2c). */
   exportsDir?: string;
+  /** The upload quarantine (A§17.1: `/srv/mjk/quarantine`, shared with the worker); tests pass a temp directory (P3b). */
+  quarantineDir?: string;
+  /** The disk guard's directory (`/srv/mjk/state/guard`, read-only; owner Q6); tests pass a temp directory (P3b). */
+  guardDir?: string;
 };
 
 export type ApiApp = Hono<ApiEnv>;
@@ -56,10 +61,17 @@ export const BODY_LIMIT_BYTES = 64 * 1024;
 /** An import's file and its confirm (P2c design 4; Caddy's `@import` has the same method and paths). */
 export const IMPORT_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
 const IMPORT_PATH = /^\/api\/v1\/me\/imports(?:\/[^/]+\/confirm)?$/;
+/** An upload chunk (P3b; Caddy's `@chunk` has the same method and path). Shape only: the route checks the rest. */
+const CHUNK_PATH = /^\/api\/v1\/uploads\/[0-9a-f-]{36}\/chunks\/[0-9]{1,2}$/;
 
-/** The body cap of one request: 2 MiB for `POST /me/imports` and `POST /me/imports/:id/confirm`, else 64 KiB. */
-export const bodyLimit = (c: Context<ApiEnv>): number =>
-  c.req.method === 'POST' && IMPORT_PATH.test(c.req.path) ? IMPORT_BODY_LIMIT_BYTES : BODY_LIMIT_BYTES;
+/** `PUT /uploads/:id/chunks/:n`: the one route that takes `application/octet-stream`, up to 8 MiB. */
+export const isChunk = (c: Context<ApiEnv>): boolean => c.req.method === 'PUT' && CHUNK_PATH.test(c.req.path);
+
+/** The body cap of one request: 8 MiB for an upload chunk, 2 MiB for `POST /me/imports` and its confirm, else 64 KiB. */
+export const bodyLimit = (c: Context<ApiEnv>): number => {
+  if (isChunk(c)) return CHUNK_BYTES;
+  return c.req.method === 'POST' && IMPORT_PATH.test(c.req.path) ? IMPORT_BODY_LIMIT_BYTES : BODY_LIMIT_BYTES;
+};
 
 /**
  * The fixed messages of the node-postgres errors that carry no `code`: a saturated pool
@@ -122,18 +134,29 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   });
   app.use('*', bodyCap(bodyLimit));
   app.use('*', csrf(deps.site));
-  app.use('*', jsonOnly());
+  app.use('*', jsonOnly(isChunk));
   // The session cookie is read only where a session can matter (A§14: public routes never read it).
   if (deps.site !== undefined && deps.keys !== undefined) {
     const withSession = sessionMiddleware(deps.db, deps.site);
-    for (const path of ['/api/v1/auth/*', '/api/v1/me', '/api/v1/me/*', '/api/admin/*']) app.use(path, withSession);
+    for (const path of [
+      '/api/v1/auth/*',
+      '/api/v1/me',
+      '/api/v1/me/*',
+      '/api/admin/*',
+      // P3b: the uploads and the member's own photos; none of these is public.
+      '/api/v1/uploads',
+      '/api/v1/uploads/*',
+      '/api/v1/media/*',
+    ])
+      app.use(path, withSession);
     // The review writes need a member; a public GET of a review never reads the cookie (P3a).
     const onWrite: MiddlewareHandler<ApiEnv> = (c, next) =>
       c.req.method === 'GET' || c.req.method === 'HEAD' ? next() : withSession(c, next);
     for (const path of ['/api/v1/reviews', '/api/v1/reviews/*']) app.use(path, onWrite);
-    // Sign-up and uploads do not exist on the admin host (A§14).
+    // Sign-up, uploads and the member's photo routes do not exist on the admin host (A§14).
     const notOnAdmin = publicOnly(deps.site);
-    for (const path of ['/api/v1/auth/signup', '/api/v1/uploads', '/api/v1/uploads/*']) app.use(path, notOnAdmin);
+    for (const path of ['/api/v1/auth/signup', '/api/v1/uploads', '/api/v1/uploads/*', '/api/v1/media/*'])
+      app.use(path, notOnAdmin);
   }
 
   const v1 = new Hono<ApiEnv>();
