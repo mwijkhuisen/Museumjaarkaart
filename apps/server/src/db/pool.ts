@@ -17,9 +17,9 @@ const OID_DATE = 1082;
 
 /**
  * A `date` column is a plain `YYYY-MM-DD` string, never a JS Date: a Date is
- * parsed in the local time zone and shifts the day. `int8` stays a string.
+ * parsed in the local time zone and shifts the day. `int8` stays a string. Test pools use it too.
  */
-const types = {
+export const PG_TYPES = {
   getTypeParser: (oid: number, format?: 'text' | 'binary') =>
     oid === OID_DATE && format !== 'binary' ? (v: string) => v : pg.types.getTypeParser(oid, format as 'text'),
 } as pg.CustomTypesConfig;
@@ -38,7 +38,7 @@ export function createPool(
     max: opts.max,
     connectionTimeoutMillis: 5_000,
     ...(opts.statementTimeoutMs === undefined ? {} : { statement_timeout: opts.statementTimeoutMs }),
-    types,
+    types: PG_TYPES,
   });
   // An idle client's error (a restart of the server) must not crash the process; the next query reconnects.
   // The message is dropped on purpose: it can quote the connection.

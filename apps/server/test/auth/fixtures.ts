@@ -1,6 +1,7 @@
 import { TERMS_VERSION } from '@mjk/contracts';
 import pg from 'pg';
 import { createDb, type Db } from '../../src/db/kysely.ts';
+import { PG_TYPES } from '../../src/db/pool.ts';
 import { createMigratedDb, type TestDb } from '../db.ts';
 
 // The shared fixture of P2a's integration tests: a migrated database, Kysely as mjk_api and as
@@ -29,8 +30,8 @@ let seq = 0;
 
 export async function openAuthDb(): Promise<AuthDb> {
   const tdb = await createMigratedDb();
-  const db = createDb(new pg.Pool({ connectionString: tdb.urls.mjk_api, max: 12 }));
-  const worker = createDb(new pg.Pool({ connectionString: tdb.urls.mjk_worker, max: 4 }));
+  const db = createDb(new pg.Pool({ connectionString: tdb.urls.mjk_api, max: 12, types: PG_TYPES }));
+  const worker = createDb(new pg.Pool({ connectionString: tdb.urls.mjk_worker, max: 4, types: PG_TYPES }));
   const admin = new pg.Client({ connectionString: tdb.urls.admin });
   await admin.connect();
   return {

@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { PG_TYPES } from '../../src/db/pool.ts';
 import { type AuthDb, openAuthDb } from '../auth/fixtures.ts';
 import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 
@@ -9,7 +10,7 @@ import { type SeededCatalogue, seedCatalogue } from '../seed-catalogue.ts';
 
 export type PassportDb = AuthDb & {
   catalogue: SeededCatalogue;
-  /** Raw pg pools: the passport code runs as these logins. */
+  /** Raw pg pools with production's type parsers (a `date` is a string): the passport code runs as these logins. */
   pools: { api: pg.Pool; ssr: pg.Pool; worker: pg.Pool };
   /** As mjk_migrator: fixtures and backdating only, never the code under test. */
   owner: pg.Client;
@@ -39,9 +40,9 @@ export async function openPassportDb(): Promise<PassportDb> {
     const owner = new pg.Client({ connectionString: a.tdb.urls.mjk_migrator });
     await owner.connect();
     const pools = {
-      api: new pg.Pool({ connectionString: a.tdb.urls.mjk_api, max: 4 }),
-      ssr: new pg.Pool({ connectionString: a.tdb.urls.mjk_ssr, max: 4 }),
-      worker: new pg.Pool({ connectionString: a.tdb.urls.mjk_worker, max: 4 }),
+      api: new pg.Pool({ connectionString: a.tdb.urls.mjk_api, max: 4, types: PG_TYPES }),
+      ssr: new pg.Pool({ connectionString: a.tdb.urls.mjk_ssr, max: 4, types: PG_TYPES }),
+      worker: new pg.Pool({ connectionString: a.tdb.urls.mjk_worker, max: 4, types: PG_TYPES }),
     };
     const one = async (sql: string, params: unknown[] = []) => {
       const r = await owner.query<{ id: string; slug: string }>(sql, params);
