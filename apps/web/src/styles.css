@@ -7,6 +7,7 @@
  *            .hp (the honeypot, off-screen) .filters .pager
  *   account  .session-list .badge--current .reauth .notice (and altcha-widget's tokens)
  *   map      .map-region .map-region__canvas .map-card .near-me__list
+ *   marks    .marks-slot .badge--visited .marks-filter (a member's own marks on public pages, P2c)
  *   utility  .muted .visually-hidden .icon .scroll
  * Dark theme: the colour block inside the prefers-color-scheme media query. When the toggle arrives
  * (P3a), repeat that block under `:root[data-theme="dark"]` and give the media block
@@ -32,6 +33,8 @@
      mode. contrast.test.ts: each at 3:1 or more on the basemap's land and water and on the ring. */
   --color-map-mk: #9a3d00;
   --color-map-other: #2b4c8c;
+  --color-map-visited: #17693a;
+  --color-map-wishlist: #7a2e8e;
   --color-map-cluster: #1f3a6e;
   --color-map-outline: #ffffff;
 
@@ -302,6 +305,7 @@ main:focus {
 .button,
 .field input,
 .field select,
+.field textarea,
 .pager a {
   min-height: var(--tap);
   font: inherit;
@@ -335,13 +339,18 @@ main:focus {
   font-weight: 600;
 }
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   padding: 0 var(--space-3);
   background: var(--color-bg);
   color: var(--color-text);
   border: 2px solid var(--color-border-strong);
   border-radius: var(--radius);
+}
+
+.field textarea {
+  padding: var(--space-2) var(--space-3);
 }
 
 .filters {
@@ -440,6 +449,36 @@ main:focus {
 }
 .session-list p {
   margin: 0 0 var(--space-2);
+}
+.badge--visited {
+  color: var(--color-accent);
+}
+/* A fixed slot: empty for everyone until a member's marks arrive, so the card never shifts. */
+.marks-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+}
+.marks-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: 0;
+}
+.marks-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+}
+.button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 .badge--current {
   color: var(--color-accent);

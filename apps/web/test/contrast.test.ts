@@ -70,7 +70,13 @@ describe('map markers on the light basemap', () => {
       fills.set(hex, `${fills.get(hex) ?? ''} ${layer.id}`);
     }
   }
-  const markers = ['--color-map-mk', '--color-map-other', '--color-map-cluster'];
+  const markers = [
+    '--color-map-mk',
+    '--color-map-other',
+    '--color-map-visited',
+    '--color-map-wishlist',
+    '--color-map-cluster',
+  ];
 
   it('has the tokens as #rrggbb, in the light block only (never overridden in dark mode)', () => {
     for (const k of [...markers, '--color-map-outline']) {
@@ -98,5 +104,12 @@ describe('map markers on the light basemap', () => {
 
   it('the Museumkaart marker and the others differ in colour as well as shape', () => {
     expect(light['--color-map-mk']).not.toBe(light['--color-map-other']);
+  });
+
+  it('the visited and wishlist markers differ in colour from each other and from the other markers', () => {
+    const own = ['--color-map-visited', '--color-map-wishlist'];
+    const rest = ['--color-map-mk', '--color-map-other', '--color-map-cluster'];
+    expect(light[own[0] ?? '']).not.toBe(light[own[1] ?? '']);
+    for (const a of own) for (const b of rest) expect(light[a], `${a} vs ${b}`).not.toBe(light[b]);
   });
 });

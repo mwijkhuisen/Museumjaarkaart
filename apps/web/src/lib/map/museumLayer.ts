@@ -1,10 +1,12 @@
 import type { MuseumkaartStatus, MuseumPoints } from '@mjk/contracts';
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
+import type { MarkSets } from '../member.ts';
 import { MapError } from './errors.ts';
 
 // The museums as one clustered GeoJSON source (A§15.3): cluster circles with their count, and the
 // single museums as symbols. Museumkaart museums differ by shape (a diamond, the others a circle)
-// and by colour, never by colour alone. Only types come from maplibre-gl, so this module is in no
+// and by colour, never by colour alone. A member's visited museums are squares and wishlist
+// museums triangles, in their own colours (A§15.1: from `useMarks()`, after the map is ready). Only types come from maplibre-gl, so this module is in no
 // chunk of its own and the tests import it freely. Everything the user can read comes from the
 // museum's fields as text; nothing here builds HTML (invariant 5).
 
@@ -14,6 +16,8 @@ export const LAYER_COUNT = 'museum-cluster-count';
 export const LAYER_POINTS = 'museum-points';
 const IMAGE_MK = 'museum-mk';
 const IMAGE_OTHER = 'museum-other';
+const IMAGE_VISITED = 'museum-visited';
+const IMAGE_WISHLIST = 'museum-wishlist';
 
 /** A tap or click finds a marker within this many CSS pixels (a 44 px target). */
 const HIT = 22;
@@ -21,7 +25,14 @@ const IMAGE_SIZE = 56;
 const PIXEL_RATIO = 2;
 
 export type Rgb = readonly [number, number, number];
-export type MarkerColours = { mk: string; other: string; cluster: string; outline: string };
+export type MarkerColours = {
+  mk: string;
+  other: string;
+  visited: string;
+  wishlist: string;
+  cluster: string;
+  outline: string;
+};
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
@@ -39,6 +50,8 @@ export function readColours(el: Element): MarkerColours {
   const colours = {
     mk: token('--color-map-mk'),
     other: token('--color-map-other'),
+    visited: token('--color-map-visited'),
+    wishlist: token('--color-map-wishlist'),
     cluster: token('--color-map-cluster'),
     outline: token('--color-map-outline'),
   };
@@ -49,7 +62,22 @@ export function readColours(el: Element): MarkerColours {
 /** What near me needs of the map: to move the view. */
 export type MapView = Pick<MapLibreMap, 'jumpTo' | 'easeTo'>;
 
-export type MarkerShape = 'circle' | 'diamond';
+export type MarkerShape = 'circle' | 'diamond' | 'square' | 'triangle';
+
+/** Signed distance to a shape of half-size `r` centred on the origin: negative inside. */
+function distance(shape: MarkerShape, px: number, py: number, r: number): number {
+  switch (shape) {
+    case 'circle':
+      return Math.hypot(px, py) - r;
+    case 'diamond':
+      return (Math.abs(px) + Math.abs(py) - r) / Math.SQRT2;
+    case 'square':
+      return Math.max(Math.abs(px), Math.abs(py)) - r * 0.85;
+    case 'triangle':
+      // Apex up, base at the bottom: three half-planes through (0,-r), (-r,r) and (r,r).
+      return Math.max(py - r, (2 * px - py - r) / Math.sqrt(5), (-2 * px - py - r) / Math.sqrt(5));
+  }
+}
 
 /**
  * RGBA pixels of a marker: a filled shape with a ring in the outline colour, antialiased by its
@@ -63,7 +91,7 @@ export function markerImage(shape: MarkerShape, fill: Rgb, outline: Rgb, size: n
     for (let x = 0; x < size; x++) {
       const px = x + 0.5 - c;
       const py = y + 0.5 - c;
-      const d = shape === 'circle' ? Math.hypot(px, py) - r : (Math.abs(px) + Math.abs(py) - r) / Math.SQRT2;
+      const d = distance(shape, px, py, r);
       const alpha = Math.min(1, Math.max(0, 0.5 - d));
       const edge = Math.min(1, Math.max(0, d + ring + 0.5));
       const at = (y * size + x) * 4;
@@ -74,15 +102,29 @@ export function markerImage(shape: MarkerShape, fill: Rgb, outline: Rgb, size: n
   return { width: size, height: size, data };
 }
 
-/** The points as GeoJSON; the properties are the three fields the card needs, all text. */
-export function pointsGeoJson(points: MuseumPoints) {
+/** Visited wins over wishlist: a museum can be both, and the visit is the later fact. */
+export function markOf(id: string, marks: MarkSets | undefined): 'visited' | 'wishlist' | undefined {
+  if (marks === undefined) return undefined;
+  return marks.visited.has(id) ? 'visited' : marks.wishlist.has(id) ? 'wishlist' : undefined;
+}
+
+/** The points as GeoJSON; the properties are the three fields the card needs, all text, and `mark` for a member's own. */
+export function pointsGeoJson(points: MuseumPoints, marks?: MarkSets) {
   return {
     type: 'FeatureCollection' as const,
-    features: points.items.map((p) => ({
-      type: 'Feature' as const,
-      properties: { slug: p.slug, name: p.name, status: p.museumkaart_status },
-      geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
-    })),
+    features: points.items.map((p) => {
+      const mark = markOf(p.id, marks);
+      return {
+        type: 'Feature' as const,
+        properties: {
+          slug: p.slug,
+          name: p.name,
+          status: p.museumkaart_status,
+          ...(mark === undefined ? {} : { mark }),
+        },
+        geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] },
+      };
+    }),
   };
 }
 
@@ -100,6 +142,12 @@ export function addMuseumLayers(map: MapLibreMap, points: MuseumPoints, colours:
     pixelRatio: PIXEL_RATIO,
   });
   map.addImage(IMAGE_OTHER, markerImage('circle', parseHex(colours.other), outline, IMAGE_SIZE), {
+    pixelRatio: PIXEL_RATIO,
+  });
+  map.addImage(IMAGE_VISITED, markerImage('square', parseHex(colours.visited), outline, IMAGE_SIZE), {
+    pixelRatio: PIXEL_RATIO,
+  });
+  map.addImage(IMAGE_WISHLIST, markerImage('triangle', parseHex(colours.wishlist), outline, IMAGE_SIZE), {
     pixelRatio: PIXEL_RATIO,
   });
   map.addSource(SOURCE, {
@@ -140,11 +188,25 @@ export function addMuseumLayers(map: MapLibreMap, points: MuseumPoints, colours:
     source: SOURCE,
     filter: ['!', ['has', 'point_count']],
     layout: {
-      'icon-image': ['case', ['==', ['get', 'status'], 'participating'], IMAGE_MK, IMAGE_OTHER],
+      'icon-image': [
+        'case',
+        ['==', ['get', 'mark'], 'visited'],
+        IMAGE_VISITED,
+        ['==', ['get', 'mark'], 'wishlist'],
+        IMAGE_WISHLIST,
+        ['==', ['get', 'status'], 'participating'],
+        IMAGE_MK,
+        IMAGE_OTHER,
+      ],
       'icon-allow-overlap': true,
       'icon-ignore-placement': true,
     },
   });
+}
+
+/** The member's marks arrived (or changed): the same points, drawn with their marks. */
+export function showMarks(map: MapLibreMap, points: MuseumPoints, marks: MarkSets): void {
+  map.getSource<GeoJSONSource>(SOURCE)?.setData(pointsGeoJson(points, marks));
 }
 
 export type SelectedMuseum = { slug: string; name: string; status: MuseumkaartStatus };

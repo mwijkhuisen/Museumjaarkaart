@@ -8,9 +8,11 @@ import {
   type MapView,
   readColours,
   type SelectedMuseum,
+  showMarks,
   wireMuseums,
 } from '../../lib/map/museumLayer.ts';
 import { hasWebGL2 } from '../../lib/map/webgl.ts';
+import { useMarks } from '../../lib/member.ts';
 import { museumName } from '../../lib/names.ts';
 import { Link } from '../../lib/router.tsx';
 import { apiPath, pathOf, type Route } from '../../lib/routes.ts';
@@ -71,6 +73,8 @@ export function MuseumMap({
   const card = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [selected, setSelected] = useState<SelectedMuseum | null>(null);
+  const marks = useMarks();
+  const drawn = useRef<{ map: MapLibreMap; points: MuseumPoints } | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: onView is the page's stable setState
   useEffect(() => {
@@ -97,7 +101,9 @@ export function MuseumMap({
       const data = await points;
       if (signal.aborted) return;
       // The card and the labels show the page language's name, as the list cards do.
-      addMuseumLayers(made.map, { items: data.items.map((p) => ({ ...p, name: museumName(p, locale) })) }, colours);
+      const named = { items: data.items.map((p) => ({ ...p, name: museumName(p, locale) })) };
+      addMuseumLayers(made.map, named, colours);
+      drawn.current = { map: made.map, points: named };
       unwire = wireMuseums(made.map, setSelected);
       el.mjkMap = made.map;
       onView(made.map);
@@ -112,10 +118,17 @@ export function MuseumMap({
       abort.abort();
       unwire?.();
       el.mjkMap = undefined;
+      drawn.current = null;
       onView(null);
       created?.dispose();
     };
   }, [locale, pointsPath]);
+
+  // A member's marks arrive after the map, or before it: either way they are drawn once it is ready.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `state.status` re-runs this when the map becomes ready
+  useEffect(() => {
+    if (marks !== undefined && drawn.current !== null) showMarks(drawn.current.map, drawn.current.points, marks);
+  }, [marks, state.status]);
 
   // The card takes focus when it opens, and the map gets it back when it closes.
   useEffect(() => {
@@ -147,6 +160,7 @@ export function MuseumMap({
         data-map-state={state.status}
         hidden={state.status === 'error'}
       />
+      {marks === undefined ? null : <p className="muted">{m.marks_legend()}</p>}
       {selected === null ? null : (
         <aside
           id="museum-map-card"

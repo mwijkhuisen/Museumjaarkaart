@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import '../src/lib/zod.ts';
 import { formatDistance } from '../src/lib/format.ts';
 import { isFatalBasemapError, MapError } from '../src/lib/map/errors.ts';
-import { markerImage, parseHex, pointsGeoJson, selectedOf } from '../src/lib/map/museumLayer.ts';
+import { markerImage, markOf, parseHex, pointsGeoJson, selectedOf } from '../src/lib/map/museumLayer.ts';
 import { resolveStyle } from '../src/lib/map/resolveStyle.ts';
 import { mediaOrigin, parseTilesPointer } from '../src/lib/map/tiles.ts';
 import { roundPosition } from '../src/lib/near.ts';
@@ -200,6 +200,20 @@ describe('the museum layer helpers', () => {
     });
   });
 
+  it("adds a `mark` property only for the member's own museums, visited before wishlist", () => {
+    const id = '7b0d0c3e-5b2e-4f3a-8a53-0c2d5f9d1a11';
+    const sets = (visited: string[], wishlist: string[]) => ({
+      visited: new Set(visited),
+      wishlist: new Set(wishlist),
+    });
+    expect(markOf(id, undefined)).toBeUndefined();
+    expect(markOf(id, sets([], []))).toBeUndefined();
+    expect(markOf(id, sets([], [id]))).toBe('wishlist');
+    expect(markOf(id, sets([id], [id]))).toBe('visited');
+    expect(pointsGeoJson(points, sets([id], [])).features[0]?.properties).toMatchObject({ mark: 'visited' });
+    expect(pointsGeoJson(points, sets([], [])).features[0]?.properties).not.toHaveProperty('mark');
+  });
+
   it('reads the card from properties, and nothing else', () => {
     expect(selectedOf({ slug: 'a', name: 'B', status: 'left' })).toEqual({ slug: 'a', name: 'B', status: 'left' });
     expect(selectedOf({ slug: 'a', name: 'B', status: 'x' })).toBeNull();
@@ -217,6 +231,27 @@ describe('the museum layer helpers', () => {
   });
 
   describe('markerImage', () => {
+    it('draws the square and the triangle, each filled in the middle and different from the others', () => {
+      const fill = [10, 20, 30] as const;
+      const ring = [250, 240, 230] as const;
+      const at = (img: ReturnType<typeof markerImage>, x: number, y: number) => img.data[(y * 56 + x) * 4 + 3];
+      const draw = (shape: Parameters<typeof markerImage>[0]) => markerImage(shape, fill, ring, 56);
+      const circle = draw('circle');
+      const diamond = draw('diamond');
+      const square = draw('square');
+      const triangle = draw('triangle');
+      // The square reaches into the corner region where the circle and the diamond are empty.
+      expect(at(square, 6, 6)).toBe(255);
+      expect(at(circle, 6, 6)).toBe(0);
+      expect(at(diamond, 6, 6)).toBe(0);
+      // The triangle: apex up, wide base. Top corners empty, bottom corners filled.
+      expect(at(triangle, 28, 36)).toBe(255);
+      expect(at(triangle, 12, 8)).toBe(0);
+      expect(at(triangle, 8, 50)).toBeGreaterThan(0);
+      const images = [circle, diamond, square, triangle];
+      for (const a of images) for (const b of images) if (a !== b) expect(Buffer.compare(a.data, b.data)).not.toBe(0);
+    });
+
     const fill = [10, 20, 30] as const;
     const ring = [250, 240, 230] as const;
     const size = 56;
