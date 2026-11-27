@@ -28,7 +28,7 @@ it('reads every alias of every column, case-blind and trimmed', () => {
     expect(one(`museum,${note}`, 'A,mooi')?.note).toBe('mooi');
   }
   for (const qid of ['wikidata', 'qid', 'wikidata_qid']) expect(one(qid, 'Q190804')?.ref.qid).toBe('Q190804');
-  for (const url of ['museumnl', 'museum.nl', 'museumnl_url']) {
+  for (const url of ['museumnl', 'museumnl_url']) {
     expect(one(url, 'https://www.museum.nl/nl/rijksmuseum')?.ref.museumnlUrl).toBe(
       'https://www.museum.nl/nl/rijksmuseum',
     );

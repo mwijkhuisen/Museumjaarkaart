@@ -14,7 +14,7 @@ const ALIASES = {
   date: ['datum', 'date', 'bezocht', 'bezoekdatum', 'visit_date', 'visited_on'],
   note: ['notitie', 'notities', 'opmerking', 'note', 'notes'],
   qid: ['wikidata', 'qid', 'wikidata_qid'],
-  url: ['museumnl', 'museum.nl', 'museumnl_url'],
+  url: ['museumnl', 'museumnl_url'],
   id: ['museum_id'],
 } as const;
 type Column = keyof typeof ALIASES;

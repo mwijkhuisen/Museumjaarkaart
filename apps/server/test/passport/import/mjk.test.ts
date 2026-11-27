@@ -32,7 +32,7 @@ const doc = (over: object = {}) => ({
   },
   visits: [{ museum: museum(), visited_on: '2026-05-06', note: 'top', source: 'manual', created_at: AT }],
   wishlist: [{ museum: museum({ name: 'Mauritshuis', place: null, wikidata_qid: null }), created_at: AT }],
-  sessions: [{ host: 'muzelog.nl', method: 'password', created_at: AT, last_used_at: AT }],
+  sessions: [{ host: 'public', method: 'password', created_at: AT, last_used_at: AT }],
   imports: [{ format: 'csv', state: 'done', created_at: AT, confirmed_at: null, rows: [{ any: 1 }] }],
   exports: [{ state: 'ready', created_at: AT, expires_at: null }],
   content_ip_log: [{ target_kind: 'review', target_id: ID, ip: '192.0.2.1', created_at: AT }],
