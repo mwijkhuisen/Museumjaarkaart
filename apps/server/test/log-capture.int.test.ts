@@ -7,6 +7,7 @@ import { mailJobs } from '../src/worker/mail.ts';
 import { purge } from '../src/worker/purge.ts';
 import { accountsApp, altchaPayload, codeFor, tokenOf } from './auth/app.ts';
 import { type AuthDb, openAuthDb } from './auth/fixtures.ts';
+import { softCredential } from './auth/soft-authenticator.ts';
 
 // Criterion 15 and invariant 8 (A§17.7 "Logs"): every account flow, in-process, on the api's and
 // the worker's loggers; then no line may hold an email, a code, a password, a session token, the
@@ -93,6 +94,58 @@ describe('the logs of every account flow', () => {
     expect((await r('/me', { display_name: 'Renamed' }, token, 'PATCH')).status).toBe(200);
     expect((await r('/me/sessions', undefined, token)).status).toBe(200);
     expect((await r('/auth/password', { email: changed, password: NEW_PASSWORD })).status).toBe(401);
+
+    // P2b: passkey sign-ins, good, replayed, with a counter that went back, a bad signature, an unknown credential.
+    const member = (
+      await a.admin.query<{ id: string; h: Buffer }>(
+        'SELECT id, webauthn_user_id AS h FROM app_user WHERE email = $1',
+        [changed],
+      )
+    ).rows[0] as { id: string; h: Buffer };
+    const cred = softCredential({ userHandle: member.h, counter: 3 });
+    await a.admin.query(
+      'INSERT INTO passkey (credential_id, user_id, public_key, sign_count, backed_up) VALUES ($1, $2, $3, 3, false)',
+      [cred.id, member.id, cred.publicKeyCose],
+    );
+    secrets.push(
+      cred.id.toString('base64url'),
+      cred.id.toString('hex'),
+      cred.publicKeyCose.toString('base64url'),
+      cred.publicKeyCose.toString('hex'),
+      member.h.toString('base64url'),
+      member.h.toString('hex'),
+    );
+    const challenge = async () => {
+      const c = (
+        (await (await r('/auth/passkey/options', undefined, undefined, 'POST')).json()) as { challenge: string }
+      ).challenge;
+      secrets.push(c);
+      return c;
+    };
+    const good = cred.assert({ challenge: await challenge() });
+    secrets.push(good.response.signature, good.response.clientDataJSON, good.response.authenticatorData);
+    const byPasskey = await r('/auth/passkey/verify', { credential: good });
+    expect(byPasskey.status).toBe(200);
+    secrets.push(tokenOf(byPasskey) as string);
+    expect((await r('/auth/passkey/verify', { credential: good })).status).toBe(401);
+    expect(
+      (await r('/auth/passkey/verify', { credential: cred.assert({ challenge: await challenge(), counter: 1 }) }))
+        .status,
+    ).toBe(401);
+    expect(
+      (
+        await r('/auth/passkey/verify', {
+          credential: cred.assert({ challenge: await challenge(), badSignature: true }),
+        })
+      ).status,
+    ).toBe(401);
+    const stranger = softCredential({ userHandle: Buffer.alloc(16, 1) });
+    secrets.push(stranger.id.toString('base64url'));
+    expect(
+      (await r('/auth/passkey/verify', { credential: stranger.assert({ challenge: await challenge() }) })).status,
+    ).toBe(401);
+    expect(t.lines().some((l) => l.msg === 'passkey_counter')).toBe(true);
+
     expect((await r('/auth/signout', undefined, token, 'POST')).status).toBe(204);
 
     // The worker: every queued mail job, then the purge.

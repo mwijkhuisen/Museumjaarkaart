@@ -185,3 +185,17 @@ export async function endUserSessions(db: AnyDb, userId: string, keep?: Buffer):
 export function requireReauth(session: Session): void {
   if (!session.reauthFresh) throw new ApiError('reauth_required');
 }
+
+/**
+ * A stricter re-authentication (P2b Q1a): 403 `reauth_required` unless this session signed in or took
+ * a code within `withinS` seconds (at most REAUTH_S), by the database's clock.
+ */
+export async function requireReauthWithin(db: AnyDb, session: Session, withinS: number): Promise<void> {
+  requireReauth(session);
+  const row = await db
+    .selectFrom('session')
+    .select(sql<boolean>`reauth_at > now() - ${secs(Math.min(withinS, REAUTH_S))}`.as('fresh'))
+    .where('id', '=', session.id)
+    .executeTakeFirst();
+  if (row?.fresh !== true) throw new ApiError('reauth_required');
+}
