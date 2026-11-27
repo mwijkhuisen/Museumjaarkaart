@@ -1,0 +1,8 @@
+{
+  "source": "commons",
+  "case": "synthetic",
+  "origin": "synthetic",
+  "recordedOn": "2026-11-27",
+  "licence": "CC0-1.0",
+  "notes": "Hand-made edge cases in the imageinfo answer format: missing, NC, ND, GFDL, no licence, CC BY without an author, hostile author markup, a thumbnail on another host, a normalized title."
+}

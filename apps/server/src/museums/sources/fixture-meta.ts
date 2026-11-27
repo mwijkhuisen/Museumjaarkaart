@@ -10,7 +10,7 @@ export const FIXTURE_LICENCES = ['CC0-1.0', 'PDM-1.0'] as const;
 export const FIXTURE_CASES = ['normal', 'edge', 'empty', 'hostile', 'synthetic'] as const;
 
 export const FixtureMeta = z.object({
-  source: z.enum(['wikidata', 'rce']),
+  source: z.enum(['wikidata', 'rce', 'commons']),
   case: z.string().min(1).max(40),
   origin: z.enum(FIXTURE_ORIGINS),
   /** `YYYY-MM-DD` (the date of the recording, or of writing a synthetic fixture). */

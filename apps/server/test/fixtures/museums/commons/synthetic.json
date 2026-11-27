@@ -1,0 +1,278 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "normalized": [
+      {
+        "fromencoded": false,
+        "from": "File:my_file.jpg",
+        "to": "File:My file.jpg"
+      }
+    ],
+    "pages": [
+      {
+        "ns": 6,
+        "title": "File:Missing.jpg",
+        "missing": true,
+        "known": false
+      },
+      {
+        "pageid": 1006,
+        "ns": 6,
+        "title": "File:Nc.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Nc.jpg/1920px-Nc.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Nc.jpg",
+            "sha1": "7777777777777777777777777777777777777777",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "cc-by-nc-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "CC-BY-NC-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "Artist": {
+                "value": "A",
+                "source": "commons-desc-page"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1006,
+        "ns": 6,
+        "title": "File:Nd.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Nd.jpg/1920px-Nd.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Nd.jpg",
+            "sha1": "7777777777777777777777777777777777777777",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "cc-by-nd-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "CC-BY-ND-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "Artist": {
+                "value": "A",
+                "source": "commons-desc-page"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1008,
+        "ns": 6,
+        "title": "File:Gfdl.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Gfdl.jpg/1920px-Gfdl.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Gfdl.jpg",
+            "sha1": "9999999999999999999999999999999999999999",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "gfdl",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "GFDL",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "Artist": {
+                "value": "A",
+                "source": "commons-desc-page"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1013,
+        "ns": 6,
+        "title": "File:Nolicence.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Nolicence.jpg/1920px-Nolicence.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Nolicence.jpg",
+            "sha1": "5555555555555555555555555555555555555555",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "Artist": {
+                "value": "A",
+                "source": "commons-desc-page"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1012,
+        "ns": 6,
+        "title": "File:NoAuthor.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/NoAuthor.jpg/1920px-NoAuthor.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/NoAuthor.jpg",
+            "sha1": "4444444444444444444444444444444444444444",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "cc-by-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "CC-BY-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1011,
+        "ns": 6,
+        "title": "File:Hostile.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Hostile.jpg/1920px-Hostile.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Hostile.jpg",
+            "sha1": "3333333333333333333333333333333333333333",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "cc-by-sa-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "CC-BY-SA-4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "Artist": {
+                "value": "<a href=\"javascript:alert(1)\" onclick=\"x()\">Jan &amp; Piet</a><script>alert(1)</script> &lt;script&gt;x&lt;/script&gt; \u202eevil\u2066 <b><i>bold</b>",
+                "source": "commons-desc-page"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1013,
+        "ns": 6,
+        "title": "File:Elsewhere.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://evil.example/x.jpg",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Elsewhere.jpg",
+            "sha1": "5555555555555555555555555555555555555555",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "cc0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "CC0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      {
+        "pageid": 1011,
+        "ns": 6,
+        "title": "File:My file.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1000,
+            "width": 2400,
+            "height": 1600,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/My_file.jpg/1920px-My_file.jpg?utm_source=commons.wikimedia.org",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/ab/My_file.jpg",
+            "sha1": "3333333333333333333333333333333333333333",
+            "mime": "image/jpeg",
+            "extmetadata": {
+              "License": {
+                "value": "cc0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "LicenseShortName": {
+                "value": "CC0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

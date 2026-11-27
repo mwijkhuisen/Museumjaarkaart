@@ -175,10 +175,14 @@ describe('forbidden hosts', () => {
     expect(scan('museumjaarkaart.nl')).toEqual({ 'museumjaarkaart.nl': 1 });
   });
 
-  it('ALLOWED_HOSTS is exactly Wikidata and RCE', () => {
-    expect([...ALLOWED_HOSTS]).toEqual(['query.wikidata.org', 'services.rce.geovoorziening.nl']);
+  it('ALLOWED_HOSTS is exactly Wikidata, RCE and the two Commons hosts (ADR-0018)', () => {
+    expect([...ALLOWED_HOSTS]).toEqual([
+      'query.wikidata.org',
+      'services.rce.geovoorziening.nl',
+      'commons.wikimedia.org',
+      'upload.wikimedia.org',
+    ]);
     for (const h of ALLOWED_HOSTS) expect(Object.keys(scan(h))).toEqual([]);
-    expect(ALLOWED_HOSTS.some((h) => /commons|wikimedia|upload\./i.test(h))).toBe(false);
   });
 
   it('only the listed files mention a forbidden host, each as often as listed', () => {

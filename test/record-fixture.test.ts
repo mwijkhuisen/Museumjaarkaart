@@ -68,6 +68,10 @@ describe('record-fixture: parseArgs', () => {
       args: { case: 'edge', qids: ['Q1', 'Q22'], out: '/x', contact: 'https://example.org/c' },
     });
     expect(parseArgs(['rce', 'normal'])).toMatchObject({ ok: true, args: { source: 'rce' } });
+    expect(parseArgs(['commons', 'normal', '--files', 'A b.jpg,C.png'])).toMatchObject({
+      ok: true,
+      args: { source: 'commons', files: ['A b.jpg', 'C.png'] },
+    });
     expect(parseArgs(['wikidata', 'normal', '--qids', 'Q5'])).toMatchObject({ ok: true });
   });
 
@@ -88,6 +92,11 @@ describe('record-fixture: parseArgs', () => {
     [['rce', 'edge']],
     [['rce', 'empty']],
     [['rce', 'normal', '--qids', 'Q1']],
+    [['commons', 'edge']],
+    [['commons', 'normal', '--qids', 'Q1']],
+    [['wikidata', 'normal', '--files', 'a.jpg']],
+    [['commons', 'normal', '--files', 'a|b.jpg']],
+    [['commons', 'normal', '--files', 'a/b.jpg']],
   ])('rejects %j', (argv) => {
     expect(parseArgs(argv)).toMatchObject({ ok: false });
   });
@@ -175,6 +184,34 @@ describe('record-fixture: record() with an injected fetch', () => {
     const meta = FixtureMeta.parse(JSON.parse(readFileSync(join(out, 'rce/normal.meta.json'), 'utf8')));
     expect(meta.licence).toBe('PDM-1.0');
     expect(meta.querySha256).toBeUndefined();
+  });
+
+  it('records Commons: one imageinfo request for the given files, CC0 meta', async () => {
+    const out = tmp();
+    const body = readFileSync(join(fixtures, 'commons/normal.json'), 'utf8');
+    let url = '';
+    const fetchFn = (async (u) => {
+      url = String(u);
+      return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    const r = await record(
+      { source: 'commons', case: 'normal', qids: undefined, files: ['A b.jpg'], out, contact: undefined },
+      { fetch: fetchFn, today: () => '2026-11-27', stampFile: join(tmp(), 'stamp') },
+    );
+    expect(r.ok).toBe(true);
+    expect(new URL(url).host).toBe('commons.wikimedia.org');
+    expect(new URL(url).searchParams.get('titles')).toBe('File:A b.jpg');
+    expect(readdirSync(join(out, 'commons')).sort()).toEqual(['normal.json', 'normal.meta.json']);
+    const meta = FixtureMeta.parse(JSON.parse(readFileSync(join(out, 'commons/normal.meta.json'), 'utf8')));
+    expect(meta).toMatchObject({ source: 'commons', licence: 'CC0-1.0', recordedOn: '2026-11-27' });
+    if (r.ok) expect(r.rows).toBe(20);
+  });
+
+  it('the committed Commons fixtures have valid meta files', () => {
+    for (const name of ['normal', 'synthetic']) {
+      const meta = FixtureMeta.parse(JSON.parse(readFileSync(join(fixtures, `commons/${name}.meta.json`), 'utf8')));
+      expect(meta.source).toBe('commons');
+    }
   });
 
   it('pauses 10 s when the last Wikidata request was under 60 s ago', async () => {

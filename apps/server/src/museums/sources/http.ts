@@ -6,8 +6,13 @@
 import { setTimeout as sleepFor } from 'node:timers/promises';
 import type { SourceErrorCode } from './types.ts';
 
-/** The only hosts the sync talks to. No Commons host in P1a (plan §2.9); the link-out host is never fetched. */
-export const ALLOWED_HOSTS: readonly string[] = Object.freeze(['query.wikidata.org', 'services.rce.geovoorziening.nl']);
+/** The only hosts the workers talk to (P3b adds the two Wikimedia Commons hosts, ADR-0018); the link-out host is never fetched. */
+export const ALLOWED_HOSTS: readonly string[] = Object.freeze([
+  'query.wikidata.org',
+  'services.rce.geovoorziening.nl',
+  'commons.wikimedia.org',
+  'upload.wikimedia.org',
+]);
 
 export const REPO_URL = 'https://github.com/mwijkhuisen/mjk';
 export const USER_AGENT_PRODUCT = 'mjk-museum-sync/1.0';
@@ -117,11 +122,15 @@ function parseJson(bytes: Uint8Array): unknown {
   return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
 }
 
+type CoreResult =
+  | { ok: true; bytes: Uint8Array; contentType: string | null; ms: number }
+  | { ok: false; code: SourceErrorCode };
+
 /**
- * One JSON request with the sync's guards. Never throws. 429 and 503 are retried
+ * One request with the guards. Never throws. 429 and 503 are retried
  * up to MAX_TRIES tries in total; every other failure is final.
  */
-export async function fetchJson(url: string, init: FetchInit = {}, deps: HttpDeps = {}): Promise<FetchJsonResult> {
+async function fetchCore(url: string, init: FetchInit, deps: HttpDeps): Promise<CoreResult> {
   const target = allowedUrl(url);
   if (target === undefined) return { ok: false, code: 'host_not_allowed' };
 
@@ -179,10 +188,27 @@ export async function fetchJson(url: string, init: FetchInit = {}, deps: HttpDep
       return { ok: false, code: signal.aborted ? 'timeout' : 'network' };
     }
     if (bytes === null) return { ok: false, code: 'too_large' };
-    try {
-      return { ok: true, body: parseJson(bytes), ms: now() - started, bytes: bytes.byteLength };
-    } catch {
-      return { ok: false, code: 'not_json' };
-    }
+    return { ok: true, bytes, contentType: res.headers.get('content-type'), ms: now() - started };
   }
+}
+
+/** One JSON request with the sync's guards. Never throws. */
+export async function fetchJson(url: string, init: FetchInit = {}, deps: HttpDeps = {}): Promise<FetchJsonResult> {
+  const r = await fetchCore(url, init, deps);
+  if (!r.ok) return r;
+  try {
+    return { ok: true, body: parseJson(r.bytes), ms: r.ms, bytes: r.bytes.byteLength };
+  } catch {
+    return { ok: false, code: 'not_json' };
+  }
+}
+
+export type FetchBytesResult =
+  | { ok: true; bytes: Uint8Array; contentType: string | null }
+  | { ok: false; code: SourceErrorCode };
+
+/** One binary download with the same guards (host allowlist, no redirect, timeout, cap, retry). Never throws. */
+export async function fetchBytes(url: string, init: FetchInit = {}, deps: HttpDeps = {}): Promise<FetchBytesResult> {
+  const r = await fetchCore(url, init, deps);
+  return r.ok ? { ok: true, bytes: r.bytes, contentType: r.contentType } : r;
 }

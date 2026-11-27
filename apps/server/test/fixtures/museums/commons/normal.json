@@ -1,0 +1,949 @@
+{
+  "batchcomplete": true,
+  "query": {
+    "pages": [
+      {
+        "pageid": 423426,
+        "ns": 6,
+        "title": "File:Arboretum Trompenburg Nl 2.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 788671,
+            "width": 2304,
+            "height": 1728,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/13/Arboretum_Trompenburg_Nl_2.jpg/1920px-Arboretum_Trompenburg_Nl_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/1/13/Arboretum_Trompenburg_Nl_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/13/Arboretum_Trompenburg_Nl_2.jpg/1920px-Arboretum_Trompenburg_Nl_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/1/13/Arboretum_Trompenburg_Nl_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/1/13/Arboretum_Trompenburg_Nl_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Arboretum_Trompenburg_Nl_2.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/423426",
+            "sha1": "3c452886b2e64e29f36016676b7a08fc753b6bb9",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:WJV%26DB\" title=\"User:WJV&amp;DB\">Wilma Verburg</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 2.5 nl",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-2.5-nl",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 872570,
+        "ns": 6,
+        "title": "File:Singer museum laren.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 966372,
+            "width": 1600,
+            "height": 1200,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/4/44/Singer_museum_laren.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/4/44/Singer_museum_laren.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/4/44/Singer_museum_laren.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Singer_museum_laren.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/872570",
+            "sha1": "34648d622f68d7e784099206944518651a1301f4",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"https://en.wikipedia.org/wiki/nl:Gebruiker:Michiel1972\" class=\"extiw\" title=\"w:nl:Gebruiker:Michiel1972\">M.Minderhoud</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 1760193,
+        "ns": 6,
+        "title": "File:Arsenaal Miniatuur Walcheren.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 133556,
+            "width": 816,
+            "height": 616,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/3/3b/Arsenaal_Miniatuur_Walcheren.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 1449,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/3/3b/Arsenaal_Miniatuur_Walcheren.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1449
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/3/3b/Arsenaal_Miniatuur_Walcheren.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Arsenaal_Miniatuur_Walcheren.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/1760193",
+            "sha1": "4f57bf38e96460420d08516f5b330b67995bb828",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"https://en.wikipedia.org/wiki/nl:User:Knowledge\" class=\"extiw\" title=\"w:nl:User:Knowledge\">Knowledge</a> at <a href=\"https://en.wikipedia.org/wiki/nl:\" class=\"extiw\" title=\"w:nl:\">Dutch Wikipedia</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "Attribution": {
+                "value": "<a href=\"https://nl.wikipedia.org/wiki/User:Knowledge\" class=\"extiw\" title=\"nl:User:Knowledge\">Knowledge</a>",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 2345192,
+        "ns": 6,
+        "title": "File:Drents Museum.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 744986,
+            "width": 800,
+            "height": 601,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Drents_Museum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 1442,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Drents_Museum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1442
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Drents_Museum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Drents_Museum.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/2345192",
+            "sha1": "cb5a682d9406264100b84d61301d62bac5622e4b",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:CrazyPhunk\" title=\"User:CrazyPhunk\">CrazyPhunk</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 2602892,
+        "ns": 6,
+        "title": "File:BuijsHans20020511.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 505291,
+            "width": 1600,
+            "height": 1200,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/0/06/BuijsHans20020511.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/0/06/BuijsHans20020511.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/0/06/BuijsHans20020511.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:BuijsHans20020511.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/2602892",
+            "sha1": "b49c82c878b4a700e79351cb81d6d046a6474d81",
+            "extmetadata": {
+              "Artist": {
+                "value": "Jurgen Stigter",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 2671368,
+        "ns": 6,
+        "title": "File:Nederlands Openluchtmuseum.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2965343,
+            "width": 2592,
+            "height": 1944,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Nederlands_Openluchtmuseum.JPG/1920px-Nederlands_Openluchtmuseum.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Nederlands_Openluchtmuseum.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e8/Nederlands_Openluchtmuseum.JPG/1920px-Nederlands_Openluchtmuseum.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Nederlands_Openluchtmuseum.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Nederlands_Openluchtmuseum.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Nederlands_Openluchtmuseum.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/2671368",
+            "sha1": "5f06fb4ce07efe29e8310a888e997a10949aa5b2",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Ciell\" title=\"User:Ciell\">Ciell</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY 2.5",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-2.5",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 2764187,
+        "ns": 6,
+        "title": "File:De Lakenhal Leiden.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2859458,
+            "width": 2592,
+            "height": 1944,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/De_Lakenhal_Leiden.jpg/1920px-De_Lakenhal_Leiden.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/d/d4/De_Lakenhal_Leiden.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/De_Lakenhal_Leiden.jpg/1920px-De_Lakenhal_Leiden.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/d/d4/De_Lakenhal_Leiden.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/d/d4/De_Lakenhal_Leiden.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:De_Lakenhal_Leiden.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/2764187",
+            "sha1": "86721ed1a5c66bc6ada58e9cb4ed3a25476e5161",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Michiel1972\" title=\"User:Michiel1972\">Michiel1972</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 3145934,
+        "ns": 6,
+        "title": "File:Stadhuis Hindelopen 27.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 909246,
+            "width": 2641,
+            "height": 1980,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Stadhuis_Hindelopen_27.JPG/1920px-Stadhuis_Hindelopen_27.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1439,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/3/37/Stadhuis_Hindelopen_27.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/37/Stadhuis_Hindelopen_27.JPG/1920px-Stadhuis_Hindelopen_27.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1439,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/3/37/Stadhuis_Hindelopen_27.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/3/37/Stadhuis_Hindelopen_27.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Stadhuis_Hindelopen_27.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/3145934",
+            "sha1": "c9068dfd098a468df67eee443b4ff897613a2321",
+            "extmetadata": {
+              "Artist": {
+                "value": "Udo Ockema",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 7794406,
+        "ns": 6,
+        "title": "File:Wijk bij duurstede culemborg 087.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1949156,
+            "width": 3264,
+            "height": 2448,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c2/Wijk_bij_duurstede_culemborg_087.JPG/1920px-Wijk_bij_duurstede_culemborg_087.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Wijk_bij_duurstede_culemborg_087.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c2/Wijk_bij_duurstede_culemborg_087.JPG/1920px-Wijk_bij_duurstede_culemborg_087.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Wijk_bij_duurstede_culemborg_087.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Wijk_bij_duurstede_culemborg_087.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Wijk_bij_duurstede_culemborg_087.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/7794406",
+            "sha1": "d8ef50420d6a60897478df3efcac1d48d3dd8814",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Arch&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Arch (page does not exist)\">Arch</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "Public domain",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "pd",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 8404432,
+        "ns": 6,
+        "title": "File:Museumvoorcommunicatie.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 79934,
+            "width": 265,
+            "height": 350,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/5/52/Museumvoorcommunicatie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 2536,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/5/52/Museumvoorcommunicatie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 2536
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/5/52/Museumvoorcommunicatie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Museumvoorcommunicatie.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/8404432",
+            "sha1": "7de55e586d62795a8e46757035034d55ddc403c3",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Museumvoorcommunicatie&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Museumvoorcommunicatie (page does not exist)\">Museumvoorcommunicatie</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 8546071,
+        "ns": 6,
+        "title": "File:Utrecht hortus.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2329137,
+            "width": 3264,
+            "height": 2448,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/Utrecht_hortus.JPG/1920px-Utrecht_hortus.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Utrecht_hortus.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e0/Utrecht_hortus.JPG/1920px-Utrecht_hortus.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Utrecht_hortus.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Utrecht_hortus.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Utrecht_hortus.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/8546071",
+            "sha1": "3c2821d0eaef9e37659027d81e9b005e6e5d378f",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Arch&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Arch (page does not exist)\">Arch</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "Public domain",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "pd",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 10303466,
+        "ns": 6,
+        "title": "File:Markt 64 Steenwijk.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 781892,
+            "width": 2736,
+            "height": 3648,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Markt_64_Steenwijk.jpg/1920px-Markt_64_Steenwijk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 2560,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/2/21/Markt_64_Steenwijk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/21/Markt_64_Steenwijk.jpg/1920px-Markt_64_Steenwijk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 2560,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/2/21/Markt_64_Steenwijk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/2/21/Markt_64_Steenwijk.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Markt_64_Steenwijk.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/10303466",
+            "sha1": "273b40a7978ff6cc633bacfdea253fc44c394e3b",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Gouwenaar\" title=\"User:Gouwenaar\">Gouwenaar</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "Public domain",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "pd",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 11582242,
+        "ns": 6,
+        "title": "File:Brugstraat 26 - 18434.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 609236,
+            "width": 1296,
+            "height": 2136,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Brugstraat_26_-_18434.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 3164,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Brugstraat_26_-_18434.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 3164
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Brugstraat_26_-_18434.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Brugstraat_26_-_18434.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/11582242",
+            "sha1": "cc4be239f5e944e61f3bca8475629c497641603d",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:ZanderZ\" class=\"mw-redirect\" title=\"User:ZanderZ\">ZanderZ</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 15417337,
+        "ns": 6,
+        "title": "File:Heeswijk (Bernheze) Rijksmonument 21286 Museumboerderij Meerstraat 28.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 4498067,
+            "width": 3648,
+            "height": 2736,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG/1920px-Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG/1920px-Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Heeswijk_%28Bernheze%29_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Heeswijk_(Bernheze)_Rijksmonument_21286_Museumboerderij_Meerstraat_28.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/15417337",
+            "sha1": "4633b243624de31eca9d5557163735f64cf901c5",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Havang(nl)\" title=\"User:Havang(nl)\">Havang(nl)</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 15768384,
+        "ns": 6,
+        "title": "File:Nationaal Glasmuseum P1050306.JPG",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 4040251,
+            "width": 3264,
+            "height": 2448,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Nationaal_Glasmuseum_P1050306.JPG/1920px-Nationaal_Glasmuseum_P1050306.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1440,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/9/97/Nationaal_Glasmuseum_P1050306.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Nationaal_Glasmuseum_P1050306.JPG/1920px-Nationaal_Glasmuseum_P1050306.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1440,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/9/97/Nationaal_Glasmuseum_P1050306.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/9/97/Nationaal_Glasmuseum_P1050306.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Nationaal_Glasmuseum_P1050306.JPG",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/15768384",
+            "sha1": "4fc3efa8dc2188f5d2da4754306b36ca9915fb0a",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:G.Lanting\" title=\"User:G.Lanting\">G.Lanting</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 17746093,
+        "ns": 6,
+        "title": "File:VdmMuseum.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 5721955,
+            "width": 3776,
+            "height": 2520,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/VdmMuseum.jpg/1920px-VdmMuseum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1281,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/d/d4/VdmMuseum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d4/VdmMuseum.jpg/1920px-VdmMuseum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1281,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/d/d4/VdmMuseum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/d/d4/VdmMuseum.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:VdmMuseum.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/17746093",
+            "sha1": "acd1493886853fb3dea66a168859384e2febefed",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Fransvannes\" title=\"User:Fransvannes\">Fransvannes</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 21686580,
+        "ns": 6,
+        "title": "File:Entrance-pijpenkabinet-1998.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1261020,
+            "width": 3504,
+            "height": 5432,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/03/Entrance-pijpenkabinet-1998.jpg/1920px-Entrance-pijpenkabinet-1998.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 2976,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/0/03/Entrance-pijpenkabinet-1998.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/03/Entrance-pijpenkabinet-1998.jpg/1920px-Entrance-pijpenkabinet-1998.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 2976,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/0/03/Entrance-pijpenkabinet-1998.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/0/03/Entrance-pijpenkabinet-1998.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Entrance-pijpenkabinet-1998.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/21686580",
+            "sha1": "e8931ed6b398d6cf0d14d7e37180ab9ae7623b28",
+            "extmetadata": {
+              "Artist": {
+                "value": "Pijpenkabinet, Amsterdam",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-3.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 24094538,
+        "ns": 6,
+        "title": "File:Overzicht - Eindhoven - 20396820 - RCE.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2081054,
+            "width": 3060,
+            "height": 3060,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg/1920px-Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1920,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1e/Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg/1920px-Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1920,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Overzicht_-_Eindhoven_-_20396820_-_RCE.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/24094538",
+            "sha1": "01861eb5ea649228c82186e3332b63835080682b",
+            "extmetadata": {
+              "Artist": {
+                "value": "<bdi><a href=\"https://www.wikidata.org/wiki/Q46769947\" class=\"extiw\" title=\"d:Q46769947\"><span title=\"photographer (born 1953)\">Thea van den Heuvel</span></a></bdi>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "Attribution": {
+                "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.cultureelerfgoed.nl/\">Rijksdienst voor het Cultureel Erfgoed</a>",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-4.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 79824334,
+        "ns": 6,
+        "title": "File:Fries Scheepvaart Museum - Kleinzand 12-18, Sneek.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1065108,
+            "width": 1920,
+            "height": 1012,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Fries_Scheepvaart_Museum_-_Kleinzand_12-18%2C_Sneek.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1920,
+            "thumbheight": 1012,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Fries_Scheepvaart_Museum_-_Kleinzand_12-18%2C_Sneek.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1012
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Fries_Scheepvaart_Museum_-_Kleinzand_12-18%2C_Sneek.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Fries_Scheepvaart_Museum_-_Kleinzand_12-18,_Sneek.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/79824334",
+            "sha1": "bc5be5a3a78acd4614daa9d5947138cdb5f2739b",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Condor3d\" title=\"User:Condor3d\">Condor3d</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-4.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      },
+      {
+        "pageid": 162708967,
+        "ns": 6,
+        "title": "File:Utrecht Zonnenburg2 018 2227.jpg",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 23574521,
+            "width": 6000,
+            "height": 4000,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Utrecht_Zonnenburg2_018_2227.jpg/1920px-Utrecht_Zonnenburg2_018_2227.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1920,
+            "thumbheight": 1280,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Utrecht_Zonnenburg2_018_2227.jpg/3840px-Utrecht_Zonnenburg2_018_2227.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Utrecht_Zonnenburg2_018_2227.jpg/1920px-Utrecht_Zonnenburg2_018_2227.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1920,
+              "height": 1280,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d8/Utrecht_Zonnenburg2_018_2227.jpg/3840px-Utrecht_Zonnenburg2_018_2227.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Utrecht_Zonnenburg2_018_2227.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Utrecht_Zonnenburg2_018_2227.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/wiki/Special:Redirect/page/162708967",
+            "sha1": "d8ada62bbcebb0c0c97f728cf7ce122ba9943150",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Ludvig14\" title=\"User:Ludvig14\">Ludvig14</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              },
+              "License": {
+                "value": "cc-by-sa-4.0",
+                "source": "commons-templates",
+                "hidden": ""
+              }
+            },
+            "mime": "image/jpeg"
+          }
+        ]
+      }
+    ]
+  }
+}
