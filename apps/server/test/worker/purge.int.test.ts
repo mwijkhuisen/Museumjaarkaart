@@ -54,7 +54,8 @@ it('purges every table at its limit, keeps what is inside it, and is idempotent'
        VALUES ('altcha', 'public', decode(lpad($1, 64, '0'), 'hex'), ${exp})`,
       [(++h).toString(16)],
     );
-  await chal(ago('1 second'));
+  await chal(ago('61 seconds')); // past the minute of grace (P2b review L4)
+  await chal(ago('59 seconds')); // expired, inside the grace: kept
   await chal(`now() + interval '1 minute'`);
 
   const rl = (key: string, end: string) =>
@@ -120,7 +121,7 @@ it('purges every table at its limit, keeps what is inside it, and is idempotent'
 
   expect(await count('session')).toBe(1);
   expect(await count('email_code')).toBe(1);
-  expect(await count('auth_challenge')).toBe(1);
+  expect(await count('auth_challenge')).toBe(2);
   expect(await count('rate_limit')).toBe(1);
   expect((await q(`SELECT state FROM job WHERE kind = 'x' ORDER BY state`)).rows.map((r) => r.state)).toEqual([
     'done',

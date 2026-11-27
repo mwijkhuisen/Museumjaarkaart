@@ -11,7 +11,7 @@
   - **better-auth:** latest 1.7.15 (published that day); the newest version under the rule is 1.7.13. With Kysely and pg it is 35 packages, against 15 without it. 11 stable releases between 2026-09-14 and 2026-11-01. `@better-auth/passkey@1.7.12` with `better-auth@1.7.12` fails with ERESOLVE on an exact peer pin of `@better-fetch/fetch` (reproduced). About 13 advisories on third-party mirrors, 2026 ones among them: a session counted as valid before 2FA finished, an OAuth state mismatch, an IPv6 rate-limit bypass (CVE-2026-45364) [U].
   - **Lucia** was deprecated in March 2025 and is now a reference approach (`auth_session.ts`). **Auth.js** is run by the Better Auth team, which steers new projects to Better Auth.
   - **Node 26** has `crypto.argon2()` (since 24.7.0): argon2id with no dependency and no native addon.
-  - **@simplewebauthn/server 14.0.3** (MIT, ~25 packages [U]) and **@simplewebauthn/browser 14.0.0** for passkeys. **altcha-lib 2.8.0** (no dependencies) and the **altcha 3.5.0** widget for bot checks without a third party.
+  - **@simplewebauthn/server 14.0.3** (MIT, 25 packages with itself, proven in P2b: the `@peculiar/asn1-*` parsers, `@peculiar/x509`, `asn1js`, `pvtsutils`, `pvutils`, `tslib`, `tsyringe`, `reflect-metadata`, `@hexagon/base64`, `@levischuck/tiny-cbor`; none runs an install script) and **@simplewebauthn/browser 14.0.0** (no dependencies) for passkeys. **altcha-lib 2.8.0** (no dependencies) and the **altcha 3.5.0** widget for bot checks without a third party.
 
 ## Decision
 
@@ -30,7 +30,7 @@
 ## Consequences
 
 - We own ~800 lines plus tests [U]; P2a and P2b carry `review:security`.
-- P2a adds one server dependency (`altcha-lib`) and the widget; passkeys add `@simplewebauthn` in P2b, each with an ADR-lite line.
+- P2a adds one server dependency (`altcha-lib`) and the widget; passkeys add `@simplewebauthn` in P2b, each with an ADR-lite line. As built in P2b: the challenges are our own (stateless, signed with `altcha_hmac` under the label `webauthn`, spent once after the signature verifies) and so is the counter rule after the signature, because the library checks the challenge and the counter before the signature (A§9).
 - Code sign-in depends on mail delivery (ADR-0012); a password or a passkey is the alternative.
 - No TOTP 2FA. A passkey is the strong option, and moderators also sit behind Access.
 

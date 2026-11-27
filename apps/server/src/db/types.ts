@@ -43,6 +43,7 @@ export interface AppUser {
   terms_accepted_at: Timestamp;
   terms_version: string;
   trusted_at: Timestamp | null;
+  webauthn_user_id: Generated<Buffer>;
 }
 
 export interface AuditLog {
@@ -244,6 +245,19 @@ export interface MuseumSyncRun {
   wikidata_rows: number | null;
 }
 
+export interface Passkey {
+  backed_up: boolean;
+  created_at: Generated<Timestamp>;
+  credential_id: Buffer;
+  last_used_at: Timestamp | null;
+  name: string | null;
+  public_key: Buffer;
+  ref: Generated<string>;
+  sign_count: Generated<Int8>;
+  transports: Generated<string[]>;
+  user_id: string;
+}
+
 export interface Province {
   code: string;
   name_en: string;
@@ -389,6 +403,7 @@ export interface DB {
   museum_slug_redirect: MuseumSlugRedirect;
   museum_source_row: MuseumSourceRow;
   museum_sync_run: MuseumSyncRun;
+  passkey: Passkey;
   province: Province;
   pub_mk_list: PubMkList;
   pub_mk_list_province: PubMkListProvince;

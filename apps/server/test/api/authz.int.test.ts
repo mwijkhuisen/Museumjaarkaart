@@ -1,7 +1,10 @@
-import { SessionList } from '@mjk/contracts';
+import { PasskeyRegistrationOptions, SessionList } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { banUser } from '../../src/auth/ban.ts';
+import { startSession } from '../../src/auth/session.ts';
+import { accountsApp } from '../auth/app.ts';
 import { type AuthDb, openAuthDb } from '../auth/fixtures.ts';
+import { type SoftCredential, softCredential } from '../auth/soft-authenticator.ts';
 import { meApp, SITE } from './me-app.ts';
 
 // A§18: every route has an authorization table test. Here every /me route: signed out, a member, a banned
@@ -163,5 +166,109 @@ describe('the /me authorization table', () => {
     expect((await call('/me/sessions', { token: pub, ...onAdmin })).status).toBe(401);
     // An admin-host session on the public host is no session either.
     expect(await (await call('/me', { token: adm })).text()).toBe('{"user":null}');
+  });
+});
+
+// P2b: the five /me/passkeys routes, over the accounts app (the passkey routes are mounted with the
+// auth routes; meApp mounts /me alone). Each row: anonymous, a session of the other host class, a
+// member (2xx), another member's ref where a ref is involved (404, never 403), then a banned member.
+
+type PasskeyCtx = { cred: SoftCredential; token: string; challenge: () => Promise<string> };
+type PasskeyRoute = {
+  name: string;
+  method: string;
+  path: (ref: string) => string;
+  body?: (x: PasskeyCtx) => Promise<unknown>;
+  member: number;
+  /** The route names a passkey by ref: another member's is a 404. */
+  byRef: boolean;
+};
+
+const PASSKEY_ROUTES: PasskeyRoute[] = [
+  { name: 'GET /me/passkeys', method: 'GET', path: () => '/me/passkeys', member: 200, byRef: false },
+  { name: 'POST /me/passkeys/options', method: 'POST', path: () => '/me/passkeys/options', member: 200, byRef: false },
+  {
+    name: 'POST /me/passkeys',
+    method: 'POST',
+    path: () => '/me/passkeys',
+    body: async (x) => ({ credential: x.cred.register({ challenge: await x.challenge() }), name: 'Authz' }),
+    member: 201,
+    byRef: false,
+  },
+  {
+    name: 'PATCH /me/passkeys/:ref',
+    method: 'PATCH',
+    path: (ref) => `/me/passkeys/${ref}`,
+    body: async () => ({ name: 'Renamed' }),
+    member: 200,
+    byRef: true,
+  },
+  {
+    name: 'DELETE /me/passkeys/:ref',
+    method: 'DELETE',
+    path: (ref) => `/me/passkeys/${ref}`,
+    member: 204,
+    byRef: true,
+  },
+];
+
+describe('the /me/passkeys authorization table', () => {
+  it.each(PASSKEY_ROUTES)('$name: anonymous 401, other host 401, member $member, banned 401', async (r) => {
+    const t = accountsApp(a);
+    const peer = `198.51.${110 + PASSKEY_ROUTES.indexOf(r)}.7`;
+    const give = async () => {
+      const u = await a.newUser();
+      const handle = (await a.admin.query('SELECT webauthn_user_id AS h FROM app_user WHERE id = $1', [u.id])).rows[0]
+        ?.h as Buffer;
+      const cred = softCredential({ userHandle: handle });
+      const ref = (
+        await a.admin.query(
+          'INSERT INTO passkey (credential_id, user_id, public_key, backed_up) VALUES (uuid_send(gen_random_uuid()), $1, $2, false) RETURNING ref',
+          [u.id, cred.publicKeyCose],
+        )
+      ).rows[0]?.ref as string;
+      const token = (await startSession(a.db, { userId: u.id, host: 'public', method: 'code', sentToken: null })).token;
+      return { u, cred, ref, token };
+    };
+    const me = await give();
+    const other = await give();
+    const send = (path: string, o: { token?: string; body?: unknown; host?: string; access?: string } = {}) =>
+      t.req(path, {
+        method: r.method,
+        peer,
+        ...(o.host === undefined ? {} : { host: o.host }),
+        ...(o.body === undefined ? {} : { body: o.body }),
+        ...(o.token === undefined ? {} : { cookie: o.token }),
+        ...(o.access === undefined ? {} : { headers: { 'x-test-access': o.access } }),
+      });
+    const challenge = async () => {
+      const res = await t.req('/me/passkeys/options', { method: 'POST', peer, cookie: me.token });
+      return PasskeyRegistrationOptions.parse(await res.json()).challenge;
+    };
+    const body = r.body === undefined ? undefined : await r.body({ cred: me.cred, token: me.token, challenge });
+    const path = r.path(me.ref);
+
+    const anon = await send(path, { body });
+    expect(anon.status).toBe(401);
+    expect(await anon.json()).toEqual({ error: 'unauthorized' });
+    // A public-host session sent to the admin host is no session (the Access identity is the member's own).
+    expect((await send(path, { body, token: me.token, host: SITE.adminHost, access: me.u.email })).status).toBe(401);
+
+    if (r.byRef) {
+      const foreign = await send(r.path(other.ref), { body, token: me.token });
+      expect(foreign.status).toBe(404);
+      expect(await foreign.json()).toEqual({ error: 'not_found' });
+      expect((await a.admin.query('SELECT 1 FROM passkey WHERE ref = $1 AND name IS NULL', [other.ref])).rowCount).toBe(
+        1,
+      );
+    }
+
+    const ok = await send(path, { body, token: me.token });
+    expect(ok.status).toBe(r.member);
+    expect(ok.headers.get('cache-control')).toBe('private, no-store');
+
+    // The ban function also deletes the rows; set only the status here, so the check is the status's own.
+    await a.admin.query("UPDATE app_user SET status = 'banned' WHERE id = $1", [me.u.id]);
+    expect((await send(path, { body, token: me.token })).status).toBe(401);
   });
 });

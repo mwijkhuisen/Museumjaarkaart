@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PasskeysSection } from '../components/account/PasskeysSection.tsx';
 import { PassportSettings } from '../components/account/PassportSettings.tsx';
 import {
   DisplayNameSection,
@@ -30,6 +31,8 @@ export function Account({ route }: { route: Extract<Route, { page: 'shell' }> })
   const { me, failed, setMe, reload } = useMe();
   const pending = useRef<Pending | null>(null);
   const [asking, setAsking] = useState(false);
+  // Removing a passkey signs out the other sessions: a new key remounts the list, which fetches again.
+  const [sessionsKey, setSessionsKey] = useState(0);
 
   const signedOut = me !== undefined && me.user === null;
   useEffect(() => {
@@ -95,8 +98,10 @@ export function Account({ route }: { route: Extract<Route, { page: 'shell' }> })
       <EmailSection user={user} locale={locale} guard={guard} onChanged={setMe} />
       <PassportSettings user={user} locale={locale} onChanged={setMe} />
       <PasswordSection user={user} guard={guard} onChanged={reload} />
-      <SessionsSection locale={locale} guard={guard} />
+      <PasskeysSection locale={locale} guard={guard} onSessionsEnded={() => setSessionsKey((n) => n + 1)} />
+      <SessionsSection key={sessionsKey} locale={locale} guard={guard} />
       <ExportSection locale={locale} />
+
       <SignOutSection guard={guard} onSignedOut={() => navigate(pathOf({ page: 'home', locale }))} />
     </div>
   );

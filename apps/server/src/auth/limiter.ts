@@ -7,7 +7,7 @@ import { hmac } from './crypto.ts';
 import type { AppKeys } from './keys.ts';
 
 // The Postgres rate limiter (A§9): fixed windows in `rate_limit`, one atomic upsert per hit. Keys are
-// IP prefixes (/24, /56, /48) or an email HMAC, never an address (invariant 8). A refusal logs only
+// IP prefixes (/24, /56, /48), an email HMAC or a user-id HMAC, never an address or an id (invariant 8). A refusal logs only
 // the bucket's name.
 
 export type Bucket = { readonly name: string; readonly limit: number; readonly windowS: number };
@@ -22,6 +22,10 @@ export const BUCKETS = {
   passwordEmail: { name: 'password_email', limit: 5, windowS: 900 }, // password sign-ins per email
   passwordPrefix: { name: 'password_prefix', limit: 20, windowS: 3_600 }, // password sign-ins per IP prefix
   signupSiteDay: { name: 'signup_site_day', limit: 20, windowS: 86_400 }, // anonymous-triggered mails a day, site-wide (A§17.7)
+  passkeyFailPrefix: { name: 'passkey_fail_prefix', limit: 30, windowS: 3_600 }, // failed passkey sign-ins per IP prefix (P2b Q4)
+  passkeyUserHour: { name: 'passkey_user_hour', limit: 30, windowS: 3_600 }, // successful passkey sign-ins per member (P2b review L1)
+  passkeyRegisterUser: { name: 'passkey_register_user', limit: 10, windowS: 3_600 }, // failed passkey registrations per member (P2b review L2)
+  passkeyAddUserDay: { name: 'passkey_add_user_day', limit: 5, windowS: 86_400 }, // passkeys added per member a day: each sends a notice mail (P2b review M1)
   importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (keyed by user id; A§14, P2c)
 } as const satisfies Record<string, Bucket>;
 
@@ -81,6 +85,10 @@ export async function peek(db: Db, bucket: Bucket, key: string, opts: Opts = {})
 
 /** The key for an email (normalised by the contract): the table never holds an address. */
 export const emailKey = (keys: AppKeys, email: string): string => hmac(keys.otp_pepper, 'rl', email).toString('hex');
+
+/** The key for a member's passkey buckets: an HMAC of the user id, never the id in clear (invariant 8). */
+export const passkeyUserKey = (keys: AppKeys, userId: string): string =>
+  hmac(keys.otp_pepper, 'rl', 'passkey', userId).toString('hex');
 
 /** A per-email key of one host class: a public-host flood never fills the admin host's buckets (A§9, A§16.2). */
 export const hostEmailKey = (keys: AppKeys, host: 'public' | 'admin', email: string, prefix?: string): string =>

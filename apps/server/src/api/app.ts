@@ -14,19 +14,11 @@ import { type ApiEnv, requestLog } from './middleware/request.ts';
 import { sessionMiddleware } from './middleware/session.ts';
 import { parseQuery } from './query.ts';
 import { sendJson } from './respond.ts';
-import { mountAuth } from './routes/auth.ts';
-import { mountMe } from './routes/me.ts';
-import { mountMeImports } from './routes/me-imports.ts';
-import { mountMeMuseums } from './routes/me-museums.ts';
-import { mountMeProgress } from './routes/me-progress.ts';
-import { mountMeVisits } from './routes/me-visits.ts';
-import { mountMeWishlist } from './routes/me-wishlist.ts';
 import { mountMkList } from './routes/mk-list.ts';
 import { mountMuseumDetail } from './routes/museum-detail.ts';
 import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountMuseumsPoints } from './routes/museums-points.ts';
-import { mountPassword } from './routes/password.ts';
 import { mountProvinces } from './routes/provinces.ts';
 import { mountUsers } from './routes/users.ts';
 
@@ -172,24 +164,5 @@ export const mountCatalogue: Mount = (v1, d) => {
   mountUsers(v1, d);
 };
 
-/**
- * The account routes (P2a): only on the `api` role's own app, with its keys and site (runApi), never
- * on the ssr's in-process app, which mounts the catalogue alone.
- */
-export const mountAccounts: Mount = (v1, d) => {
-  mountAuth(v1, d);
-  mountPassword(v1, d);
-  mountMe(v1, d);
-  mountMeVisits(v1, d);
-  mountMeWishlist(v1, d);
-  mountMeMuseums(v1, d);
-  mountMeProgress(v1, d);
-  mountMeImports(v1, d);
-};
-
-export function createApp(deps: ApiDeps): ApiApp {
-  return buildApp(deps, (v1, d) => {
-    mountCatalogue(v1, d);
-    if (d.keys !== undefined && d.site !== undefined) mountAccounts(v1, d);
-  });
-}
+// The api role's own app (the catalogue plus the account routes, mountAccounts and createApp) lives
+// in create-app.ts, which the ssr role never loads (P2b code review).

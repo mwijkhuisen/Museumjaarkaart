@@ -10,8 +10,9 @@ import {
   Suggest,
 } from '@mjk/contracts';
 import type { z } from 'zod';
-import { type ApiApp, createApp } from '../../src/api/app.ts';
+import type { ApiApp } from '../../src/api/app.ts';
 import { CACHE_NONE, CACHE_POINTS, CACHE_PRIVATE, CACHE_PUBLIC, CACHE_REDIRECT } from '../../src/api/cache.ts';
+import { createApp } from '../../src/api/create-app.ts';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
 import { memoryLogger } from '../../src/lib/log.ts';

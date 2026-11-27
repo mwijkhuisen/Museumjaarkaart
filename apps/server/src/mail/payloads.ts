@@ -26,13 +26,24 @@ export const MailInvitePayload = z.strictObject({
   sealed_code: Sealed,
   sealed_to: Sealed,
 });
-export const MailNoticePayload = z.strictObject({ user_id: Id, locale: LocaleSchema, sealed_to: Sealed });
+/** The account notices of `mail_notice`: P2a's email change (to the old address) and P2b's added passkey. */
+export const MAIL_NOTICES = ['email_changed', 'passkey_added'] as const;
+export type MailNotice = (typeof MAIL_NOTICES)[number];
+/** `notice` is absent in the jobs P2a enqueued, which are email-change notices. */
+export const MailNoticePayload = z.strictObject({
+  user_id: Id,
+  locale: LocaleSchema,
+  sealed_to: Sealed,
+  notice: z.enum(MAIL_NOTICES).optional(),
+});
 
 export const aad = {
   code: (emailCodeId: string) => `mail_code:${emailCodeId}`,
   inviteCode: (inviteId: string) => `mail_invite:code:${inviteId}`,
   inviteTo: (inviteId: string) => `mail_invite:to:${inviteId}`,
-  noticeTo: (userId: string) => `mail_notice:to:${userId}`,
+  /** P2a's string for the email change; each other notice binds its own name, so a sealed address cannot move between them. */
+  noticeTo: (userId: string, notice: MailNotice = 'email_changed') =>
+    notice === 'email_changed' ? `mail_notice:to:${userId}` : `mail_notice:${notice}:to:${userId}`,
 };
 
 /** A code lives 10 minutes and the backoff starts at 15: a retry is useless, the member asks again. */
@@ -71,15 +82,22 @@ export function enqueueMailInvite(
   );
 }
 
+/** An account notice (`notice` defaults to the email change's), sealed to its recipient. */
 export function enqueueMailNotice(
   trx: Db,
   keys: AppKeys,
-  a: { userId: string; to: string; locale: Locale },
+  a: { userId: string; to: string; locale: Locale; notice?: MailNotice },
 ): Promise<string> {
+  const notice = a.notice ?? 'email_changed';
   return enqueueIn(
     trx,
     MAIL_NOTICE_JOB,
-    { user_id: a.userId, locale: a.locale, sealed_to: seal(keys.code_seal, a.to, aad.noticeTo(a.userId)) },
+    {
+      user_id: a.userId,
+      locale: a.locale,
+      sealed_to: seal(keys.code_seal, a.to, aad.noticeTo(a.userId, notice)),
+      notice,
+    },
     {},
   );
 }

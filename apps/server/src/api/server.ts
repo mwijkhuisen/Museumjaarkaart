@@ -10,7 +10,7 @@ import { EXIT_CONFIG } from '../db/migrate.ts';
 import { API_POOL_MAX, API_STATEMENT_TIMEOUT_MS, createPool } from '../db/pool.ts';
 import { HEARTBEAT_EVERY_MS, touch } from '../heartbeat.ts';
 import type { Logger } from '../lib/log.ts';
-import { type ApiDeps, createApp } from './app.ts';
+import type { ApiDeps } from './app.ts';
 import { type ApiConfig, readApiConfig } from './config.ts';
 import { certsUrlOf, createJwksCache, issuerOf } from './middleware/access-jwt.ts';
 
@@ -122,6 +122,10 @@ export async function runApi(env: Env, opts: ApiRunOpts): Promise<number> {
     opts.log(`api: ${keys}`);
     return EXIT_CONFIG;
   }
+  // Loaded here, not at the top: `ssr` imports this module for listen, drain and pinger (and main.ts
+  // imports every role), and must never load the account routes, which bring @simplewebauthn/server
+  // and reflect-metadata's global patch (P2b code review; test/ssr/imports.test.ts).
+  const { createApp } = await import('./create-app.ts');
   const pool = createPool('mjk_api', env, { max: API_POOL_MAX, statementTimeoutMs: API_STATEMENT_TIMEOUT_MS });
   if (typeof pool === 'string') {
     opts.log(`api: ${pool}`);

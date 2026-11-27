@@ -3,7 +3,13 @@
 // text, so none can reach a mail. The brand and the domain come from the configuration, never from here.
 
 export type Locale = 'nl' | 'en';
-export type MailKind = 'code_signin' | 'code_signup' | 'code_email_change' | 'invite' | 'email_changed';
+export type MailKind =
+  | 'code_signin'
+  | 'code_signup'
+  | 'code_email_change'
+  | 'invite'
+  | 'email_changed'
+  | 'passkey_added';
 
 export type TemplateData = {
   brand: string;
@@ -12,7 +18,7 @@ export type TemplateData = {
   code?: string;
   /** The invite's last day, an ISO date. */
   validUntil?: string;
-  /** The contact address of `email_changed`. */
+  /** The contact address of `email_changed` and `passkey_added`. */
   contact?: string;
 };
 
@@ -89,9 +95,25 @@ export function render(kind: MailKind, locale: Locale, data: TemplateData): Rend
         };
   }
 
-  // email_changed: to the old address. It names neither the new address nor anything else submitted.
   const contact = data.contact;
   if (contact === undefined || !ADDRESS.test(contact)) bad();
+
+  // passkey_added (P2b, owner 2026-11-27): to the account's address, the member's alarm for a passkey
+  // planted through a stolen session (A§16.2). It names no passkey, device or other submitted text, and
+  // holds no link (a notice that teaches members to click mail links helps a phisher).
+  if (kind === 'passkey_added') {
+    return nl
+      ? {
+          subject: `Er is een passkey toegevoegd aan je ${brand}-account`,
+          text: `Er is een passkey toegevoegd aan je account bij ${brand}. Daarmee kun je voortaan inloggen zonder code.\n\nWas jij dit niet? Log dan in, verwijder de passkey op je accountpagina (daarmee log je ook je andere sessies uit) en neem contact op via ${contact}.\n\n${brand} · ${domain}\n`,
+        }
+      : {
+          subject: `A passkey was added to your ${brand} account`,
+          text: `A passkey was added to your account at ${brand}. It can be used to sign in without a code.\n\nWas this not you? Sign in, remove the passkey on your account page (this also signs out your other sessions) and contact ${contact}.\n\n${brand} · ${domain}\n`,
+        };
+  }
+
+  // email_changed: to the old address. It names neither the new address nor anything else submitted.
   return nl
     ? {
         subject: `Het e-mailadres van je ${brand}-account is gewijzigd`,

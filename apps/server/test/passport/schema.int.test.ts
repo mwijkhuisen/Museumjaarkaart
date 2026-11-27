@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openPassportDb, type PassportDb } from './fixtures.ts';
 
-// P2c WP1 (db/migrations/20261128000001_passport.sql): the passport tables' constraints and what the
+// P2c WP1 (db/migrations/20261128000002_passport.sql): the passport tables' constraints and what the
 // public sees through pub_profile, pub_mk_list_province, pub_visit_log and pub_wishlist_of.
 
 const UNIQUE = '23505';
