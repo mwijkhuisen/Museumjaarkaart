@@ -145,8 +145,9 @@ playwright --grep-invert '@ssr-down|@load' "$@"
 # A§15.3 "never logged": near-me.spec.ts presses the button at 52.37312, 4.89351 (rounded 52.373, 4.894). Neither the
 # raw nor the rounded position, nor a lat or lon query, is in the api's, ssr's or caddy's log. A number that merely
 # contains the digits (14.894, a duration) is not a hit: the character before it must not be a digit or a dot.
+# pino's ISO `"time"` is dropped first: a line logged at hh:mm:52.373 is not the position (seen in CI, P2c).
 for service in api ssr caddy; do
-  service_log=$(compose logs --no-color --no-log-prefix "$service")
+  service_log=$(compose logs --no-color --no-log-prefix "$service" | sed -E 's/"time":"[^"]*"//g')
   if grep -qE '52\.37312|4\.89351|(^|[^0-9.])(52\.373|4\.894)|[?&](lat|lon)=' <<<"$service_log"; then
     echo "stack: the $service log holds the near-me position" >&2
     exit 1
