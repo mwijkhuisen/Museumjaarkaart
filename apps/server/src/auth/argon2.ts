@@ -14,9 +14,10 @@ export type Argon2Params = {
   readonly saltLength: number;
 };
 
-// OWASP's floor (m = 19 MiB, t = 2, p = 1) until the VM measurement [U box]: a follow-up PR
-// raises memoryKiB to the highest value ≤ 64 MiB (65536 KiB) that keeps one hash under 250 ms.
-export const ARGON2_PARAMS = { memoryKiB: 19456, passes: 2, parallelism: 1, tagLength: 32, saltLength: 16 } as const;
+// m = 56 MiB, t = 2, p = 1: the highest m ≤ 64 MiB whose single and paired hash both stay under 250 ms
+// on the VM (docs/runbooks/accounts.md B1, 2026-11-27; 64 MiB's pair median passed 250 ms). Never below
+// OWASP's floor (19 MiB), which parsePhc still accepts.
+export const ARGON2_PARAMS = { memoryKiB: 57344, passes: 2, parallelism: 1, tagLength: 32, saltLength: 16 } as const;
 
 /** The gate refused: no permit within `waitMs`. The api answers 429 with `Retry-After`. */
 export class HashBusy extends Error {

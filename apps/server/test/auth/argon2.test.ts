@@ -37,7 +37,7 @@ describe('argon2id through node:crypto', () => {
 
   it('hashes to a PHC string at or above the floor, and verifies it', async () => {
     const stored = await hashPassword(PW);
-    expect(stored).toMatch(/^\$argon2id\$v=19\$m=19456,t=2,p=1\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/);
+    expect(stored).toMatch(/^\$argon2id\$v=19\$m=57344,t=2,p=1\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/);
     const p = parsePhc(stored);
     expect(p).not.toBeNull();
     expect(p?.memoryKiB).toBeGreaterThanOrEqual(19456);
@@ -102,10 +102,11 @@ describe('parsePhc', () => {
   });
 
   it('needsRehash for other parameters and for an unparseable string', () => {
-    expect(needsRehash(phc('m=19456,t=2,p=1'))).toBe(false);
-    expect(needsRehash(phc('m=19456,t=2,p=1'), { ...ARGON2_PARAMS, memoryKiB: 47104 })).toBe(true);
-    expect(needsRehash(phc('m=19456,t=1,p=1'))).toBe(true);
-    expect(needsRehash(phc('m=19456,t=2,p=2'))).toBe(true);
+    expect(needsRehash(phc('m=57344,t=2,p=1'))).toBe(false);
+    expect(needsRehash(phc('m=19456,t=2,p=1'))).toBe(true); // a hash at the old floor is redone at sign-in
+    expect(needsRehash(phc('m=57344,t=2,p=1'), { ...ARGON2_PARAMS, memoryKiB: 47104 })).toBe(true);
+    expect(needsRehash(phc('m=57344,t=1,p=1'))).toBe(true);
+    expect(needsRehash(phc('m=57344,t=2,p=2'))).toBe(true);
     expect(needsRehash('nonsense')).toBe(true);
   });
 

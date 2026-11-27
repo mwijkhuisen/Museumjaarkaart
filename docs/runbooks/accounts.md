@@ -48,7 +48,9 @@ Their results go into a follow-up docs PR.
 
 Run on the image already deployed. The gate allows 2 hashes at once, so each m is measured alone and as a pair (`Promise.all` of two). Keep the highest m whose single median and pair median are both under 250 ms; a follow-up PR commits it to `apps/server/src/auth/argon2.ts` and A§9. Re-run the e2e `@load` pass after it.
 
-For that PR: `dummyVerify` runs at the current parameters, so after m goes up an unknown email answers slower than an account whose hash still has the old m, until that member signs in. Run the dummy at the old parameters too, with a test (A§9).
+**Result (2026-11-27, image 8621ef3):** m = 56 MiB. Medians, one / two at once: 19 MiB 26 / 73 ms; 24 MiB 31 / 78; 32 MiB 40 / 105; 40 MiB 61 / 170; 48 MiB 59–80 / 164–174 (one first run of 406, noise on the shared VM); 56 MiB 68–88 / 187–202; 64 MiB 87–100 / 210–320 (over 250 ms in two of three runs).
+
+`dummyVerify` runs at the current parameters. m went up before production held any account, so no stored hash has the old m. Before a later change of the parameters, while stored hashes with the old ones remain, run the dummy at the old parameters too, with a test (A§9).
 
 ```bash
 img=$(sed -n 's/^MJK_SERVER_IMAGE=//p' /srv/mjk/state/current.env)
@@ -64,11 +66,13 @@ console.log(`${mib} MiB: one ${await med(()=>h(mib))}; two at once ${await med((
 
 ### B2. The Cloudflare rule
 
-From the workstation. Expect the origin's 4xx first, then Cloudflare's 429 after 10 requests:
+From the workstation. Expect 10 answers from the api first: `403 application/json` from its CSRF check, because `curl` sends no `Origin` or `Sec-Fetch-Site`. Then Cloudflare's `429 text/plain`. A `429 application/json` is the api's own limiter, so the rule did not fire. Check the rule's expression covers the whole path (`starts_with`, or a wildcard; "equals `/api/v1/auth/*`" takes the `*` literally) and that it is deployed.
 
 ```bash
-for i in $(seq 25); do curl -s -o /dev/null -w '%{http_code} ' -X POST -H 'content-type: application/json' --data '{}' https://<domain>/api/v1/auth/code; done; echo
+time (for i in $(seq 25); do curl -s -o /dev/null -w '%{http_code} %{content_type}\n' -X POST -H 'content-type: application/json' --data '{}' https://<domain>/api/v1/auth/code; done | uniq -c)
 ```
+
+**Result (2026-11-27):** 25 requests in 1.7 s: 10 × `403 application/json`, then 15 × `429 text/plain; charset=UTF-8`. A first run, before the owner checked the rule, gave 25 × 403 and no 429. The CSRF check answers before the api's limiter, so the run uses none of the per-prefix code budget.
 
 ### B3. A real mail
 
