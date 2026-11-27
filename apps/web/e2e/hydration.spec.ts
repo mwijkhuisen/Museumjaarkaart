@@ -57,11 +57,15 @@ test.describe('a failed in-place navigation', () => {
       );
       const homeTitle = await page.title();
       expect(homeTitle).not.toBe(notFoundTitle);
-      await page.evaluate((to) => {
-        history.pushState(null, '', to);
-        dispatchEvent(new PopStateEvent('popstate'));
-      }, missing);
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText(notFoundHeading);
+      await page.evaluate((to) => history.pushState(null, '', to), missing);
+      // hydrateRoot marks #app at once, but the router adds its popstate listener in an effect of the
+      // hydration's commit, later: a popstate in between is lost (WebKit on CI, 2026-11-27). So dispatch
+      // until the page follows; once the router listens, a repeat for the same path changes nothing.
+      const heading = page.getByRole('heading', { level: 1 });
+      await expect(async () => {
+        await page.evaluate(() => dispatchEvent(new PopStateEvent('popstate')));
+        await expect(heading).toHaveText(notFoundHeading, { timeout: 1_000 });
+      }).toPass({ timeout: 10_000 });
       await expect(page).toHaveTitle(notFoundTitle);
     });
   }
