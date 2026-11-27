@@ -319,6 +319,8 @@ done
 
 Include a sync run and a backup run inside the day, and one `sync-museums` run (`docs/runbooks/museum-sync.md` §12): the limits must hold at the peak.
 
+**Result (2026-11-26 18:25Z to 2026-11-27, 24 samples):** peaks `ssr` 141 MiB, `worker` 133, `api` 75, `db` 55, `caddy` 29, `cloudflared` 25 (about 0.46 GB together, each under 40 % of its limit); single-sample CPU at most 65 % of a core; PIDs at most 18. The VM afterwards: 6 vCPU, 7.9 GiB of 11.7 GiB available, load about 1.5. A3's resize is not needed for prelaunch (A§17.1, A§17.2). An hourly sample misses a job that runs a few minutes: this day caught neither the backup nor a sync, so their peaks are still open (watch `docker stats` during one, or read them at a monthly drill).
+
 ## 10. After: the other stacks still work (criteria 6 and 14)
 
 ```bash
