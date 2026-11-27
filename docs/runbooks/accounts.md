@@ -12,6 +12,14 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 
 ## 2. The first admin (O4), after the deploy
 
+First deploy a server image that hashes at m = 56 MiB (built from the merge of PR #57 or later), and set no password before it runs. An image from 8621ef3 hashes at 19 MiB: a wrong password for such an account answers faster than the dummy for an unknown email, which tells an outsider the email has an account (A§9). After the deploy, and again after you set a password, this count must print `0`. It counts rows and reads no hash value:
+
+```bash
+mjkc exec -T db psql -X -U postgres -d mjk -Atc "select count(*) from app_user where password_hash is not null and password_hash not like '\$argon2id\$v=19\$m=57344,t=2,p=1\$%'"
+```
+
+Anything else means a password was set at the old parameters: sign in with it once (that rehashes it), then count again.
+
 1. Create a one-use invite that lasts one day. The code is printed once and stored only as its HMAC:
    `mjkc --profile tools run --rm admin invite create --uses 1 --days 1`
 2. Sign up at `https://<domain>/inloggen#uitnodiging=<code>` with your own address. The code mail arrives from `MJK_MAIL_FROM`.
@@ -42,13 +50,15 @@ The worker runs `apps/server/src/worker/purge.ts` as `mjk_worker` on the databas
 
 ## 5. The [box] checks after the merge
 
-Their results go into a follow-up docs PR.
+Their results went into a follow-up docs PR (B1 and B2 on 2026-11-27; B3 and B4 follow after A4).
 
 ### B1. argon2 on the VM
 
-Run on the image already deployed. The gate allows 2 hashes at once, so each m is measured alone and as a pair (`Promise.all` of two). Keep the highest m whose single median and pair median are both under 250 ms; a follow-up PR commits it to `apps/server/src/auth/argon2.ts` and A§9. Re-run the e2e `@load` pass after it.
+Ran on the image then deployed. The gate allows 2 hashes at once, so each m was measured alone and as a pair (`Promise.all` of two), in the steps of the script below. The rule: the highest step whose single median and pair median are both under 250 ms. The follow-up PR committed it to `apps/server/src/auth/argon2.ts` and A§9, and CI's e2e `@load` pass ran on it.
 
-For that PR: `dummyVerify` runs at the current parameters, so after m goes up an unknown email answers slower than an account whose hash still has the old m, until that member signs in. Run the dummy at the old parameters too, with a test (A§9).
+**Result (2026-11-27, image 8621ef3):** m = 56 MiB. Medians, one / two at once: 19 MiB 26 / 73 ms; 24 MiB 31 / 78; 32 MiB 40 / 105; 40 MiB 61 / 170; 48 MiB 59–80 / 164–174 (one first run of 406, noise on the shared VM); 56 MiB 68–88 / 187–202; 64 MiB 87–100 / 210–320 (over 250 ms in two of three runs). CI's `@load` pass at 56 MiB (50 parallel password sign-ins): the api restarted 0 times, no OOM kill, `memory.peak` 255,983,616 bytes (244 MiB of its 384 MB limit).
+
+`dummyVerify` runs at the current parameters. m went up before production held any account, so no stored hash has the old m, provided this image is deployed before the first password is set (§2 has the order and the count). A later change of the parameters must not just add a dummy at the old ones: while hashes of more than one set are stored, every failed path costs one hash per stored set (a stored hash: its verify plus a dummy at each other set; an unknown email or no password: a dummy at every set), pinned by an integration test with an old-set hash next to a current one. Or rewrap the old hashes offline under the new parameters (A§9).
 
 ```bash
 img=$(sed -n 's/^MJK_SERVER_IMAGE=//p' /srv/mjk/state/current.env)
@@ -64,11 +74,13 @@ console.log(`${mib} MiB: one ${await med(()=>h(mib))}; two at once ${await med((
 
 ### B2. The Cloudflare rule
 
-From the workstation. Expect the origin's 4xx first, then Cloudflare's 429 after 10 requests:
+From the workstation. Expect about 10 answers from the api first (Cloudflare counts approximately and per data centre): `403 application/json` from its CSRF check, because `curl` sends no `Origin` or `Sec-Fetch-Site`, so no request reaches a route or the api's limiter. Then Cloudflare's `429 text/plain`. 25 × 403 means the rule did not fire: check that its expression covers the whole path ("URI Path starts with `/api/v1/auth/`", or a wildcard match; "equals `/api/v1/auth/*`" takes the `*` literally) and that it is deployed.
 
 ```bash
-for i in $(seq 25); do curl -s -o /dev/null -w '%{http_code} ' -X POST -H 'content-type: application/json' --data '{}' https://<domain>/api/v1/auth/code; done; echo
+time (for i in $(seq 25); do curl -s -o /dev/null -w '%{http_code} %{content_type}\n' -X POST -H 'content-type: application/json' --data '{}' https://<domain>/api/v1/auth/code; done | uniq -c)
 ```
+
+**Result (2026-11-27):** 25 requests in 1.7 s: 10 × `403 application/json`, then 15 × `429 text/plain; charset=UTF-8`. A first run, before the owner checked the rule, gave 25 × 403 and no 429. The CSRF check answers before the api's limiter, so the run uses none of the per-prefix code budget.
 
 ### B3. A real mail
 
