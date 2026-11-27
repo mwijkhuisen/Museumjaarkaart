@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { formatInstant, parseDate, parseInstantMs, startOfDayMs, todayAmsterdam } from '../admin/dates.ts';
 import type { Db } from '../db/kysely.ts';
 import type { DB } from '../db/types.ts';
+import { isPriceFresh } from '../passport/savings.ts';
 import { escapeCell, readCsv, unescapeCell, writeCsv } from './csv.ts';
 import { MUSEUMKAART_STATUSES, PHOTO_POLICIES, PINNABLE_FIELDS, QID } from './fields.ts';
 
@@ -284,7 +285,9 @@ export async function pinFields(db: Db, ref: string, fields: readonly string[], 
 
 // --- CSV export and import -----------------------------------------------------------------------
 
-export const READ_ONLY_COLUMNS = ['id', 'wikidata_qid', 'slug', 'name', 'place'] as const;
+// `price_stale` is the owner's January re-check list (A§7.5): `yes` when a price exists that was never verified or
+// was verified more than 18 months ago, which € saved then counts as no price. An import ignores it.
+export const READ_ONLY_COLUMNS = ['id', 'wikidata_qid', 'slug', 'name', 'place', 'price_stale'] as const;
 export const HEADER: readonly string[] = [...READ_ONLY_COLUMNS, ...EDITABLE];
 
 const cellOf = (f: Editable, v: string | number | boolean | null): string => {
@@ -293,11 +296,14 @@ const cellOf = (f: Editable, v: string | number | boolean | null): string => {
   return String(v);
 };
 
+const verifiedOn = (ms: number | null): string | null => (ms === null ? null : formatInstant(ms).slice(0, 10));
+
 export async function exportRows(db: Db): Promise<string[][]> {
   const rows = await db.transaction().execute(async (trx) => {
     const list = await selectMuseums(trx).select('place').orderBy('slug').execute();
     return list.map((r) => ({ ...toRow(r), place: r.place }));
   });
+  const today = todayAmsterdam();
   return [
     [...HEADER],
     ...rows.map((m) => [
@@ -306,6 +312,7 @@ export async function exportRows(db: Db): Promise<string[][]> {
       escapeCell(m.slug),
       escapeCell(m.name),
       escapeCell(m.place ?? ''),
+      m.cur.admission_adult_cents !== null && !isPriceFresh(verifiedOn(m.cur.price_verified_at), today) ? 'yes' : '',
       ...EDITABLE.map((f) => cellOf(f, m.cur[f])),
     ]),
   ];
@@ -333,6 +340,7 @@ const rowSchema = z.strictObject({
   slug: z.string(),
   name: z.string(),
   place: z.string(),
+  price_stale: z.string(),
   museumkaart_status: z.enum(MUSEUMKAART_STATUSES),
   mk_since: opt(date),
   mk_until: opt(date),

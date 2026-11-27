@@ -203,7 +203,7 @@ node apps/server/src/main.ts admin museum import --csv museums.csv --dry-run
 node apps/server/src/main.ts admin museum import --csv museums.csv
 ```
 
-- Read-only context columns: `id`, `wikidata_qid`, `slug`, `name`, `place`. Editable: `museumkaart_status`, `mk_since`, `mk_until`, `mk_last_verified_at`, `admission_adult_cents`, `price_verified_at`, `photo_policy`, `closed_on`, `temp_closed`, `temp_closed_until`, `hidden`. Keep the header exactly.
+- Read-only context columns: `id`, `wikidata_qid`, `slug`, `name`, `place`, `price_stale` (P2c: `yes` when a price was never verified or was verified more than 18 months ago, so € saved counts it as no price; the January re-check list, A§7.5). An export from before P2c lacks `price_stale`: export again. Editable: `museumkaart_status`, `mk_since`, `mk_until`, `mk_last_verified_at`, `admission_adult_cents`, `price_verified_at`, `photo_policy`, `closed_on`, `temp_closed`, `temp_closed_until`, `hidden`. Keep the header exactly.
 - The file is RFC 4180 (CRLF, quoted fields, UTF-8; a BOM is fine). Open it in a tool that keeps text as text and does not reformat dates.
 - **Formula injection:** a read-only cell that starts with `=`, `+`, `-`, `@`, a tab or a CR is exported with a leading `'`. Import strips that one `'` from the read-only columns only. Do not add the prefix yourself.
 - **Refusal rules:** any issue refuses the whole file and writes nothing (exit 65; one line per issue with row and column, never the cell value; at most 50). Issues: a bad quote, a wrong header, a wrong number of cells, an invalid cell, a duplicate or unknown `id`, an `id` whose QID differs from the database (a shifted row), and a value that breaks a table check.

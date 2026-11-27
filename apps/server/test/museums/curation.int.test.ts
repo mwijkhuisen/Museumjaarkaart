@@ -230,6 +230,7 @@ it('export lists every museum by slug; a name starting with = is prefixed and st
     'slug',
     'name',
     'place',
+    'price_stale',
     'museumkaart_status',
     'mk_since',
     'mk_until',
@@ -245,10 +246,29 @@ it('export lists every museum by slug; a name starting with = is prefixed and st
   expect(rows.slice(1).map((r) => r[2])).toEqual(['a-museum', 'b-museum', 'c-museum', 'd-museum']);
   expect(rows[3]?.[3]).toBe('\'=HYPERLINK("x")');
   expect(rows[4]?.[3]).toBe('D, "quoted"\nmuseum');
-  expect(rows[1]?.slice(5)).toEqual(['unknown', '', '', '', '', '', 'unknown', '', 'false', '', 'false']);
+  expect(rows[1]?.slice(5)).toEqual(['', 'unknown', '', '', '', '', '', 'unknown', '', 'false', '', 'false']);
   const before = await snapshot();
   const r = await importRows(rows);
   expect(r.code).toBe(0);
+  expect(await snapshot()).toEqual(before);
+});
+
+it('price_stale says yes for a price that is unverified or older than 18 months, and an import ignores it', async () => {
+  const old = new Date(Date.now() - 600 * 86_400_000).toISOString();
+  const fresh = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  await h.api.query('UPDATE museum SET admission_adult_cents = 1000 WHERE slug IN ($1, $2, $3)', [
+    'a-museum',
+    'b-museum',
+    'c-museum',
+  ]);
+  await h.api.query('UPDATE museum SET price_verified_at = $2 WHERE slug = $1', ['a-museum', old]);
+  await h.api.query('UPDATE museum SET price_verified_at = $2 WHERE slug = $1', ['b-museum', fresh]);
+  const rows = await exported();
+  const stale = (slug: string) => (rows.find((r) => r[2] === slug) as string[])[col(rows, 'price_stale')];
+  expect([stale('a-museum'), stale('b-museum'), stale('c-museum'), stale('d-museum')]).toEqual(['yes', '', 'yes', '']);
+  const before = await snapshot();
+  set(rows, 'b-museum', 'price_stale', 'yes');
+  expect((await importRows(rows)).code).toBe(0);
   expect(await snapshot()).toEqual(before);
 });
 

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { formatInstant, parseDate, parseInstantMs, startOfDayMs } from '../../src/admin/dates.ts';
+import { formatInstant, monthsBefore, parseDate, parseInstantMs, startOfDayMs } from '../../src/admin/dates.ts';
 import { type Curated, diffPatch } from '../../src/museums/curation.ts';
 
 const base: Curated = {
@@ -36,4 +36,11 @@ it('the start of a day is taken in Europe/Amsterdam', () => {
   expect(formatInstant(startOfDayMs('2026-12-01'))).toBe('2026-12-01T00:00:00+01:00');
   expect(parseInstantMs('2026-12-01T00:00:00+01:00')).toBe(startOfDayMs('2026-12-01'));
   expect(parseInstantMs('2026-12-01')).toBeUndefined();
+});
+
+it('monthsBefore steps whole calendar months and clamps to the last day', () => {
+  expect(monthsBefore('2026-11-27', 18)).toBe('2025-05-27');
+  expect(monthsBefore('2026-03-31', 1)).toBe('2026-02-28');
+  expect(monthsBefore('2024-02-29', 12)).toBe('2023-02-28');
+  expect(monthsBefore('2026-01-15', 2)).toBe('2025-11-15');
 });
