@@ -22,6 +22,7 @@ import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { hmac, safeEqual, sha256 } from './crypto.ts';
 import type { AppKeys } from './keys.ts';
+import { BUCKETS, hit, passkeyUserKey } from './limiter.ts';
 import { loadUser, toMeUser } from './me.ts';
 import { REAUTH_S, type Session, type SessionHost, startSession } from './session.ts';
 
@@ -161,12 +162,17 @@ export function signInOptions(d: WebAuthnDeps, host: SessionHost): PasskeySignIn
   };
 }
 
-export type SignInResult = { ok: true; cookie: string; me: MeUser } | { ok: false; code: 'unauthorized' | 'banned' };
+export type SignInResult =
+  | { ok: true; cookie: string; me: MeUser }
+  | { ok: false; code: 'unauthorized' | 'banned' }
+  | { ok: false; code: 'rate_limited'; retryAfterS: number };
 
 /**
  * POST /auth/passkey/verify. Unknown credentials, deleted accounts and, on the admin host, an account
  * whose email is not the Access JWT's all get the same refusal before any signature work; a banned
- * account gets `banned` only after its signature verified (A§9, as for a password). Logs fixed codes.
+ * account gets `banned` only after its signature verified (A§9, as for a password). A member past
+ * `passkey_user_hour` (30 sign-ins an hour, counted once the signature verified) gets `rate_limited`
+ * and no session. Logs fixed codes.
  */
 export async function verifySignIn(
   d: WebAuthnDeps,
@@ -244,6 +250,12 @@ export async function verifySignIn(
   }
   if (row.status === 'banned') return { ok: false, code: 'banned' };
   if (row.status !== 'active') return refuse('unknown');
+  // P2b review L1: a per-member cap on successful sign-ins, keyed by an HMAC of the user id.
+  const perUser = await hit(d.db, BUCKETS.passkeyUserHour, passkeyUserKey(d.keys, row.user_id));
+  if (!perUser.allowed) {
+    d.logger.warn({ bucket: BUCKETS.passkeyUserHour.name }, 'rate_limited');
+    return { ok: false, code: 'rate_limited', retryAfterS: perUser.retryAfterS };
+  }
 
   return d.db.transaction().execute(async (trx): Promise<SignInResult> => {
     if (!(await spendChallenge(trx, host, spend))) return refuse('replay');

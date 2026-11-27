@@ -7,6 +7,7 @@ import {
   PasskeyRenameRequest,
 } from '@mjk/contracts';
 import { z } from 'zod';
+import { BUCKETS, enforce, hit, passkeyUserKey, refund } from '../../auth/limiter.ts';
 import { endUserSessions, requireReauth, requireReauthWithin } from '../../auth/session.ts';
 import {
   ADD_REAUTH_S,
@@ -29,6 +30,8 @@ import { sendJson } from '../respond.ts';
 //     the session's user, so another member's ref is a 404, never a 403 ("self");
 //   - adding needs a sign-in within 5 minutes at the options and within 10 at the end (Q1a); removing
 //     needs 10, and ends every other session of the member (a lost device's sessions go with it);
+//   - a member has 10 failed adds an hour (`passkey_register_user`, keyed by an HMAC of the user id),
+//     then 429; a stored passkey gives its slot back;
 //   - the list and the answers never carry a credential id, a public key, the transports or the counter.
 // Nothing here logs: the core logs its fixed codes, and a ref, a name or a credential id never reaches a line.
 
@@ -62,12 +65,18 @@ export function mountMePasskeys(v1: ApiApp, deps: ApiDeps): void {
     const session = requireMember(c);
     requireReauth(session);
     const body = await readJson(c, PasskeyRegisterRequest);
+    // P2b review L2: one slot of passkey_register_user reserved before the verify, given back on success.
+    const bucket = BUCKETS.passkeyRegisterUser;
+    const key = passkeyUserKey(keys, session.user.id);
+    const slot = await hit(db, bucket, key);
+    enforce(deps.logger, bucket, slot);
     const result = await verifyRegistration(wa, {
       host: hostClass(c, site),
       session,
       credential: body.credential,
       name: body.name,
     });
+    if (result.ok) await refund(db, bucket, key, slot.windowStart);
     if (!result.ok) throw result.code === 'invalid' ? new ApiError('invalid', ['response']) : new ApiError(result.code);
     return sendJson(c, PasskeyItem, result.item, CACHE_PRIVATE, 201);
   });

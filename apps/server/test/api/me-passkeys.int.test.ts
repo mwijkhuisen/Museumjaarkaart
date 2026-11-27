@@ -345,6 +345,32 @@ describe('refusals', () => {
     expect(await passkeysOf(w)).toBe(0);
   });
 
+  it('10 failed adds an hour per member, then 429 (L2); a stored passkey gives its slot back', async () => {
+    const w = await member();
+    const forged = { origin: 'https://evil.test' };
+    for (let i = 0; i < 9; i++) expect((await add(w, { forged })).status).toBe(422);
+    // Successes do not count: the 10th failure is still a 422.
+    await added(w, 'First');
+    await added(w, 'Second', softCredential({ userHandle: w.cred.userHandle }));
+    expect((await add(w, { forged })).status).toBe(422);
+    const from = t.lines().length;
+    // The 11th failed attempt is refused before any verify, so a good credential is refused too.
+    const r = await add(w, { cred: softCredential({ userHandle: w.cred.userHandle }) });
+    expect(r.status).toBe(429);
+    expect(await r.json()).toEqual({ error: 'rate_limited' });
+    expect(Number(r.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(await passkeysOf(w)).toBe(2);
+    const limited = t
+      .lines()
+      .slice(from)
+      .filter((l) => l.msg === 'rate_limited');
+    expect(limited.map((l) => l.bucket)).toEqual(['passkey_register_user']);
+    expect(JSON.stringify(t.lines().slice(from))).not.toContain(w.user.id);
+    // Another member is not affected.
+    const other = await member();
+    expect((await add(other)).status).toBe(201);
+  });
+
   it('the same credential twice → 409', async () => {
     const w = await member();
     await added(w, 'Once');

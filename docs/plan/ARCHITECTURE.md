@@ -420,6 +420,8 @@ Own code following Lucia's `auth_session` approach (ADR-0007). No Google or Appl
   | Code check | 500 failures per hour site-wide [U] | then verify also needs an ALTCHA solution |
   | Password sign-in | 5 per 15 min; 20 per hour | user; IP prefix |
   | Passkey sign-in (P2b) | 30 failures per hour (reserved, refunded once the signature verified) | IP prefix; options are not limited, they write nothing (owner, Q4) |
+  | Passkey sign-in (P2b review L1) | 30 successes per hour (`passkey_user_hour`: counted once the signature verified and before the session starts; past it a 429 and no session) | member: HMAC(`otp_pepper`, 'rl', 'passkey', user id), never the id |
+  | Passkey add (P2b review L2) | 10 failures per hour (`passkey_register_user`: reserved before the verify, refunded when the passkey is stored) | member, keyed as above |
   | Reviews and edits | 20 per day | user |
   | Photos | 30 per day, 1 GB in total | user |
   | Notices | 10 per day | IP prefix |

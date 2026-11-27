@@ -17,6 +17,8 @@ import { sendJson } from '../respond.ts';
 //     so it needs no limit of its own (owner, Q4);
 //   - verify reserves one slot of `passkey_fail_prefix` (30 an hour per IP prefix, its /48 at 4×)
 //     before any work and gives it back once the signature verified; no client address → 429;
+//   - a verified sign-in also counts in `passkey_user_hour` (30 an hour per member, auth/webauthn.ts);
+//     past it the answer is 429 and no session starts (P2b review L1);
 //   - on the admin host the Access JWT has passed already (accessJwt runs first), and only the
 //     JWT's own account can sign in.
 // Nothing here logs a credential id, a key, a challenge, a token or an email.
@@ -54,8 +56,10 @@ export function mountAuthPasskey(v1: ApiApp, deps: ApiDeps): void {
       sentToken: readSessionCookie(c.req.header('cookie')),
     });
     if (!result.ok) {
-      // A banned member's signature verified: that is no failed guess (A§9, as for a password).
-      if (result.code === 'banned') await refundVerified();
+      // A banned member's signature verified, and so did one past passkey_user_hour: neither is a
+      // failed guess (A§9, as for a password).
+      if (result.code !== 'unauthorized') await refundVerified();
+      if (result.code === 'rate_limited') throw new ApiError('rate_limited', undefined, result.retryAfterS);
       throw new ApiError(result.code);
     }
     await refundVerified();

@@ -485,10 +485,12 @@ describe('the request and the limiter', () => {
 
   it('30 failed verifies an hour per IP prefix, then 429; a verified signature gives its slot back', async () => {
     const { cred } = await enrolled();
+    const other = await enrolled();
     const p = peer();
-    // Successes do not count.
+    // Successes do not count (two members, so neither reaches passkey_user_hour).
     for (let i = 0; i < 32; i++) {
-      expect((await verify(cred.assert({ challenge: await options({ peer: p }) }), { peer: p })).status).toBe(200);
+      const c = i % 2 === 0 ? cred : other.cred;
+      expect((await verify(c.assert({ challenge: await options({ peer: p }) }), { peer: p })).status).toBe(200);
     }
     const bad = () => cred.assert({ challenge: 'A'.repeat(72) });
     for (let i = 0; i < 30; i++) expect((await verify(bad(), { peer: p })).status).toBe(401);
@@ -496,6 +498,45 @@ describe('the request and the limiter', () => {
     expect(r.status).toBe(429);
     expect(Number(r.headers.get('retry-after'))).toBeGreaterThan(0);
     expect(t.lines().at(-2)).toMatchObject({ msg: 'rate_limited', bucket: 'passkey_fail_prefix' });
+  });
+
+  it('30 successful sign-ins an hour per member, then 429 with no session (L1); the key is no user id', async () => {
+    const { user, cred } = await enrolled();
+    const p = peer();
+    for (let i = 0; i < 30; i++) {
+      expect((await verify(cred.assert({ challenge: await options({ peer: p }) }), { peer: p })).status).toBe(200);
+    }
+    const sessions = await countRows('SELECT count(*) AS n FROM session WHERE user_id = $1', [user.id]);
+    const from = t.lines().length;
+    const r = await verify(cred.assert({ challenge: await options({ peer: p }) }), { peer: p });
+    expect(r.status).toBe(429);
+    expect(await r.json()).toEqual({ error: 'rate_limited' });
+    expect(Number(r.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(r.headers.get('set-cookie')).toBeNull();
+    expect(await countRows('SELECT count(*) AS n FROM session WHERE user_id = $1', [user.id])).toBe(sessions);
+    const limited = linesSince(from).filter((l) => l.msg === 'rate_limited');
+    expect(limited).toHaveLength(1);
+    const { level: _l, time: _t, role: _r, msg: _m, ...fields } = limited[0] as Record<string, unknown>;
+    expect(fields).toEqual({ bucket: 'passkey_user_hour' });
+    // The verified signature gave its passkey_fail_prefix slot back.
+    expect(
+      await countRows(
+        "SELECT COALESCE(sum(count), 0) AS n FROM rate_limit WHERE bucket = 'passkey_fail_prefix' AND key = $1",
+        [`${p.split('.').slice(0, 3).join('.')}.0/24`],
+      ),
+    ).toBe(0);
+    // Keyed by 64 hex characters of an HMAC, never the id.
+    const keys = (
+      await a.admin.query<{ key: string; count: number }>(
+        "SELECT key, count FROM rate_limit WHERE bucket = 'passkey_user_hour'",
+      )
+    ).rows;
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.every((k) => /^[0-9a-f]{64}$/.test(k.key) && !k.key.includes(user.id))).toBe(true);
+    expect(keys.some((k) => k.count === 31)).toBe(true);
+    // Another member from the same address still signs in.
+    const next = await enrolled();
+    expect((await verify(next.cred.assert({ challenge: await options({ peer: p }) }), { peer: p })).status).toBe(200);
   });
 
   it('no client address → 429, before any work', async () => {
