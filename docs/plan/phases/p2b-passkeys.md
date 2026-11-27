@@ -2,6 +2,13 @@
 
 Status: draft for the owner's approval (2026-11-01). It holds the questions, design points, work packages and prompts for issue [#18](https://github.com/mwijkhuisen/mjk/issues/18) (PHASES §3 P2b), written before the phase starts, and cites ARCHITECTURE.md as A§x. It is not a full build plan like [P1a's](p1a-museum-sources.md): the build lead drafts the design in plan mode from §2, and the owner approves it before any code. Names from earlier phases are the ones their plans propose; where the code on `main`, or a merged change to ARCHITECTURE.md, PHASES.md, CLAUDE.md or an ADR, says otherwise, that wins, and the lead's plan names the difference.
 
+**As built** (2026-11-27, PR for #18; the owner's answers in plan mode: Q1 10 minutes, Q2 the handle and a random user id, Q3 `none`, Q4 below, Q5 yes, and a new Q1a). Where the build differs from §2 below, A§9 as built wins:
+- **Challenges are stateless** (owner, Q-A, replacing §2's stored row and Q4's limit on options): signed per host, ceremony and (when registering) session with `altcha_hmac` under the label `webauthn`, and spent once into `auth_challenge` by an INSERT after the signature verified, because @simplewebauthn/server 14.0.3 calls `expectedChallenge` before its other checks. Options write nothing and are not limited; failed verifies are (`passkey_fail_prefix`, 30 an hour per IP prefix).
+- **Q1a:** starting an add (`POST /me/passkeys/options`) needs a sign-in within 5 minutes, so the 10-minute window still holds when the ceremony ends.
+- A banned account gets 403 `banned` after its signature verified (P2a's rule for a password), not the unknown-credential answer.
+- The routes take `:ref` (a `passkey.ref` uuid, like `session.ref`), never the credential id.
+- The e2e has no admin-host leg (its passkey's owner would race `admin-auth.spec.ts`); criterion 3 is proven in `webauthn.int.test.ts` and `admin-host.int.test.ts` with a real JWT.
+
 ## 0. Before the build starts
 
 - **Depends on:** P2a merged. P2b builds on its sessions (`session.host`, `reauth_at`, ending the other sessions), `auth_challenge` (purpose `webauthn`, with its host), the limiter, the admin-host gate (the Access JWT first, admin sessions only for the JWT's email), the `/me` routes, the sign-in and account screens and the auth e2e spec.
