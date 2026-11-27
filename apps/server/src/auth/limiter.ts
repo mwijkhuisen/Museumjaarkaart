@@ -29,6 +29,7 @@ export const BUCKETS = {
   passkeyAddUserDay: { name: 'passkey_add_user_day', limit: 5, windowS: 86_400 }, // passkeys added per member a day: each sends a notice mail (P2b review M1)
   importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (a user-id HMAC; A§14, P2c)
   exportUserDay: { name: 'export_user_day', limit: 3, windowS: 86_400 }, // export requests per member (a user-id HMAC; P2c Q5: each costs a mail)
+  reviewUserDay: { name: 'review_user_day', limit: 20, windowS: 86_400 }, // review writes (POST and PATCH /reviews) per member (a user-id HMAC; A§9, P3a)
 } as const satisfies Record<string, Bucket>;
 
 export type Hit = {
@@ -89,7 +90,7 @@ export async function peek(db: Db, bucket: Bucket, key: string, opts: Opts = {})
 export const emailKey = (keys: AppKeys, email: string): string => hmac(keys.otp_pepper, 'rl', email).toString('hex');
 
 /** The key for a member's own buckets: an HMAC of the scope and the user id, never the id in clear (invariant 8). */
-export const userKey = (keys: AppKeys, scope: 'passkey' | 'import' | 'export', userId: string): string =>
+export const userKey = (keys: AppKeys, scope: 'passkey' | 'import' | 'export' | 'review', userId: string): string =>
   hmac(keys.otp_pepper, 'rl', scope, userId).toString('hex');
 
 /** The key for a member's passkey buckets. */

@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@mjk/contracts';
 import type { Context, MiddlewareHandler } from 'hono';
 import { loadSession, readSessionCookie, type Session, type SessionHost } from '../../auth/session.ts';
 import type { Db } from '../../db/kysely.ts';
@@ -37,5 +38,15 @@ export function sessionMiddleware(db: Db, site: SiteDeps): MiddlewareHandler<Api
 export function requireMember(c: Context<ApiEnv>): Session {
   const session = c.get('session');
   if (session === undefined) throw new ApiError('unauthorized');
+  return session;
+}
+
+/**
+ * A member who may post (A§9 "poster", P3a): signed in and on the current terms, else 403 `terms_required`.
+ * Creating or editing public content needs it; deleting one's own content does not.
+ */
+export function requirePoster(c: Context<ApiEnv>): Session {
+  const session = requireMember(c);
+  if (session.user.terms_version !== TERMS_VERSION) throw new ApiError('terms_required');
   return session;
 }

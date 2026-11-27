@@ -1,7 +1,7 @@
 import type { MuseumList, MuseumListItem, MuseumListQuery, MuseumPoint, MuseumPoints } from '@mjk/contracts';
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
-import { decodeCursor, encodeCursor, type PageCursor } from './cursor.ts';
+import { decodeCursor, encodeCursor, type NameCursor, type SearchCursor } from './cursor.ts';
 import { matches } from './search.ts';
 
 // The catalogue list (A§14): filters combined with AND, keyset paging, `total` under the same filters.
@@ -27,11 +27,14 @@ export type ListParams = Pick<MuseumListQuery, 'province' | 'municipality' | 'ca
 };
 
 /** The cursor of this request, or InvalidCursor: checked before any SQL. */
-export function resolveCursor(q: string | undefined, raw: string | undefined): PageCursor | null {
+export function resolveCursor(q: string | undefined, raw: string | undefined): NameCursor | SearchCursor | null {
   if (raw === undefined) return null;
   const decoded = decodeCursor(raw);
-  if (!decoded.ok || decoded.cursor.m !== (q === undefined ? 'n' : 's')) throw new InvalidCursor();
-  return decoded.cursor;
+  if (!decoded.ok) throw new InvalidCursor();
+  const c = decoded.cursor;
+  if (q === undefined && c.m === 'n') return c;
+  if (q !== undefined && c.m === 's') return c;
+  throw new InvalidCursor();
 }
 
 type Row = Omit<MuseumListItem, 'closed_on'> & {
@@ -63,7 +66,7 @@ function filters(p: Omit<ListParams, 'limit' | 'cursor'>): RawBuilder<unknown> {
   return parts.length === 0 ? sql`TRUE` : sql.join(parts, sql` AND `);
 }
 
-function after(cursor: PageCursor | null): RawBuilder<unknown> {
+function after(cursor: NameCursor | SearchCursor | null): RawBuilder<unknown> {
   if (cursor === null) return sql`TRUE`;
   if (cursor.m === 'n') return sql`(m.sort_name, m.id) > (${cursor.k}::text, ${cursor.i}::uuid)`;
   return sql`(b.tier, -b.score, m.sort_name, m.id) > (${cursor.t}::int, -${cursor.s}::float8, ${cursor.k}::text, ${cursor.i}::uuid)`;

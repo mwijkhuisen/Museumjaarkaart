@@ -3,7 +3,8 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { decodeCursor, encodeCursor, type PageCursor } from '../../src/museums/cursor.ts';
 
-// The keyset cursor of GET /museums (A§14): base64url of compact JSON in two modes, decoded strictly.
+// The keyset cursor of GET /museums and the review lists (A§14): base64url of compact JSON in four modes,
+// decoded strictly.
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
 const b64 = (text: string) => Buffer.from(text).toString('base64url');
@@ -38,10 +39,32 @@ describe('encodeCursor and decodeCursor', () => {
     );
   });
 
+  it('round-trips the rank mode (P3a), a score of 0 included', () => {
+    fc.assert(
+      fc.property(fc.double({ min: 0, max: 5, noNaN: true }), sortKey, uuid, (s, k, i) => {
+        const c: PageCursor = { m: 'r', s, k, i };
+        const back = decodeCursor(encodeCursor(c));
+        expect(back).toEqual({ ok: true, cursor: c });
+        if (back.ok && back.cursor.m === 'r') expect(Object.is(back.cursor.s, s === 0 ? 0 : s)).toBe(true);
+      }),
+    );
+  });
+
+  it('round-trips the id mode of the review lists (P3a)', () => {
+    fc.assert(
+      fc.property(uuid, (i) => {
+        const c: PageCursor = { m: 'i', i };
+        expect(decodeCursor(encodeCursor(c))).toEqual({ ok: true, cursor: c });
+      }),
+    );
+  });
+
   it('writes compact JSON with the keys in a fixed order', () => {
     const decode = (c: PageCursor) => Buffer.from(encodeCursor(c), 'base64url').toString();
     expect(decode({ m: 'n', k: 'a', i: ID })).toBe(`{"m":"n","k":"a","i":"${ID}"}`);
+    expect(decode({ m: 'r', s: 4.25, k: 'a', i: ID })).toBe(`{"m":"r","s":4.25,"k":"a","i":"${ID}"}`);
     expect(decode({ m: 's', t: 2, s: 0.5, k: 'a', i: ID })).toBe(`{"m":"s","t":2,"s":0.5,"k":"a","i":"${ID}"}`);
+    expect(decode({ m: 'i', i: ID })).toBe(`{"m":"i","i":"${ID}"}`);
   });
 
   it('normalises -0 to 0', () => {
@@ -54,6 +77,7 @@ describe('encodeCursor and decodeCursor', () => {
   it('refuses to encode a score that no cursor may hold', () => {
     for (const s of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
       expect(() => encodeCursor({ m: 's', t: 1, s, k: 'a', i: ID })).toThrow(RangeError);
+      expect(() => encodeCursor({ m: 'r', s, k: 'a', i: ID })).toThrow(RangeError);
     }
   });
 
@@ -132,6 +156,16 @@ describe('malformed cursors', () => {
     ['a negative infinite score', b64(`{"m":"s","t":1,"s":-1e999,"k":"a","i":"${ID}"}`)],
     ['a score as an array', b64(JSON.stringify({ ...searchOk, s: [0.5] }))],
     ['a score as a boolean', b64(JSON.stringify({ ...searchOk, s: true }))],
+    ['rank mode without a score', b64(JSON.stringify({ m: 'r', k: 'a', i: ID }))],
+    ['rank mode without a key', b64(JSON.stringify({ m: 'r', s: 1, i: ID }))],
+    ['rank mode with a tier', b64(JSON.stringify({ m: 'r', t: 1, s: 1, k: 'a', i: ID }))],
+    ['rank mode with a negative score', b64(JSON.stringify({ m: 'r', s: -0.1, k: 'a', i: ID }))],
+    ['rank mode with an infinite score', b64(`{"m":"r","s":1e999,"k":"a","i":"${ID}"}`)],
+    ['rank mode with a score as a string', b64(JSON.stringify({ m: 'r', s: '1', k: 'a', i: ID }))],
+    ['id mode with a key', b64(JSON.stringify({ m: 'i', k: 'a', i: ID }))],
+    ['id mode without an id', b64(JSON.stringify({ m: 'i' }))],
+    ['id mode with an id that is not a uuid', b64(JSON.stringify({ m: 'i', i: 'nope' }))],
+    ['id mode with SQL in the id', b64(JSON.stringify({ m: 'i', i: `${ID}'--` }))],
   ];
 
   it.each(cases)('is a typed failure, not a throw: %s', (_name, text) => {
