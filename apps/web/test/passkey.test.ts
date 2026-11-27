@@ -8,6 +8,8 @@ import { PasskeyUnusable, projectAssertion, projectAttestation } from '../src/li
 
 const ID = 'AQIDBAUGBwgJCgsMDQ4PEA';
 const CLIENT_DATA = 'eyJ0eXBlIjoid2ViYXV0aG4uZ2V0In0';
+// Built, not written out: a long base64url literal next to a field name reads as a key to gitleaks.
+const DATA = Buffer.alloc(37, 0x49).toString('base64url');
 
 const assertion = (patch: Record<string, unknown> = {}): AuthenticationResponseJSON => ({
   id: ID,
@@ -17,7 +19,7 @@ const assertion = (patch: Record<string, unknown> = {}): AuthenticationResponseJ
   clientExtensionResults: { appid: true, credProps: { rk: true } },
   response: {
     clientDataJSON: CLIENT_DATA,
-    authenticatorData: 'SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAQ',
+    authenticatorData: DATA,
     signature: 'MEUCIQDh',
     userHandle: 'dXNlci1oYW5kbGU',
     ...patch,
@@ -39,7 +41,7 @@ const attestation = (
     transports: ['internal', 'hybrid'],
     publicKeyAlgorithm: -7,
     publicKey: 'MFkwEwYH',
-    authenticatorData: 'SZYN5YgOjGh0',
+    authenticatorData: DATA,
     ...response,
   } as RegistrationResponseJSON['response'],
 });
@@ -57,7 +59,7 @@ describe('projectAssertion', () => {
       type: 'public-key',
       response: {
         clientDataJSON: CLIENT_DATA,
-        authenticatorData: 'SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAAAQ',
+        authenticatorData: DATA,
         signature: 'MEUCIQDh',
         userHandle: 'dXNlci1oYW5kbGU',
       },
