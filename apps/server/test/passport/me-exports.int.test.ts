@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mountMeExports } from '../../src/api/routes/me-exports.ts';
+import { userKey } from '../../src/auth/limiter.ts';
 import { meApp } from '../api/me-app.ts';
 import { openPassportDb, type PassportDb } from './fixtures.ts';
 
@@ -88,6 +89,13 @@ describe('the export routes', () => {
     expect(Number(r.headers.get('retry-after'))).toBeGreaterThan(0);
     expect(r.headers.get('cache-control')).toBe('private, no-store');
     expect((await list(u.token)).length).toBe(3);
+    // The bucket's key is an HMAC of the member's id, never the id itself (invariant 8).
+    const keys = await p.owner.query<{ key: string }>(
+      `SELECT key FROM rate_limit WHERE bucket = 'export_user_day' AND key = $1`,
+      [userKey(app.keys, 'export', u.id)],
+    );
+    expect(keys.rows.length).toBe(1);
+    expect((await p.owner.query(`SELECT 1 FROM rate_limit WHERE key = $1`, [u.id])).rows).toEqual([]);
   });
 
   it('lists the files only while ready and unexpired, newest first, and only the member’s own', async () => {

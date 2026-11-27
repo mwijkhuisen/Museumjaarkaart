@@ -156,9 +156,9 @@ describe('the wishlist button', () => {
 });
 
 describe('the markup is the same for everyone', () => {
-  it('renders an empty slot and no form until the marks are there', () => {
+  it('renders empty slots and no form until the marks are there', () => {
     stubStorage({ 'mjk-member': '1' });
     expect(renderToStaticMarkup(<MarkSlot museumId={A} name="Een museum" />)).toBe('<div class="marks-slot"></div>');
-    expect(renderToStaticMarkup(<VisitForm museumId={A} />)).toBe('');
+    expect(renderToStaticMarkup(<VisitForm museumId={A} />)).toBe('<div class="visit-slot"></div>');
   });
 });

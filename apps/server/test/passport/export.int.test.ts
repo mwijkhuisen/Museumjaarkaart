@@ -2,12 +2,14 @@ import { mkdtempSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { todayAmsterdam } from '../../src/admin/dates.ts';
 import { mountMeExports } from '../../src/api/routes/me-exports.ts';
 import { mountMeImports } from '../../src/api/routes/me-imports.ts';
 import { memoryLogger } from '../../src/lib/log.ts';
 import { memoryMailer } from '../../src/mail/mailer.ts';
 import { MAIL_EXPORT_JOB } from '../../src/mail/payloads.ts';
 import { DATA_EXPORT_JOB, dataExportJob } from '../../src/passport/export/job.ts';
+import { parseCsv } from '../../src/passport/import/csv.ts';
 import { mailJobs } from '../../src/worker/mail.ts';
 import type { JobHandler } from '../../src/worker/types.ts';
 import { meApp } from '../api/me-app.ts';
@@ -149,6 +151,15 @@ describe('the data export', () => {
       p.owner.query('SELECT museum_id FROM wishlist WHERE user_id = $1 ORDER BY 1', [id]).then((r) => r.rows);
     expect(await visits(fresh.id)).toEqual(await visits(alice.id));
     expect(await wishlist(fresh.id)).toEqual(await wishlist(alice.id));
+  });
+
+  it('its visits.csv imports as visits and its wishlist.csv as wishlist entries', () => {
+    const kinds = (name: 'visits.csv' | 'wishlist.csv') => {
+      const r = parseCsv(files[name] as string, todayAmsterdam());
+      return r.ok ? r.rows.map((row) => row.kind) : r.error;
+    };
+    expect(kinds('visits.csv')).toEqual(['visit', 'visit', 'visit', 'visit']);
+    expect(kinds('wishlist.csv')).toEqual(['wishlist', 'wishlist']);
   });
 
   it('downloads only for its member: another member 404, signed out 401', async () => {

@@ -14,14 +14,15 @@ import { m } from '../paraglide/messages.js';
 // and the museums' names are plain text; there is no avatar, only initials. A list the member keeps
 // private is `null` and simply absent. "Meer" fetches the next page of a list in the browser only.
 
-const initialsOf = (name: string): string =>
+/** Upper-cased in the page's own locale, never the host's: server and browser agree ("i" is "İ" in Turkish). */
+const initialsOf = (name: string, locale: Locale): string =>
   name
     .split(/\s+/)
     .filter((w) => w !== '')
     .slice(0, 2)
     .map((w) => Array.from(w)[0] ?? '')
     .join('')
-    .toLocaleUpperCase();
+    .toLocaleUpperCase(locale);
 
 type Page<T> = { items: T[]; next: string | null };
 
@@ -134,7 +135,7 @@ export function Profile({ route }: { route: Extract<Route, { page: 'profile' }> 
     <article className="stack">
       <header className="cluster">
         <span className="avatar" aria-hidden="true">
-          {initialsOf(profile.display_name)}
+          {initialsOf(profile.display_name, locale)}
         </span>
         <div>
           <h1>{profile.display_name}</h1>

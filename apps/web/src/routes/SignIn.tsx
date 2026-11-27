@@ -45,9 +45,10 @@ export function SignIn({ route }: { route: Extract<Route, { page: 'shell' }> }) 
   }, []);
 
   const account = pathOf({ page: 'shell', locale, app: 'account' });
-  const signedIn = (value: Me) => {
+  // A sign-in goes to the account page; a new member goes on to the onboarding (A§10).
+  const signedIn = (to: string) => (value: Me) => {
     setMe(value);
-    navigate(account);
+    navigate(to);
   };
 
   let body: ReactNode;
@@ -80,7 +81,11 @@ export function SignIn({ route }: { route: Extract<Route, { page: 'shell' }> }) 
       <section className="stack" aria-labelledby="signup-heading">
         <h2 id="signup-heading">{m.auth_signup_heading()}</h2>
         <p>{m.auth_signup_intro()}</p>
-        <SignUpForm locale={locale} initialInvite={invite} onSignedIn={signedIn} />
+        <SignUpForm
+          locale={locale}
+          initialInvite={invite}
+          onSignedIn={signedIn(pathOf({ page: 'shell', locale, app: 'welcome' }))}
+        />
         <p>
           <button type="button" className="link-button" onClick={() => setSignUp(false)}>
             {m.auth_have_account()}
@@ -91,7 +96,7 @@ export function SignIn({ route }: { route: Extract<Route, { page: 'shell' }> }) 
   } else {
     body = (
       <>
-        <SignInMethods locale={locale} onSignedIn={signedIn} />
+        <SignInMethods locale={locale} onSignedIn={signedIn(account)} />
         <p>
           <button type="button" className="link-button" onClick={() => setSignUp(true)}>
             {m.auth_invite_toggle()}

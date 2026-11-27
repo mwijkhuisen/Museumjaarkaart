@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import { expect, it } from 'vitest';
 import { escapeCell, writeCsv } from '../../../src/museums/csv.ts';
 import { parseCsv } from '../../../src/passport/import/csv.ts';
-import { VISITS_CSV_HEADER } from '../../../src/passport/mjk-format.ts';
+import { VISITS_CSV_HEADER, WISHLIST_CSV_HEADER } from '../../../src/passport/mjk-format.ts';
 
 const TODAY = '2026-11-27';
 const ID = '0b0f8f3e-7c1d-4a52-9d0e-2f6c1a8b4e11';
@@ -131,6 +131,26 @@ it('reads back the header our own export writes', () => {
     },
     { row: 2, ref: { mjkId: ID, name: 'B', place: null }, visited_on: null, note: null, error: null },
   ]);
+  expect(rowsOf(text).map((r) => r.kind)).toEqual(['visit', 'visit']);
+});
+
+it('reads our own wishlist.csv as wishlist entries, with no date or note', () => {
+  const text = writeCsv([[...WISHLIST_CSV_HEADER], [ID, 'Rijksmuseum', 'Amsterdam', '2026-05-06']]);
+  expect(rowsOf(text)).toEqual([
+    {
+      row: 1,
+      kind: 'wishlist',
+      ref: { mjkId: ID, qid: null, museumnlUrl: null, name: 'Rijksmuseum', place: 'Amsterdam' },
+      visited_on: null,
+      note: null,
+      error: null,
+    },
+  ]);
+  // A date column wins: a sheet with both columns is a list of visits.
+  expect(one('museum,added_on,datum', 'A,2026-01-01,2026-01-02')).toMatchObject({
+    kind: 'visit',
+    visited_on: '2026-01-02',
+  });
 });
 
 it('never throws, for any text', () => {

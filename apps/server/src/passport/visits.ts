@@ -66,8 +66,9 @@ export async function visitsOfMuseum(db: Db, userId: string, museumId: string): 
 }
 
 // The keyset cursor: the last row's date (null for an undated one) and id. Strict, so every value that
-// reaches SQL has been checked first (the 22P02 gotcha).
-const PageCursor = z.strictObject({ d: IsoDate.nullable(), i: z.uuid() });
+// reaches SQL has been checked first (the 22P02 gotcha): the date is a real one from 1900 on, like every
+// stored one, since PostgreSQL refuses the year 0000 (22008) and logs the value.
+const PageCursor = z.strictObject({ d: IsoDate.refine((d) => d >= VISIT_MIN_DATE).nullable(), i: z.uuid() });
 export class InvalidVisitCursor extends Error {
   constructor() {
     super('invalid_cursor');

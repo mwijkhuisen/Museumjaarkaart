@@ -3,7 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App.tsx';
 import { ExportSection, exportErrorText } from '../src/components/passport/ExportSection.tsx';
-import { confirmBody, formatOf, ImportFlow, importErrorText, Preview } from '../src/components/passport/ImportFlow.tsx';
+import {
+  bodyTooBig,
+  confirmBody,
+  formatOf,
+  IMPORT_MAX_BYTES,
+  ImportFlow,
+  importErrorText,
+  Preview,
+} from '../src/components/passport/ImportFlow.tsx';
 import { Savings } from '../src/components/passport/Savings.tsx';
 import { ApiError, createQueryClient, sendJson } from '../src/lib/api.ts';
 import { formatMoney } from '../src/lib/format.ts';
@@ -199,15 +207,26 @@ describe('the import', () => {
     expect(html).not.toContain('style=');
   });
 
-  it('renders the preview grouped: matched ticked, a pick for ambiguous, a search for unmatched, invalid in words', () => {
+  it('measures the 2 MiB cap on the JSON body in UTF-8, not on the file', () => {
+    const body = (content: string) => ({ format: 'csv' as const, content });
+    expect(bodyTooBig(body('museum\nA\n'))).toBe(false);
+    // 1 MiB of line breaks is over 2 MiB once escaped, and so is 1 MiB of "é" (two bytes each).
+    expect(bodyTooBig(body('\n'.repeat(IMPORT_MAX_BYTES / 2)))).toBe(true);
+    expect(bodyTooBig(body('é'.repeat(IMPORT_MAX_BYTES / 2)))).toBe(true);
+    const wrapper = JSON.stringify(body('')).length;
+    expect(bodyTooBig(body('a'.repeat(IMPORT_MAX_BYTES - wrapper)))).toBe(false);
+    expect(bodyTooBig(body('a'.repeat(IMPORT_MAX_BYTES - wrapper + 1)))).toBe(true);
+  });
+
+  it('renders the preview grouped: matched ticked, picks and a search for ambiguous, a search for unmatched, invalid in words', () => {
     setLocale('nl', { reload: false });
     const html = renderToStaticMarkup(<Preview preview={preview} locale="nl" onDone={() => {}} onCancel={() => {}} />);
     expect(html).not.toContain('style=');
     expect(html.match(/type="checkbox"[^>]*checked=""/g)).toHaveLength(2);
     expect(html).toContain('Welk museum bedoel je?');
     expect(html).toContain('Museum 31');
-    // The search form is only on the unmatched row.
-    expect(html.match(/type="search"/g)).toHaveLength(1);
+    // The ambiguous row has its candidates as quick picks and the search the unmatched row has.
+    expect(html.match(/type="search"/g)).toHaveLength(2);
     expect(html).toContain('de datum is niet te lezen');
     expect(html).toContain('2 herkend, 1 twijfelachtig, 1 niet gevonden, 1 ongeldig.');
     // Two matched rows apply; nothing is picked for the others yet.

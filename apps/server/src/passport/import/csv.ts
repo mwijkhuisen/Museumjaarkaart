@@ -1,5 +1,6 @@
 // The CSV import (A§10): our own export's visits.csv, a spreadsheet of the member's own, or a list
-// copied from elsewhere. Every row is a visit. Pure and never throws; the caller passes today's date.
+// copied from elsewhere. Every row is a visit, except in our own wishlist.csv (an `added_on` column and no
+// date column), whose rows are wishlist entries. Pure and never throws; the caller passes today's date.
 
 import { IMPORT_ROWS_MAX } from '@mjk/contracts';
 import { readCsv, unescapeCell } from '../../museums/csv.ts';
@@ -16,6 +17,7 @@ const ALIASES = {
   qid: ['wikidata', 'qid', 'wikidata_qid'],
   url: ['museumnl', 'museumnl_url'],
   id: ['museum_id'],
+  added: ['added_on'],
 } as const;
 type Column = keyof typeof ALIASES;
 const COLUMN_OF = new Map<string, Column>(
@@ -56,6 +58,8 @@ export function parseCsv(input: string, today: string): ParseResult {
     return { ok: false, error: 'bad_header' };
   }
 
+  const kind = at.added !== undefined && at.date === undefined ? 'wishlist' : 'visit';
+
   const rows: ParsedRow[] = [];
   for (const cells of body) {
     if (cells.every((c) => c.trim() === '')) continue;
@@ -69,14 +73,14 @@ export function parseCsv(input: string, today: string): ParseResult {
       toRow(
         {
           row: rows.length + 1,
-          kind: 'visit',
+          kind,
           mjkId: get('id'),
           qid: get('qid'),
           museumnlUrl: get('url'),
           name: get('name'),
           place: get('place'),
-          date: get('date'),
-          note: get('note'),
+          date: kind === 'wishlist' ? null : get('date'),
+          note: kind === 'wishlist' ? null : get('note'),
         },
         today,
       ),

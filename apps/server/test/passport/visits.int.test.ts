@@ -160,7 +160,16 @@ describe('GET /me/visits', () => {
   it('a malformed or foreign cursor is 400 naming cursor; an unknown parameter is 400', async () => {
     const { call, as } = setup();
     const t = await as((await p.newMember()).id);
-    for (const q of ['cursor=@@@', 'cursor=e30', `cursor=${Buffer.from('{"d":"x","i":"y"}').toString('base64url')}`]) {
+    const cursorOf = (d: string) =>
+      `cursor=${Buffer.from(JSON.stringify({ d, i: '00000000-0000-4000-8000-000000000000' })).toString('base64url')}`;
+    for (const q of [
+      'cursor=@@@',
+      'cursor=e30',
+      `cursor=${Buffer.from('{"d":"x","i":"y"}').toString('base64url')}`,
+      cursorOf('0000-01-01'),
+      cursorOf('1899-12-31'),
+      cursorOf('2025-02-29'),
+    ]) {
       const r = await call(`/me/visits?${q}`, t);
       expect(r.status, q).toBe(400);
       expect(await err(r)).toEqual({ error: 'bad_request', fields: ['cursor'] });

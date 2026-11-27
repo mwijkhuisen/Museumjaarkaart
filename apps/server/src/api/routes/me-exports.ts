@@ -1,7 +1,7 @@
 import { EmptyQuery, ExportFile, ExportItem, ExportList } from '@mjk/contracts';
 import { sql } from 'kysely';
 import { z } from 'zod';
-import { BUCKETS, enforce, hit } from '../../auth/limiter.ts';
+import { BUCKETS, enforce, hit, userKey } from '../../auth/limiter.ts';
 import { EXPORT_FILES, readBundleFile } from '../../passport/export/files.ts';
 import { DATA_EXPORT_JOB } from '../../passport/export/job.ts';
 import { enqueueIn } from '../../worker/queue.ts';
@@ -35,7 +35,8 @@ const toItem = (r: Row): ExportItem => ({
 });
 
 export function mountMeExports(v1: ApiApp, deps: ApiDeps): void {
-  const { db, logger } = deps;
+  const { db, logger, keys } = deps;
+  if (keys === undefined) throw new Error('me_exports_need_keys');
 
   v1.post('/me/exports', async (c) => {
     const userId = requireMember(c).user.id;
@@ -58,7 +59,7 @@ export function mountMeExports(v1: ApiApp, deps: ApiDeps): void {
           .where('state', '=', 'queued')
           .executeTakeFirst();
         if (open !== undefined) throw new ApiError('conflict');
-        enforce(logger, BUCKETS.exportUserDay, await hit(trx, BUCKETS.exportUserDay, userId));
+        enforce(logger, BUCKETS.exportUserDay, await hit(trx, BUCKETS.exportUserDay, userKey(keys, 'export', userId)));
         const inserted = await trx
           .insertInto('data_export')
           .values({ user_id: userId })

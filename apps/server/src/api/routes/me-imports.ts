@@ -9,7 +9,7 @@ import {
 import { sql } from 'kysely';
 import { z } from 'zod';
 import { todayAmsterdam } from '../../admin/dates.ts';
-import { BUCKETS, enforce, hit } from '../../auth/limiter.ts';
+import { BUCKETS, enforce, hit, userKey } from '../../auth/limiter.ts';
 import { parseCsv } from '../../passport/import/csv.ts';
 import { type ImportMuseum, loadMuseums, matchRows } from '../../passport/import/match.ts';
 import { parseMjk } from '../../passport/import/mjk.ts';
@@ -51,12 +51,13 @@ const toMuseum = (m: ImportMuseum): VisitMuseum => ({
 });
 
 export function mountMeImports(v1: ApiApp, deps: ApiDeps): void {
-  const { db, logger } = deps;
+  const { db, logger, keys } = deps;
+  if (keys === undefined) throw new Error('me_imports_need_keys');
 
   v1.post('/me/imports', async (c) => {
     const session = requireMember(c);
     const userId = session.user.id;
-    enforce(logger, BUCKETS.importUserHour, await hit(db, BUCKETS.importUserHour, userId));
+    enforce(logger, BUCKETS.importUserHour, await hit(db, BUCKETS.importUserHour, userKey(keys, 'import', userId)));
     const body = await readJson(c, ImportRequest);
     // Museotrack's and Cultra's parsers come after A10.
     if (body.format === 'museotrack' || body.format === 'cultra') throw new ApiError('invalid', ['format']);

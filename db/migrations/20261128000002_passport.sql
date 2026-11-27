@@ -63,9 +63,10 @@ CREATE INDEX data_export_user_idx ON data_export (user_id, created_at DESC);
 -- a cast, so a malformed value reads as private/false instead of raising. No id, no email, and the creation
 -- time only as a month (a uuidv7 carries its creation time, so the id stays out).
 -- handle is cast to text: citext equality is not leakproof, text equality is, so a `handle = $1` qual from a
--- compromised mjk_ssr still passes below the barrier. There is no index on handle::text on purpose: a
--- sequential scan shows nothing through EXPLAIN's "Rows Removed by Filter" that the caller could not already
--- read, and at beta size it is cheap. (app_user's own handle index is not used by this view.)
+-- compromised mjk_ssr still passes below the barrier. There is no index on handle::text on purpose:
+-- pub_profile reads app_user by a sequential scan, so EXPLAIN (ANALYZE) as mjk_ssr shows in "Rows Removed by
+-- Filter" how many accounts are not active (banned or deleted); it tells no handle apart. At beta size the
+-- scan is cheap. (app_user's own handle index is not used by this view.)
 CREATE VIEW pub_profile WITH (security_barrier) AS
 SELECT
   u.handle::text AS handle,

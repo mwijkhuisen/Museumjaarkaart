@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { IMPORT_BODY_LIMIT_BYTES } from '../../src/api/app.ts';
 import { mountMeImports } from '../../src/api/routes/me-imports.ts';
+import { userKey } from '../../src/auth/limiter.ts';
 import { meApp } from '../api/me-app.ts';
 import { openPassportDb, type PassportDb } from './fixtures.ts';
 
@@ -81,13 +82,20 @@ describe('POST /me/imports', () => {
   });
 
   it('429 on the eleventh upload in an hour, with Retry-After, for that member only', async () => {
-    const token = await member();
+    const { id } = await p.newMember();
+    const token = await app.signIn(id);
     for (let i = 0; i < 10; i++) expect((await upload(token, 'csv', 'museum\nA\n')).status).toBe(201);
     const r = await upload(token, 'csv', 'museum\nA\n');
     expect(r.status).toBe(429);
     expect(Number(r.headers.get('retry-after'))).toBeGreaterThanOrEqual(1);
     expect(r.headers.get('cache-control')).toBe('private, no-store');
     expect((await upload(await member(), 'csv', 'museum\nA\n')).status).toBe(201);
+    // The bucket's key is an HMAC of the member's id, never the id itself (invariant 8).
+    const keys = await p.owner.query<{ key: string }>(
+      `SELECT key FROM rate_limit WHERE bucket = 'import_user_hour' AND count = 11`,
+    );
+    expect(keys.rows.map((k) => k.key)).toEqual([userKey(app.keys, 'import', id)]);
+    expect(keys.rows[0]?.key).not.toContain(id);
   });
 
   it('writes no row content to the request log', async () => {

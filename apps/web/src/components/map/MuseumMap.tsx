@@ -160,7 +160,8 @@ export function MuseumMap({
         data-map-state={state.status}
         hidden={state.status === 'error'}
       />
-      {marks === undefined ? null : <p className="muted">{m.marks_legend()}</p>}
+      {/* A fixed slot, empty for everyone until a member's marks arrive (A§15.1). */}
+      <p className="muted marks-legend">{marks === undefined ? null : m.marks_legend()}</p>
       {selected === null ? null : (
         <aside
           id="museum-map-card"

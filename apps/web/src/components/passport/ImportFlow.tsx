@@ -23,8 +23,12 @@ import { CheckField, Field } from '../auth/fields.tsx';
 // server, shown as a preview and applied once the member has confirmed. Matched rows apply unless
 // unticked; an ambiguous or unmatched row applies only when the member picked a museum for it.
 
-/** The request body cap (A§14); a bigger file is refused before it is sent. */
+/** The request body cap (A§14, the api's `IMPORT_BODY_LIMIT_BYTES`); a bigger body is refused before it is sent. */
 export const IMPORT_MAX_BYTES = 2 * 1024 * 1024;
+
+/** The cap binds the JSON body as sent, in UTF-8: the wrapper and its escaping count, not only the file. */
+export const bodyTooBig = (body: ImportRequest): boolean =>
+  new TextEncoder().encode(JSON.stringify(body)).byteLength > IMPORT_MAX_BYTES;
 
 /** `.json` is our own export format (`mjk`); anything else is read as CSV. */
 export const formatOf = (fileName: string): ImportFormat => (fileName.toLowerCase().endsWith('.json') ? 'mjk' : 'csv');
@@ -88,13 +92,16 @@ export function ImportFlow({ locale }: { locale: Locale }) {
   const pick = async (file: File | undefined) => {
     if (file === undefined) return;
     setError(null);
+    // A file over the cap never fits in the body: refused before it is read.
     if (file.size > IMPORT_MAX_BYTES) {
       setError(m.import_err_too_big());
       return;
     }
     setStage({ kind: 'busy' });
     try {
-      const body = ImportRequest.safeParse({ format: formatOf(file.name), content: await file.text() });
+      const raw: ImportRequest = { format: formatOf(file.name), content: await file.text() };
+      if (bodyTooBig(raw)) throw new ApiError(413, 'too_large', [], null);
+      const body = ImportRequest.safeParse(raw);
       if (!body.success) throw new ApiError(422, 'unprocessable', [], null);
       setStage({ kind: 'preview', preview: await sendJson('POST', '/api/v1/me/imports', body.data, ImportPreview) });
     } catch (e) {
@@ -257,7 +264,7 @@ export function Preview({
         <div className="stack">
           <h3>{m.import_h_ambiguous()}</h3>
           {ambiguous.map((row) => (
-            <ChooseRow key={row.row} row={row} locale={locale} searchable={false} onPick={pickFor} />
+            <ChooseRow key={row.row} row={row} locale={locale} onPick={pickFor} />
           ))}
         </div>
       )}
@@ -265,7 +272,7 @@ export function Preview({
         <div className="stack">
           <h3>{m.import_h_unmatched()}</h3>
           {unmatched.map((row) => (
-            <ChooseRow key={row.row} row={row} locale={locale} searchable onPick={pickFor} />
+            <ChooseRow key={row.row} row={row} locale={locale} onPick={pickFor} />
           ))}
         </div>
       )}
@@ -299,16 +306,17 @@ export function Preview({
   );
 }
 
-/** An ambiguous (pick one of the candidates) or an unmatched row (search the catalogue, then pick). */
+/**
+ * An ambiguous or an unmatched row: pick one of its candidates (an ambiguous row's quick picks), or search
+ * the catalogue and pick from the results, since the right museum may not be among the candidates.
+ */
 function ChooseRow({
   row,
   locale,
-  searchable,
   onPick,
 }: {
   row: ImportRow;
   locale: Locale;
-  searchable: boolean;
   onPick: (row: number, museumId: string) => void;
 }) {
   const [options, setOptions] = useState<readonly VisitMuseum[]>(row.candidates);
@@ -335,21 +343,19 @@ function ChooseRow({
   return (
     <div className="card stack">
       <p>{rowLabel(row, locale)}</p>
-      {searchable ? (
-        <form method="post" className="cluster" onSubmit={(e) => void search(e)} noValidate>
-          <Field
-            label={m.import_search()}
-            name="q"
-            type="search"
-            value={q}
-            maxLength={100}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button type="submit" className="button button--quiet" disabled={searching}>
-            {m.action_search()}
-          </button>
-        </form>
-      ) : null}
+      <form method="post" className="cluster" onSubmit={(e) => void search(e)} noValidate>
+        <Field
+          label={m.import_search()}
+          name="q"
+          type="search"
+          value={q}
+          maxLength={100}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <button type="submit" className="button button--quiet" disabled={searching}>
+          {m.action_search()}
+        </button>
+      </form>
       {failed ? (
         <p role="alert" className="form-error">
           {m.import_search_failed()}

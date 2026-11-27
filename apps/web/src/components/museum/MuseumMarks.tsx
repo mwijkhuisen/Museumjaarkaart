@@ -62,14 +62,14 @@ const textOf = (error: unknown): string => {
   return describeError(error, 'plain').text;
 };
 
-/** The member's own form, after hydration only: nothing for a visitor. */
+/** The member's own form, after hydration only: an empty fixed slot for a visitor (A§15.1). */
 export function VisitForm({ museumId }: { museumId: string }) {
   const marks = useMarks();
   const [date, setDate] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
-  if (marks === undefined) return null;
+  if (marks === undefined) return <div className="visit-slot" />;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const parsed = VisitCreate.safeParse({
@@ -93,7 +93,7 @@ export function VisitForm({ museumId }: { museumId: string }) {
     }
   };
   return (
-    <section className="stack" aria-labelledby="marks-visit-h">
+    <section className="stack visit-slot" aria-labelledby="marks-visit-h">
       <h2 id="marks-visit-h">{m.marks_visit_h()}</h2>
       <form method="post" className="stack" onSubmit={(e) => void submit(e)} noValidate>
         <div className="field">

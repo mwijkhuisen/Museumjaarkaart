@@ -42,6 +42,7 @@ function Cards({ items, locale }: { items: readonly MuseumListItem[]; locale: Li
 
 // A member's own filters ("bezocht", "nog niet bezocht", "op mijn verlanglijst"): client state, shown
 // only once the marks are known (A§15.1), and never in the URL (`KEPT` in lib/routes.ts is unchanged).
+// Their slot is rendered for everyone, empty until then, so the list below never shifts.
 // ponytail: a new search or province navigation remounts the page and resets them.
 type Filter = { visited: 'all' | 'yes' | 'no'; wishlist: boolean };
 const OFF: Filter = { visited: 'all', wishlist: false };
@@ -130,7 +131,9 @@ export function MuseumResults({ list, route }: { list: MuseumList; route: ListRo
   const filtered = marks !== undefined && (filter.visited !== 'all' || filter.wishlist);
   return (
     <>
-      {marks === undefined ? null : <MarkFilters filter={filter} onChange={setFilter} />}
+      <div className="marks-filter-slot">
+        {marks === undefined ? null : <MarkFilters filter={filter} onChange={setFilter} />}
+      </div>
       {filtered ? (
         <FilteredResults route={route} filter={filter} />
       ) : (

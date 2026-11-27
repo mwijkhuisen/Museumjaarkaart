@@ -37,9 +37,17 @@ test('sign up by invite, sign in by code, set a password, sign in by password', 
   await expect(signUp).toBeEnabled({ timeout: 30_000 }); // the ALTCHA proof of work has solved
   await signUp.click();
 
-  // 2-3. The code from the sink, then the account page.
+  // 2-3. The code from the sink, then the welcome page and the account page.
   await page.getByLabel(t('field_code')).fill(await mail.code());
   await page.getByRole('button', { name: t('action_verify'), exact: true }).click();
+  // A new member lands on the onboarding; the header's Account link leads on to the account page. In-page
+  // navigation once the museums have loaded: a full load would abort a fetch, which WebKit logs as "Load failed".
+  await expect(page).toHaveURL(/\/welkom$/);
+  await expect(page.locator('input[name="museum"]').first()).toBeVisible();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: t('nav_account') })
+    .click();
   await expect(page.getByText(signedInAs)).toBeVisible();
 
   // 4. Out, in by code (a fresh session), a password, out, in by password.

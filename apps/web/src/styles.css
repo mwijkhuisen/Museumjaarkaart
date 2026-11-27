@@ -7,7 +7,7 @@
  *            .hp (the honeypot, off-screen) .filters .pager
  *   account  .session-list .badge--current .reauth .notice (and altcha-widget's tokens)
  *   map      .map-region .map-region__canvas .map-card .near-me__list
- *   marks    .marks-slot .badge--visited .marks-filter (a member's own marks on public pages, P2c)
+ *   marks    .marks-slot .marks-filter-slot .marks-legend .visit-slot .badge--visited .marks-filter (a member's own marks on public pages, P2c)
  *   utility  .muted .visually-hidden .icon .scroll
  * Dark theme: the colour block inside the prefers-color-scheme media query. When the toggle arrives
  * (P3a), repeat that block under `:root[data-theme="dark"]` and give the media block
@@ -461,12 +461,27 @@ main:focus {
   gap: var(--space-2);
   min-height: var(--tap);
 }
+/* The filters', the map legend's and the visit form's slots: the same empty box for everyone on the
+   server and in the first client render, sized for their filled state (A§15.1). On a phone the filters
+   wrap to three rows of tap targets under their legend, the legend line to three lines. */
+.marks-filter-slot {
+  min-height: calc(1.6rem + 3 * var(--tap) + 2 * var(--space-2));
+  margin-bottom: var(--space-4);
+}
+.marks-legend {
+  min-height: calc(3 * var(--line-height) * 1em);
+}
+/* No reserved height: the visit form is the last thing in the museum article, so only the footer moves when
+   it appears, and every anonymous visitor would otherwise see 22rem of nothing. */
+.visit-slot {
+  min-height: 0;
+}
 .marks-filter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
-  margin: 0 0 var(--space-4);
+  margin: 0;
   padding: 0;
   border: 0;
 }
@@ -605,6 +620,12 @@ altcha-widget {
     grid-template-columns: 12rem 1fr;
     gap: var(--space-4);
   }
+  .marks-filter-slot {
+    min-height: calc(1.6rem + 2 * var(--tap) + var(--space-2));
+  }
+  .marks-legend {
+    min-height: calc(2 * var(--line-height) * 1em);
+  }
 }
 
 @media (min-width: 64rem) {
@@ -613,6 +634,9 @@ altcha-widget {
   }
   .filters {
     grid-template-columns: repeat(4, 1fr);
+  }
+  .marks-filter-slot {
+    min-height: calc(1.6rem + var(--tap));
   }
 }
 

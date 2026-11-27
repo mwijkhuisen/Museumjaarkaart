@@ -26,8 +26,8 @@ export const BUCKETS = {
   passkeyUserHour: { name: 'passkey_user_hour', limit: 30, windowS: 3_600 }, // successful passkey sign-ins per member (P2b review L1)
   passkeyRegisterUser: { name: 'passkey_register_user', limit: 10, windowS: 3_600 }, // failed passkey registrations per member (P2b review L2)
   passkeyAddUserDay: { name: 'passkey_add_user_day', limit: 5, windowS: 86_400 }, // passkeys added per member a day: each sends a notice mail (P2b review M1)
-  importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (keyed by user id; A§14, P2c)
-  exportUserDay: { name: 'export_user_day', limit: 3, windowS: 86_400 }, // export requests per member (keyed by user id; P2c Q5: each costs a mail)
+  importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (a user-id HMAC; A§14, P2c)
+  exportUserDay: { name: 'export_user_day', limit: 3, windowS: 86_400 }, // export requests per member (a user-id HMAC; P2c Q5: each costs a mail)
 } as const satisfies Record<string, Bucket>;
 
 export type Hit = {
@@ -87,9 +87,12 @@ export async function peek(db: Db, bucket: Bucket, key: string, opts: Opts = {})
 /** The key for an email (normalised by the contract): the table never holds an address. */
 export const emailKey = (keys: AppKeys, email: string): string => hmac(keys.otp_pepper, 'rl', email).toString('hex');
 
-/** The key for a member's passkey buckets: an HMAC of the user id, never the id in clear (invariant 8). */
-export const passkeyUserKey = (keys: AppKeys, userId: string): string =>
-  hmac(keys.otp_pepper, 'rl', 'passkey', userId).toString('hex');
+/** The key for a member's own buckets: an HMAC of the scope and the user id, never the id in clear (invariant 8). */
+export const userKey = (keys: AppKeys, scope: 'passkey' | 'import' | 'export', userId: string): string =>
+  hmac(keys.otp_pepper, 'rl', scope, userId).toString('hex');
+
+/** The key for a member's passkey buckets. */
+export const passkeyUserKey = (keys: AppKeys, userId: string): string => userKey(keys, 'passkey', userId);
 
 /** A per-email key of one host class: a public-host flood never fills the admin host's buckets (A§9, A§16.2). */
 export const hostEmailKey = (keys: AppKeys, host: 'public' | 'admin', email: string, prefix?: string): string =>
