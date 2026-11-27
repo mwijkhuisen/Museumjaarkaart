@@ -1,7 +1,8 @@
 import { ErrorBody, Healthz } from '@mjk/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { type ApiDeps, BODY_LIMIT_BYTES, buildApp, createApp, unavailable } from '../../src/api/app.ts';
+import { type ApiDeps, BODY_LIMIT_BYTES, buildApp, unavailable } from '../../src/api/app.ts';
+import { createApp } from '../../src/api/create-app.ts';
 import { ApiError } from '../../src/api/errors.ts';
 import { parseParam, parseQuery } from '../../src/api/query.ts';
 import { sendJson } from '../../src/api/respond.ts';
