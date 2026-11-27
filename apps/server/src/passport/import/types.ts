@@ -1,11 +1,18 @@
 // What both import parsers (CSV and `mjk`) produce (A§10): one ParsedRow per data row, with the
 // row's own error instead of a file error, so one bad row never sinks the file. Server-internal.
 
-import { isStorable, VISIT_NOTE_MAX } from '@mjk/contracts';
+import {
+  codePoints,
+  isReviewText,
+  isStorable,
+  normaliseReviewBody,
+  REVIEW_BODY_MAX,
+  VISIT_NOTE_MAX,
+} from '@mjk/contracts';
 import { parseDate } from '../../admin/dates.ts';
 import { museumnlUrl as checkMuseumnlUrl } from '../../museums/museumnl.ts';
 
-export type RowError = 'bad_date' | 'future_date' | 'no_museum' | 'too_long' | 'bad_text';
+export type RowError = 'bad_date' | 'future_date' | 'no_museum' | 'too_long' | 'bad_text' | 'bad_rating';
 export type MuseumRef = {
   mjkId: string | null;
   qid: string | null;
@@ -19,6 +26,9 @@ export type ParsedRow = {
   ref: MuseumRef;
   visited_on: string | null;
   note: string | null;
+  /** The member's own rating and words (CSV only); a review always has a rating. */
+  rating: number | null;
+  review: string | null;
   error: RowError | null;
 };
 export type FileError =
@@ -64,11 +74,15 @@ export type RawRow = {
   place: string | null;
   date: string | null;
   note: string | null;
+  rating?: string | null;
+  review?: string | null;
 };
 
 /** The same text, length, museum and date rules for both formats (cells already trimmed, empty as null). */
 export function toRow(raw: RawRow, today: string): ParsedRow {
   const { row, kind, mjkId, qid, museumnlUrl, name, place, date, note } = raw;
+  const ratingText = raw.rating ?? null;
+  const review = raw.review == null ? null : normaliseReviewBody(raw.review);
   const ref: MuseumRef = {
     mjkId: mjkId !== null && UUID_RE.test(mjkId) ? mjkId : null,
     qid: qid !== null && QID_RE.test(qid) ? qid : null,
@@ -85,6 +99,9 @@ export function toRow(raw: RawRow, today: string): ParsedRow {
   } else if (!ref.mjkId && !ref.qid && !ref.museumnlUrl && name === null) error = 'no_museum';
   else if (parsedDate === undefined || (parsedDate !== null && validDate === null)) error = 'bad_date';
   else if (validDate !== null && validDate > today) error = 'future_date';
+  else if (ratingText !== null ? !/^[1-5]$/.test(ratingText) : review !== null) error = 'bad_rating';
+  else if (review !== null && !isReviewText(review))
+    error = codePoints(review) > REVIEW_BODY_MAX ? 'too_long' : 'bad_text';
   // A row error keeps what parsed, never text that cannot be stored (jsonb refuses a NUL) or shown
   // (the preview contract caps the lengths): such a field comes back null.
   const keep = (s: string | null, max: number) => (s !== null && isStorable(s) && s.length <= max ? s : null);
@@ -94,6 +111,8 @@ export function toRow(raw: RawRow, today: string): ParsedRow {
     ref: { ...ref, name: keep(name, NAME_MAX), place: keep(place, NAME_MAX) },
     visited_on: validDate,
     note: keep(note, VISIT_NOTE_MAX),
+    rating: error === null && ratingText !== null ? Number(ratingText) : null,
+    review: error === null ? review : null,
     error,
   };
 }

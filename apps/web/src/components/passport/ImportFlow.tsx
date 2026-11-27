@@ -73,6 +73,12 @@ function rowErrorText(error: ImportRowError | null): string {
       return m.import_row_too_long();
     case 'bad_text':
       return m.import_row_bad_text();
+    case 'bad_rating':
+      return m.import_row_bad_rating();
+    case 'review_exists':
+      return m.import_row_review_exists();
+    case 'museum_closed':
+      return m.import_row_museum_closed();
     default:
       return m.import_row_invalid();
   }
@@ -127,6 +133,7 @@ export function ImportFlow({ locale }: { locale: Locale }) {
             {m.import_result({
               visits: formatCount(stage.result.visits, locale),
               wishlist: formatCount(stage.result.wishlist, locale),
+              reviews: formatCount(stage.result.reviews, locale),
               skipped: formatCount(stage.result.skipped, locale),
             })}{' '}
             <Link href={pathOf({ page: 'shell', locale, app: 'passport' })}>{m.welcome_to_passport()}</Link>
@@ -196,6 +203,12 @@ export function Preview({
   const invalid = by('invalid');
   const applying = matched.filter((r) => !skip.has(r.row)).length + confirmBody(preview, skip, chosen).choose.length;
 
+  // The rated rows that will apply: matched and not unticked, or chosen by the member.
+  const reviewsToCreate = [
+    ...matched.filter((r) => !skip.has(r.row)),
+    ...[...ambiguous, ...unmatched].filter((r) => chosen.has(r.row)),
+  ].filter((r) => r.rating !== null).length;
+
   const pickFor = (row: number, museumId: string) =>
     setChosen((old) => {
       const next = new Map(old);
@@ -231,6 +244,7 @@ export function Preview({
           invalid: formatCount(preview.counts.invalid, locale),
         })}
       </p>
+      {reviewsToCreate === 0 ? null : <p>{m.import_reviews({ n: formatCount(reviewsToCreate, locale) })}</p>}
       {matched.length === 0 ? null : (
         <div className="stack">
           <h3>{m.import_h_matched()}</h3>

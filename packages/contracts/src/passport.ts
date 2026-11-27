@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { DISPLAY_NAME_MAX, Handle } from './auth.ts';
 import { Cursor, IsoDate, IsoDateTime, LIMITS, ProvinceCodeSchema, Slug, StorableText } from './common.ts';
 import { Limit, MuseumListQuery } from './queries.ts';
-import { OwnReview } from './reviews.ts';
+import { OwnReview, Rating, REVIEW_BODY_MAX } from './reviews.ts';
 
 // The passport's contracts (P2c): visits, the wishlist, progress and € saved, imports, exports and
 // public profiles. The numbers are Q6's, still [U] until P4 tunes them (A§10, A§14).
@@ -149,7 +149,16 @@ export const ImportRequest = z.strictObject({
 });
 export type ImportRequest = z.infer<typeof ImportRequest>;
 
-export const ImportRowError = z.enum(['bad_date', 'future_date', 'no_museum', 'too_long', 'bad_text']);
+export const ImportRowError = z.enum([
+  'bad_date',
+  'future_date',
+  'no_museum',
+  'too_long',
+  'bad_text',
+  'bad_rating',
+  'review_exists',
+  'museum_closed',
+]);
 export type ImportRowError = z.infer<typeof ImportRowError>;
 
 export const ImportRow = z.strictObject({
@@ -159,6 +168,11 @@ export const ImportRow = z.strictObject({
   place: z.string().max(250).nullable(),
   visited_on: IsoDate.nullable(),
   note: z.string().max(VISIT_NOTE_MAX).nullable(),
+  rating: Rating.nullable(),
+  review: z
+    .string()
+    .max(4 * REVIEW_BODY_MAX)
+    .nullable(),
   status: z.enum(['matched', 'ambiguous', 'unmatched', 'invalid']),
   error: ImportRowError.nullable(),
   museum: VisitMuseum.nullable(),

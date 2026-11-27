@@ -24,6 +24,8 @@ const row = (ref: Partial<ParsedRow['ref']>, error: ParsedRow['error'] = null): 
   ref: { mjkId: null, qid: null, museumnlUrl: null, name: null, place: null, ...ref },
   visited_on: null,
   note: null,
+  rating: null,
+  review: null,
   error,
 });
 

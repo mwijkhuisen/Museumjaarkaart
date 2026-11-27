@@ -10,6 +10,8 @@ import { memoryMailer } from '../../src/mail/mailer.ts';
 import { MAIL_EXPORT_JOB } from '../../src/mail/payloads.ts';
 import { DATA_EXPORT_JOB, dataExportJob } from '../../src/passport/export/job.ts';
 import { parseCsv } from '../../src/passport/import/csv.ts';
+import { parseMjk } from '../../src/passport/import/mjk.ts';
+import { MjkExportV1 } from '../../src/passport/mjk-format.ts';
 import { mailJobs } from '../../src/worker/mail.ts';
 import type { JobHandler } from '../../src/worker/types.ts';
 import { meApp } from '../api/me-app.ts';
@@ -246,5 +248,54 @@ describe('the export mail', () => {
     await runJobs(DATA_EXPORT_JOB);
     expect(readdirSync(dir)).not.toContain(id);
     expect(await runJobs(MAIL_EXPORT_JOB)).toEqual([]);
+  });
+});
+
+describe('reviews in the export (P3a)', () => {
+  it('lists each review with its revisions oldest first, and the importer still reads the file', async () => {
+    const u = await p.newMember();
+    const m = await p.visible(30);
+    const visit = await p.addVisit(u.id, m.id, { on: '2026-02-03' });
+    const review = await p.pools.api.query<{ id: string }>(
+      `INSERT INTO review (user_id, museum_id, visit_id, rating, collection, body) VALUES ($1, $2, $3, 2, 3, 'Eerste')
+       RETURNING id`,
+      [u.id, m.id, visit],
+    );
+    const id = (review.rows[0] as { id: string }).id;
+    // Two edits: the revisions hold what each edit replaced (rating 2 first, then 4).
+    await p.pools.api.query(
+      `INSERT INTO review_revision (review_id, rating, collection, body, created_at)
+       VALUES ($1, 4, 5, 'Tweede', now() - interval '1 hour'), ($1, 2, 3, 'Eerste', now() - interval '2 hours')`,
+      [id],
+    );
+    await p.owner.query(
+      "UPDATE review SET rating = 5, collection = 5, body = 'Derde', edited_at = now() WHERE id = $1",
+      [id],
+    );
+    const token = await app.signIn(u.id);
+    const exportId = await exportOf(token);
+    const text = await (await download(exportId, 'export.json', token)).text();
+    const doc = JSON.parse(text);
+    expect(MjkExportV1.safeParse(doc).success).toBe(true);
+    expect(doc.reviews).toHaveLength(1);
+    expect(doc.reviews[0]).toMatchObject({
+      museum: { id: m.id, slug: m.slug },
+      visited_on: '2026-02-03',
+      rating: 5,
+      collection: 5,
+      presentation: null,
+      body: 'Derde',
+      state: 'visible',
+    });
+    expect(doc.reviews[0].edited_at).not.toBeNull();
+    expect(doc.reviews[0].revisions.map((r: { body: string; rating: number }) => [r.rating, r.body])).toEqual([
+      [2, 'Eerste'],
+      [4, 'Tweede'],
+    ]);
+    // The importer reads the file with the key, and without it.
+    expect(parseMjk(text, todayAmsterdam())).toMatchObject({ ok: true, rows: [{ kind: 'visit' }] });
+    const { reviews: _, ...without } = doc;
+    expect(MjkExportV1.safeParse(without).success).toBe(true);
+    expect(parseMjk(JSON.stringify(without), todayAmsterdam())).toMatchObject({ ok: true });
   });
 });

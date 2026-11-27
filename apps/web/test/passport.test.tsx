@@ -144,6 +144,8 @@ describe('the import', () => {
     place: null,
     visited_on: '2026-03-01',
     note: null,
+    rating: null,
+    review: null,
     status: 'matched',
     error: null,
     museum: museum(n),
