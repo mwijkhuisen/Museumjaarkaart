@@ -146,6 +146,40 @@ describe('the logs of every account flow', () => {
     ).toBe(401);
     expect(t.lines().some((l) => l.msg === 'passkey_counter')).toBe(true);
 
+    // P2b: a second passkey over /me/passkeys: options, a forged add, the add, the rename and the removal.
+    const added = softCredential({ userHandle: member.h });
+    const passkeyName = `Logcap key ${process.pid}`;
+    const renamed = `Logcap renamed ${process.pid}`;
+    secrets.push(
+      added.id.toString('base64url'),
+      added.id.toString('hex'),
+      added.publicKeyCose.toString('base64url'),
+      added.publicKeyCose.toString('hex'),
+      passkeyName,
+      renamed,
+    );
+    const regChallenge = async () => {
+      const res = await r('/me/passkeys/options', undefined, token, 'POST');
+      expect(res.status).toBe(200);
+      const c = ((await res.json()) as { challenge: string }).challenge;
+      secrets.push(c);
+      return c;
+    };
+    const forged = added.register({ challenge: await regChallenge(), origin: 'https://evil.test' });
+    secrets.push(forged.response.clientDataJSON, forged.response.attestationObject);
+    expect((await r('/me/passkeys', { credential: forged, name: passkeyName }, token)).status).toBe(422);
+    const attestation = added.register({ challenge: await regChallenge() });
+    secrets.push(attestation.response.clientDataJSON, attestation.response.attestationObject);
+    const registered = await r('/me/passkeys', { credential: attestation, name: passkeyName }, token);
+    expect(registered.status).toBe(201);
+    const { ref } = (await registered.json()) as { ref: string };
+    secrets.push(ref);
+    expect((await r('/me/passkeys', { credential: attestation, name: passkeyName }, token)).status).toBe(422);
+    expect((await r(`/me/passkeys/${ref}`, { name: renamed }, token, 'PATCH')).status).toBe(200);
+    expect((await r('/me/passkeys', undefined, token)).status).toBe(200);
+    expect((await r(`/me/passkeys/${ref}`, undefined, token, 'DELETE')).status).toBe(204);
+    expect((await r(`/me/passkeys/${ref}`, undefined, token, 'DELETE')).status).toBe(404);
+
     expect((await r('/auth/signout', undefined, token, 'POST')).status).toBe(204);
 
     // The worker: every queued mail job, then the purge.
