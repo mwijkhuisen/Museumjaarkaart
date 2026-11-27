@@ -292,5 +292,8 @@
   "action_rename": "Hernoemen",
   "action_remove": "Verwijderen",
   "action_rename_passkey": "{name} hernoemen",
-  "action_remove_passkey": "{name} verwijderen"
+  "action_remove_passkey": "{name} verwijderen",
+  "account_passkey_remove_confirm": "{name} verwijderen? Je wordt dan ook uitgelogd op je andere apparaten.",
+  "action_yes": "Ja",
+  "action_no": "Nee"
 }

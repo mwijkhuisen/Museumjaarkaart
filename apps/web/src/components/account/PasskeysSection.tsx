@@ -1,5 +1,5 @@
 import { PASSKEY_MAX, PasskeyItem, PasskeyList, PasskeyName, PasskeyRenameRequest } from '@mjk/contracts';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, getJson, sendJson } from '../../lib/api.ts';
 import { formatDateTime } from '../../lib/format.ts';
 import type { Locale } from '../../lib/routes.ts';
@@ -9,10 +9,12 @@ import { Field, FormError } from '../auth/fields.tsx';
 import type { Guard } from './sections.tsx';
 
 // The account's passkeys (P2b; A§9). Hidden where the browser has no WebAuthn. The library is a lazy
-// chunk (lib/passkey.ts), loaded by the support check and by "Add a passkey". Adding and removing
-// need a sign-in within the last 5 minutes: both run through `guard`, which shows "confirm it's
-// you" on 403 `reauth_required` and runs the whole call once more (fresh options included).
-// Removing one also signs out every other session, so the sessions list is reloaded afterwards.
+// chunk (lib/passkey.ts), loaded by the support check and by "Add a passkey". Starting an add needs
+// a sign-in within the last 5 minutes and finishing it one within the last 10; removing needs one
+// within the last 10. Both run through `guard`, which shows "confirm it's you" on 403
+// `reauth_required` and runs the whole call once more (fresh options included). Removing one also
+// signs out every other session, so it asks first ("Remove …? Yes / No"), and the sessions list is
+// reloaded afterwards.
 
 type Props = { locale: Locale; guard: Guard; onSessionsEnded: () => void };
 
@@ -24,6 +26,8 @@ export function PasskeysSection({ locale, guard, onSessionsEnded }: Props) {
   const [name, setName] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const keep = useRef<HTMLButtonElement | null>(null);
   const adding = useAction('passkey_add');
   const managing = useAction('passkey_manage');
 
@@ -53,6 +57,10 @@ export function PasskeysSection({ locale, guard, onSessionsEnded }: Props) {
   useEffect(() => {
     if (supported) void load();
   }, [supported, load]);
+  // The question replaces the "Remove" button that had the focus: "No" takes it.
+  useEffect(() => {
+    if (confirming !== null) keep.current?.focus();
+  }, [confirming]);
 
   if (!supported) return null;
 
@@ -80,6 +88,7 @@ export function PasskeysSection({ locale, guard, onSessionsEnded }: Props) {
   const startRename = (item: PasskeyItem) => {
     setNotice('');
     managing.setFailure(null);
+    setConfirming(null);
     setRenaming(item.ref);
     setRenameValue(item.name ?? '');
   };
@@ -105,7 +114,16 @@ export function PasskeysSection({ locale, guard, onSessionsEnded }: Props) {
     });
   };
 
+  const askRemove = (ref: string) => {
+    setNotice('');
+    managing.setFailure(null);
+    setRenaming(null);
+    setConfirming(ref);
+  };
+
+  /** Only "Yes" of the question gets here. */
   const remove = (ref: string) => {
+    setConfirming(null);
     setNotice('');
     void managing.run(() =>
       guard(async () => {
@@ -185,6 +203,23 @@ export function PasskeysSection({ locale, guard, onSessionsEnded }: Props) {
                       </button>
                     </div>
                   </form>
+                ) : confirming === p.ref ? (
+                  <div className="stack">
+                    <p>{m.account_passkey_remove_confirm({ name: label })}</p>
+                    <div className="cluster">
+                      <button type="button" className="button" disabled={managing.busy} onClick={() => remove(p.ref)}>
+                        {m.action_yes()}
+                      </button>
+                      <button
+                        ref={keep}
+                        type="button"
+                        className="button button--quiet"
+                        onClick={() => setConfirming(null)}
+                      >
+                        {m.action_no()}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="cluster">
                     <button
@@ -201,7 +236,7 @@ export function PasskeysSection({ locale, guard, onSessionsEnded }: Props) {
                       className="button button--quiet"
                       aria-label={m.action_remove_passkey({ name: label })}
                       disabled={managing.busy}
-                      onClick={() => remove(p.ref)}
+                      onClick={() => askRemove(p.ref)}
                     >
                       {m.action_remove()}
                     </button>

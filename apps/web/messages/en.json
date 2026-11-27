@@ -292,5 +292,8 @@
   "action_rename": "Rename",
   "action_remove": "Remove",
   "action_rename_passkey": "Rename {name}",
-  "action_remove_passkey": "Remove {name}"
+  "action_remove_passkey": "Remove {name}",
+  "account_passkey_remove_confirm": "Remove {name}? This also signs you out on your other devices.",
+  "action_yes": "Yes",
+  "action_no": "No"
 }

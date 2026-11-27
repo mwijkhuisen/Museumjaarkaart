@@ -112,9 +112,28 @@ test.describe('with a virtual authenticator', () => {
     await expect(current.getByText(t('session_method_passkey'), { exact: true })).toBeVisible();
     await expect(passkeys.getByText(t('account_passkey_never_used'))).toHaveCount(0);
 
-    // 4. Remove it (the sign-in is fresh): the notice, an empty list.
-    await passkeys.getByRole('button', { name: t('action_remove_passkey').replace('{name}', 'E2E laptop') }).click();
+    // 4. Remove it (the sign-in is fresh). "Remove" only asks: "No" keeps it, and nothing is sent.
+    const removeButton = passkeys.getByRole('button', {
+      name: t('action_remove_passkey').replace('{name}', 'E2E laptop'),
+    });
+    const question = passkeys.getByText(t('account_passkey_remove_confirm').replace('{name}', 'E2E laptop'));
+    const deletes: string[] = [];
+    page.on('request', (req) => {
+      if (req.method() === 'DELETE' && new URL(req.url()).pathname.startsWith('/api/v1/me/passkeys/'))
+        deletes.push(req.url());
+    });
+    await removeButton.click();
+    await expect(question).toBeVisible();
+    await expect(passkeys.getByRole('button', { name: t('action_no'), exact: true })).toBeFocused();
+    await passkeys.getByRole('button', { name: t('action_no'), exact: true }).click();
+    await expect(question).toHaveCount(0);
+    await expect(passkeys.getByRole('listitem').filter({ hasText: 'E2E laptop' })).toBeVisible();
+    expect(deletes).toEqual([]);
+    // "Yes" removes it: the notice, an empty list.
+    await removeButton.click();
+    await passkeys.getByRole('button', { name: t('action_yes'), exact: true }).click();
     await expect(passkeys.getByText(t('account_passkey_removed'))).toBeVisible();
+    expect(deletes).toHaveLength(1);
     await expect(passkeys.getByText(t('account_passkeys_none'))).toBeVisible();
 
     // 5. Out again: the authenticator still holds the credential, the server refuses it.
