@@ -1,4 +1,5 @@
 import type { SsrBundle } from '@mjk/contracts';
+import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { createPool } from '../../src/db/pool.ts';
@@ -31,6 +32,28 @@ const poolDb = (login: 'mjk_api' | 'mjk_ssr', url: string): Db => {
 
 const get = (path: string) => ssr.request(`http://mjk.test${path.replace('@RIJKS', cat.named.rijksmuseum.slug)}`);
 
+/** Four members: one opted in to indexing, one by default, one opted in but banned, one opted in but deleted. */
+async function seedMembers(): Promise<void> {
+  const owner = new pg.Client({ connectionString: tdb.urls.admin });
+  await owner.connect();
+  try {
+    for (const [handle, status, settings] of [
+      ['opted_in', 'active', { profile_indexable: true }],
+      ['by_default', 'active', {}],
+      ['banned_in', 'banned', { profile_indexable: true }],
+      ['deleted_in', 'deleted', { profile_indexable: true }],
+    ] as const) {
+      await owner.query(
+        `INSERT INTO app_user (email, email_verified_at, handle, display_name, age_confirmed_at, terms_version, terms_accepted_at, status, settings)
+         VALUES ($1, now(), $2, 'U', now(), 'v1', now(), $3, $4)`,
+        [`${handle}@example.org`, handle, status, JSON.stringify(settings)],
+      );
+    }
+  } finally {
+    await owner.end();
+  }
+}
+
 beforeAll(async () => {
   tdb = await createMigratedDb();
   cat = await seedCatalogue(tdb);
@@ -40,6 +63,7 @@ beforeAll(async () => {
   ssrDb = poolDb('mjk_ssr', tdb.urls.mjk_ssr);
   apiDb = poolDb('mjk_api', tdb.urls.mjk_api);
   await apiDb.insertInto('museum').values({ slug: HOSTILE_SLUG, name: HOSTILE_NAME, place: 'Utrecht' }).execute();
+  await seedMembers();
   const log = memoryLogger('ssr');
   ssr = createSsrApp({
     bundle,
@@ -205,7 +229,12 @@ describe('sitemap.xml', () => {
     const urls = [...(await r.text()).matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1] as string);
     // The hostile museum (visible) was added after the seed.
     const visible = cat.visibleCount + 1;
-    expect(urls).toHaveLength(2 * (1 + 1 + 12 + visible));
+    expect(urls).toHaveLength(2 * (1 + 1 + 12 + visible + 1)); // the one opted-in member
+    // Only the member who opted in is listed; the default, the banned and the deleted are not (Q2).
+    expect(urls.filter((u) => /\/u\//.test(u))).toEqual([
+      'https://mjk.test/u/opted_in',
+      'https://mjk.test/en/u/opted_in',
+    ]);
     expect(new Set(urls).size).toBe(urls.length);
     const set = new Set(urls);
     expect(set.has(`https://mjk.test/musea/${cat.named.rijksmuseum.slug}`)).toBe(true);

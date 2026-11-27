@@ -14,7 +14,15 @@ let ssr: pg.Client;
 let n = 0;
 
 const DENIED = '42501';
-const VIEWS = ['pub_museum', 'pub_museum_alias', 'pub_slug_redirect', 'pub_province', 'pub_mk_list'] as const;
+const VIEWS = [
+  'pub_museum',
+  'pub_museum_alias',
+  'pub_slug_redirect',
+  'pub_province',
+  'pub_mk_list',
+  'pub_profile',
+  'pub_mk_list_province',
+] as const;
 
 const PUB_MUSEUM_COLUMNS = [
   'id',
@@ -172,6 +180,15 @@ describe('definitions', () => {
     expect(await colsOf('pub_slug_redirect')).toEqual(['old_slug', 'slug']);
     expect(await colsOf('pub_province')).toEqual(['code', 'name_nl', 'name_en', 'museum_count']);
     expect(await colsOf('pub_mk_list')).toEqual(['published_on', 'n']);
+    expect(await colsOf('pub_mk_list_province')).toEqual(['province_code', 'n']);
+    expect(await colsOf('pub_profile')).toEqual([
+      'handle',
+      'display_name',
+      'member_since',
+      'visits_public',
+      'wishlist_public',
+      'indexable',
+    ]);
   });
 });
 

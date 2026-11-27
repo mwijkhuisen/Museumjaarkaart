@@ -1,4 +1,4 @@
-import { type ProvinceCode, SLUG_MAX, SLUG_RE } from '@mjk/contracts';
+import { HANDLE_RE, type ProvinceCode, SLUG_MAX, SLUG_RE } from '@mjk/contracts';
 
 // The one route table (A§15.2, F1's routeOf), shared by the `ssr` role (through the SSR bundle)
 // and the client. Pure: no DOM, no fetch. NL at `/`, EN under `/en/`; the locale comes from the
@@ -6,7 +6,7 @@ import { type ProvinceCode, SLUG_MAX, SLUG_RE } from '@mjk/contracts';
 
 export type Locale = 'nl' | 'en';
 export type LegalDoc = 'privacy' | 'terms' | 'contact' | 'reviews';
-export type ShellApp = 'passport' | 'wishlist' | 'account' | 'signin';
+export type ShellApp = 'passport' | 'wishlist' | 'account' | 'signin' | 'welcome';
 
 /** Province slugs from the Dutch name in both languages (owner, Q4). */
 export const PROVINCE_SLUGS = {
@@ -35,6 +35,8 @@ export type Route =
   | { page: 'map'; locale: Locale; query: string }
   | { page: 'legal'; locale: Locale; doc: LegalDoc }
   | { page: 'shell'; locale: Locale; app: ShellApp }
+  /** A member's public profile (P2c): `/u/<handle>`, the same segment in both languages. */
+  | { page: 'profile'; locale: Locale; handle: string }
   | { page: 'not_found'; locale: Locale };
 
 export type Page = Route['page'];
@@ -46,6 +48,7 @@ const SEGMENT = {
   province: { nl: 'provincie', en: 'province' },
   map: { nl: 'kaart', en: 'map' },
   search: { nl: 'zoeken', en: 'search' },
+  profile: { nl: 'u', en: 'u' },
 } as const;
 
 const LEGAL: Record<LegalDoc, Record<Locale, string>> = {
@@ -60,6 +63,7 @@ const SHELL: Record<ShellApp, Record<Locale, string>> = {
   wishlist: { nl: 'verlanglijst', en: 'wishlist' },
   account: { nl: 'account', en: 'account' },
   signin: { nl: 'inloggen', en: 'sign-in' },
+  welcome: { nl: 'welkom', en: 'welcome' },
 };
 
 /**
@@ -141,6 +145,8 @@ export function routeOf(path: string): Resolved {
   if (first === SEGMENT.province[locale] && isProvince(second)) {
     return route({ page: 'province', locale, province: second, query: keep(search, KEPT.province) });
   }
+  if (first === SEGMENT.profile[locale] && HANDLE_RE.test(second))
+    return route({ page: 'profile', locale, handle: second });
   return route({ page: 'not_found', locale });
 }
 
@@ -167,6 +173,8 @@ export function pathOf(route: Route): string {
       return `${prefix}/${LEGAL[route.doc][locale]}`;
     case 'shell':
       return `${prefix}/${SHELL[route.app][locale]}`;
+    case 'profile':
+      return `${prefix}/${SEGMENT.profile[locale]}/${route.handle}`;
   }
 }
 
@@ -185,6 +193,8 @@ export const apiPath = {
     return points === '' ? '/api/v1/museums/points' : `/api/v1/museums/points?${points}`;
   },
   near: (lat: string, lon: string) => `/api/v1/museums/near?lat=${lat}&lon=${lon}`,
+  /** A public profile with the first page of each public list (P2c). */
+  user: (handle: string) => `/api/v1/users/${handle}`,
 };
 
 /** The province list query: the province first, then the kept parameters. */
@@ -208,6 +218,8 @@ export function apiPathsOf(route: Route): readonly string[] {
       return [apiPath.provinces, apiPath.museums(provinceQuery(route))];
     case 'search':
       return new URLSearchParams(route.query).has('q') ? [apiPath.museums(route.query)] : [];
+    case 'profile':
+      return [apiPath.user(route.handle)];
     default:
       return [];
   }

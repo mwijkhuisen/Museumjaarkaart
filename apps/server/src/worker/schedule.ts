@@ -26,7 +26,8 @@ export type Schedule = {
   stop(): void;
 };
 
-export function startSchedule(opts: { db: Db; logger: Logger }): Schedule {
+/** `exportsDir`: the export bundles the purge also cleans (P2c). */
+export function startSchedule(opts: { db: Db; logger: Logger; exportsDir?: string }): Schedule {
   const { db, logger } = opts;
   // protect: a run that is still busy (a slow database) is not started twice (F1's busy guard).
   const every = (pattern: string, kind: string, maxAttempts?: number) =>
@@ -44,7 +45,7 @@ export function startSchedule(opts: { db: Db; logger: Logger }): Schedule {
   // The retention purge (A§13.2) runs here directly, with no job row.
   const purgeCron = new Cron(PURGE_PATTERN, { timezone: SCHEDULE_TIMEZONE, protect: true, name: 'purge' }, async () => {
     try {
-      await purge(db, logger);
+      await purge(db, logger, opts.exportsDir === undefined ? {} : { exportsDir: opts.exportsDir });
     } catch (err) {
       // The SQLSTATE if any, never the message (it can quote a value).
       const code = (err as { code?: unknown } | null)?.code;

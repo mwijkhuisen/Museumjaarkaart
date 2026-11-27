@@ -17,6 +17,7 @@ const cases: [MailKind, Partial<TemplateData>][] = [
   ['invite', { code: INVITE, validUntil: '2026-12-31' }],
   ['email_changed', { contact: 'help@example.test' }],
   ['passkey_added', { contact: 'help@example.test' }],
+  ['export_ready', {}],
 ];
 
 describe.each(['nl', 'en'] as const)('%s', (locale: Locale) => {
@@ -42,6 +43,13 @@ describe.each(['nl', 'en'] as const)('%s', (locale: Locale) => {
     if (kind === 'passkey_added') {
       expect(subject).toMatch(/passkey/);
       expect(text).toMatch(locale === 'nl' ? /verwijder de passkey/ : /remove the passkey/);
+    }
+    if (kind === 'export_ready') {
+      // The account page's link and nothing else: no id, no file name.
+      expect(text.match(/https:\/\/\S+/g)).toEqual([
+        locale === 'nl' ? `https://${DOMAIN}/account` : `https://${DOMAIN}/en/account`,
+      ]);
+      expect(text).toMatch(locale === 'nl' ? /24 uur/ : /24 hours/);
     }
   });
 

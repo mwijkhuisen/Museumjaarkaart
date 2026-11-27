@@ -246,8 +246,10 @@ describe('the migration on a database that already has users', () => {
     const dbmate = async (...args: string[]) =>
       (await exec('dbmate', ['--no-dump-schema', '--migrations-dir', MIGRATIONS, ...args], { env })).stdout;
 
-    // This migration is the last one: rolling it back drops passkey and the column.
-    await dbmate('rollback');
+    // Roll back through this migration (every later one first, P2c's passport among them): it drops passkey
+    // and the column.
+    const passkeyTable = "SELECT count(*) AS n FROM pg_class WHERE relname = 'passkey'";
+    for (let i = 0; i < 20 && (await count(passkeyTable)) > 0; i++) await dbmate('rollback');
     expect(
       await count(
         "SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'app_user' AND column_name = 'webauthn_user_id'",

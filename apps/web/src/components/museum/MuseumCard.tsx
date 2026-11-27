@@ -5,6 +5,7 @@ import { type Locale, pathOf } from '../../lib/routes.ts';
 import { IconMapPin } from '../ui/icons.tsx';
 import { ClosureNote } from './ClosureNote.tsx';
 import { MuseumkaartStatus } from './MuseumkaartStatus.tsx';
+import { MarkSlot } from './MuseumMarks.tsx';
 
 export function MuseumCard({ museum, locale }: { museum: MuseumListItem; locale: Locale }) {
   return (
@@ -21,6 +22,7 @@ export function MuseumCard({ museum, locale }: { museum: MuseumListItem; locale:
         <MuseumkaartStatus status={museum.museumkaart_status} locale={locale} />
       </p>
       <ClosureNote closedOn={museum.closed_on} tempClosed={museum.temp_closed} locale={locale} />
+      <MarkSlot museumId={museum.id} name={museumName(museum, locale)} />
     </article>
   );
 }

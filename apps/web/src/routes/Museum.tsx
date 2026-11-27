@@ -4,6 +4,7 @@ import { Loading } from '../components/layout/Layout.tsx';
 import { ClosureNote } from '../components/museum/ClosureNote.tsx';
 import { CATEGORY_LABEL } from '../components/museum/categories.ts';
 import { MuseumkaartStatus } from '../components/museum/MuseumkaartStatus.tsx';
+import { MarkSlot, VisitForm } from '../components/museum/MuseumMarks.tsx';
 import { PROVINCE_NAME, provinceSlugOf } from '../components/museum/provinces.ts';
 import { IconCheck, IconExternal, IconMapPin } from '../components/ui/icons.tsx';
 import { useApi } from '../lib/api.ts';
@@ -78,6 +79,7 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
           </span>
         ) : null}
       </p>
+      <MarkSlot museumId={museum.id} name={museumName(museum, locale)} />
       <ClosureNote
         closedOn={museum.closed_on}
         tempClosed={museum.temp_closed}
@@ -132,6 +134,7 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
           <IconMapPin /> {m.museum_on_map()}
         </Link>
       </p>
+      <VisitForm museumId={museum.id} />
     </article>
   );
 }

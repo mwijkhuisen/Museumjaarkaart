@@ -22,6 +22,8 @@ export class InvalidCursor extends Error {
 export type ListParams = Pick<MuseumListQuery, 'province' | 'municipality' | 'category' | 'mk' | 'limit'> & {
   q?: string | undefined;
   cursor?: string | undefined;
+  /** GET /me/museums (P2c): narrow to this member's visits and wishlist; unset, the list is the public one. */
+  member?: { userId: string; visited?: 'yes' | 'no' | undefined; wishlist?: 'yes' | 'no' | undefined } | undefined;
 };
 
 /** The cursor of this request, or InvalidCursor: checked before any SQL. */
@@ -43,12 +45,21 @@ const COLUMNS = sql`m.id, m.slug, m.name, m.name_en, m.place, m.municipality_cod
   m.province_code, m.lat, m.lon, m.categories, m.museumkaart_status, m.registered, m.closed_on,
   m.temp_closed, m.sort_name`;
 
+/** `EXISTS` or `NOT EXISTS` of a row of the member's in `visit` or `wishlist`. */
+function marked(table: 'visit' | 'wishlist', userId: string, want: 'yes' | 'no'): RawBuilder<unknown> {
+  const exists = sql`EXISTS (SELECT 1 FROM ${sql.table(table)} t WHERE t.user_id = ${userId}::uuid AND t.museum_id = m.id)`;
+  return want === 'yes' ? exists : sql`NOT ${exists}`;
+}
+
 function filters(p: Omit<ListParams, 'limit' | 'cursor'>): RawBuilder<unknown> {
   const parts: RawBuilder<unknown>[] = [];
   if (p.province !== undefined) parts.push(sql`m.province_code = ${p.province}`);
   if (p.municipality !== undefined) parts.push(sql`m.municipality_code = ${p.municipality}`);
   if (p.category !== undefined) parts.push(sql`m.categories @> ARRAY[${p.category}]::text[]`);
   if (p.mk !== undefined) parts.push(sql`m.museumkaart_status = 'participating'`);
+  const { member } = p;
+  if (member?.visited !== undefined) parts.push(marked('visit', member.userId, member.visited));
+  if (member?.wishlist !== undefined) parts.push(marked('wishlist', member.userId, member.wishlist));
   return parts.length === 0 ? sql`TRUE` : sql.join(parts, sql` AND `);
 }
 

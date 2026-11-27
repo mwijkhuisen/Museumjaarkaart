@@ -8,9 +8,16 @@ const quote = (field: string) => (NEEDS_QUOTES.test(field) ? `"${field.replaceAl
 export const writeCsv = (rows: readonly (readonly string[])[]): string =>
   rows.map((row) => `${row.map(quote).join(',')}\r\n`).join('');
 
-export type CsvResult = { ok: true; rows: string[][] } | { ok: false; code: 'bad_quote'; line: number };
+export type CsvResult =
+  | { ok: true; rows: string[][] }
+  | { ok: false; code: 'bad_quote' | 'too_many_rows'; line: number };
 
-export function readCsv(input: string): CsvResult {
+/**
+ * `maxRows` stops the read as soon as one more record would exceed it (the work stays bounded for an
+ * upload); `delimiter` is `;` for Dutch Excel files. Never throws.
+ */
+export function readCsv(input: string, opts: { maxRows?: number; delimiter?: ',' | ';' } = {}): CsvResult {
+  const { maxRows = Number.POSITIVE_INFINITY, delimiter = ',' } = opts;
   const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   const rows: string[][] = [];
   let row: string[] = [];
@@ -24,11 +31,13 @@ export function readCsv(input: string): CsvResult {
     field = '';
     afterQuote = false;
   };
-  const endRow = () => {
+  const endRow = (): boolean => {
     endField();
+    if (rows.length >= maxRows) return false;
     rows.push(row);
     row = [];
     started = false;
+    return true;
   };
   for (let i = 0; i < text.length; i++) {
     const c = text[i] as string;
@@ -48,10 +57,10 @@ export function readCsv(input: string): CsvResult {
       continue;
     }
     started = true;
-    if (c === ',') endField();
+    if (c === delimiter) endField();
     else if (c === '\r' || c === '\n') {
       if (c === '\r' && text[i + 1] === '\n') i++;
-      endRow();
+      if (!endRow()) return { ok: false, code: 'too_many_rows', line };
       line++;
     } else if (c === '"') {
       // A quote opens a field only at its start; anywhere else the file is malformed.
@@ -61,7 +70,7 @@ export function readCsv(input: string): CsvResult {
     else field += c;
   }
   if (inQuotes) return { ok: false, code: 'bad_quote', line };
-  if (started) endRow();
+  if (started && !endRow()) return { ok: false, code: 'too_many_rows', line };
   return { ok: true, rows };
 }
 

@@ -48,8 +48,16 @@ export function createSsrApp({ bundle, fetchApi, db, config, logger }: SsrDeps):
   app.get('/sitemap.xml', async (c) => {
     page(c, 'sitemap');
     const rows = await db.selectFrom('pub_museum').select('slug').orderBy('slug').execute();
+    // Only members who opted in (default: not); `pub_profile` holds active members only.
+    const profiles = await db
+      .selectFrom('pub_profile')
+      .select('handle')
+      .where('indexable', '=', true)
+      .orderBy('handle')
+      .execute();
     const body = bundle.sitemap(
       rows.map((r) => r.slug as string),
+      profiles.map((r) => r.handle as string),
       config,
     );
     return new Response(body, {

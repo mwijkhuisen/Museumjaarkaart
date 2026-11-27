@@ -1,13 +1,27 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { TERMS_VERSION } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Mount } from '../src/api/app.ts';
+import { mountMeExports } from '../src/api/routes/me-exports.ts';
+import { mountMeImports } from '../src/api/routes/me-imports.ts';
+import { mountMeMuseums } from '../src/api/routes/me-museums.ts';
+import { mountMeProgress } from '../src/api/routes/me-progress.ts';
+import { mountMeVisits } from '../src/api/routes/me-visits.ts';
+import { mountMeWishlist } from '../src/api/routes/me-wishlist.ts';
+import { mountUsers } from '../src/api/routes/users.ts';
 import { createInvite } from '../src/auth/invite.ts';
 import { memoryLogger } from '../src/lib/log.ts';
 import { memoryMailer } from '../src/mail/mailer.ts';
+import { dataExportJob } from '../src/passport/export/job.ts';
 import { mailJobs } from '../src/worker/mail.ts';
 import { purge } from '../src/worker/purge.ts';
+import type { JobHandler } from '../src/worker/types.ts';
+import { meApp } from './api/me-app.ts';
 import { accountsApp, altchaPayload, codeFor, tokenOf } from './auth/app.ts';
-import { type AuthDb, openAuthDb } from './auth/fixtures.ts';
 import { softCredential } from './auth/soft-authenticator.ts';
+import { openPassportDb, type PassportDb } from './passport/fixtures.ts';
 
 // Criterion 15 and invariant 8 (A§17.7 "Logs"): every account flow, in-process, on the api's and
 // the worker's loggers; then no line may hold an email, a code, a password, a session token, the
@@ -18,12 +32,12 @@ const PEER = '198.51.100.77';
 const PASSWORD = 'Zq7-log-capture-Password';
 const NEW_PASSWORD = 'Zq7-log-capture-Changed';
 
-let a: AuthDb;
+let a: PassportDb;
 let t: ReturnType<typeof accountsApp>;
 const secrets: string[] = [PEER, PASSWORD, NEW_PASSWORD];
 
 beforeAll(async () => {
-  a = await openAuthDb();
+  a = await openPassportDb();
   t = accountsApp(a);
 }, 120_000);
 afterAll(async () => {
@@ -225,5 +239,137 @@ describe('the logs of every account flow', () => {
     for (const s of secrets) expect(text, 'a log line holds a secret value').not.toContain(s);
     // Fixed codes only: every msg is a short snake_case code.
     for (const line of [...t.lines(), ...worker.lines()]) expect(String(line.msg)).toMatch(/^[a-z_]{1,40}$/);
+  });
+});
+
+// P2c (invariant 8, A§14 "Request logs"): the passport routes, the public profile routes and the export job
+// log fixed codes only. Every route is driven once with marker strings in the note, the import file, the
+// handle and the museum names; no marker, museum name, export id or file name may reach a line.
+
+describe('the logs of the passport routes', () => {
+  it('hold no note, import content, museum name, handle, export id or file name', async () => {
+    const NOTE = 'NOTE-LOGMARK-81b2';
+    const NOTE_2 = 'NOTE-LOGMARK-edit-5d7c';
+    const IMPORTED = 'IMPORT-LOGMARK-Zzyzx-Museum';
+    const HANDLE = 'logmark_member';
+    const exportsDir = mkdtempSync(join(tmpdir(), 'mjk-logcap-exports-'));
+    const mount: Mount = (v1, d) => {
+      mountMeVisits(v1, d);
+      mountMeWishlist(v1, d);
+      mountMeMuseums(v1, d);
+      mountMeProgress(v1, d);
+      mountMeImports(v1, d);
+      mountMeExports(v1, { ...d, exportsDir });
+      mountUsers(v1, d);
+    };
+    const app = meApp(a, mount);
+    app.state.peer = '198.51.100.88';
+    const u = await a.newMember({
+      handle: HANDLE,
+      settings: { visits_visibility: 'public', wishlist_visibility: 'public' },
+    });
+    const token = await app.signIn(u.id);
+    const museums = [await a.visible(40), await a.visible(41), await a.visible(42)];
+    const named = (
+      await a.owner.query<{ name: string }>('SELECT name FROM museum WHERE id = ANY($1::uuid[])', [
+        museums.map((m) => m.id),
+      ])
+    ).rows.map((r) => r.name);
+    const [m0, m1, m2] = museums as [(typeof museums)[0], (typeof museums)[0], (typeof museums)[0]];
+    const ok = async (status: number, path: string, o: Parameters<typeof app.call>[1] = {}) => {
+      const r = await app.call(path, { token, ...o });
+      expect(r.status, `${o.method ?? 'GET'} ${path}`).toBe(status);
+      return r;
+    };
+
+    // The member's visit log, wishlist and the museum views.
+    const created = (await (
+      await ok(201, '/me/visits', { body: { museum_id: m0.id, visited_on: '2026-02-01', note: NOTE } })
+    ).json()) as { id: string };
+    await ok(200, `/me/visits/${created.id}`, { method: 'PATCH', body: { note: NOTE_2 } });
+    await ok(409, '/me/visits', { body: { museum_id: m0.id, visited_on: '2026-02-01', note: NOTE } });
+    await ok(200, '/me/visits/bulk', { body: { museum_ids: [m1.id] } });
+    await ok(200, '/me/visits?limit=1');
+    await ok(204, `/me/wishlist/${m2.id}`, { method: 'PUT' });
+    await ok(200, '/me/wishlist');
+    await ok(200, '/me/marks');
+    await ok(200, '/me/museums?visited=yes');
+    await ok(200, `/me/museums/${m0.slug}`);
+    await ok(200, '/me/progress');
+    await ok(204, `/me/wishlist/${m2.id}`, { method: 'DELETE' });
+    await ok(204, `/me/visits/${created.id}`, { method: 'DELETE' });
+    await ok(404, `/me/visits/${created.id}`, { method: 'DELETE' });
+
+    // An import: a good file, a refused one, the confirm and a second confirm.
+    const preview = (await (
+      await ok(201, '/me/imports', {
+        body: { format: 'csv', content: `museum,note\n${IMPORTED},${NOTE}\n${named[0]},${NOTE_2}\n` },
+      })
+    ).json()) as { id: string };
+    await ok(422, '/me/imports', { body: { format: 'csv', content: `museum\n"${IMPORTED}\n` } });
+    await ok(200, `/me/imports/${preview.id}/confirm`, { body: { choose: [], skip: [1] } });
+    await ok(409, `/me/imports/${preview.id}/confirm`, { body: { choose: [], skip: [] } });
+
+    // An export: asked, built by the worker's job, mailed, listed, downloaded, then purged.
+    const asked = (await (await ok(202, '/me/exports', { method: 'POST' })).json()) as { id: string };
+    await ok(409, '/me/exports', { method: 'POST' });
+    const worker = memoryLogger('worker');
+    const mail = memoryMailer();
+    const jobs: Record<string, JobHandler> = {
+      data_export: dataExportJob({ db: a.worker, exportsDir }),
+      ...mailJobs({
+        db: a.worker,
+        keys: app.keys,
+        mailer: mail.mailer,
+        logger: worker.logger,
+        env: {
+          MJK_BRAND_NAME: 'Testmerk',
+          MJK_DOMAIN: 'mjk.test',
+          MJK_CONTACT_EMAIL: 'contact@mjk.test',
+          MJK_MAIL_CAP: '300',
+        },
+      }),
+    };
+    for (const kind of ['data_export', 'mail_export']) {
+      const queued = await a.admin.query<{ kind: string; payload: unknown }>(
+        'SELECT kind, payload FROM job WHERE kind = $1 ORDER BY id',
+        [kind],
+      );
+      for (const job of queued.rows) await jobs[job.kind]?.(job.payload, { signal: new AbortController().signal });
+    }
+    expect(mail.sent().length).toBeGreaterThan(0);
+    await ok(200, '/me/exports');
+    for (const file of ['export.json', 'visits.csv', 'wishlist.csv']) await ok(200, `/me/exports/${asked.id}/${file}`);
+    await ok(404, `/me/exports/${asked.id}/secret.txt`);
+    await ok(404, '/me/exports/00000000-0000-4000-8000-000000000001/export.json');
+    await a.owner.query(`UPDATE data_export SET expires_at = now() - interval '1 minute' WHERE id = $1`, [asked.id]);
+    await ok(404, `/me/exports/${asked.id}/export.json`);
+    await purge(a.worker, worker.logger, { exportsDir });
+
+    // The public profile routes, found and not found.
+    await ok(200, `/users/${HANDLE}`);
+    await ok(200, `/users/${HANDLE}/visits`);
+    await ok(200, `/users/${HANDLE}/wishlist`);
+    await ok(404, '/users/nobody_here');
+
+    const lines = [...app.lines(), ...worker.lines()];
+    expect(app.lines().length).toBeGreaterThan(20);
+    const text = JSON.stringify(lines);
+    const secrets = [
+      NOTE,
+      NOTE_2,
+      IMPORTED,
+      HANDLE,
+      asked.id,
+      preview.id,
+      created.id,
+      'export.json',
+      'visits.csv',
+      'wishlist.csv',
+      ...named,
+      ...museums.flatMap((m) => [m.id, m.slug]),
+    ];
+    for (const s of secrets) expect(text, 'a log line holds a secret value').not.toContain(s);
+    for (const line of lines) expect(String(line.msg)).toMatch(/^[a-z_]{1,40}$/);
   });
 });

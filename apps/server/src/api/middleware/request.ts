@@ -25,6 +25,8 @@ export type ApiEnv = {
     session?: Session;
     /** On the admin host: a live session whose user's email differs from the Access JWT's (→ 403 at the admin gate). */
     adminMismatch?: boolean;
+    /** Set by the not-found handler: no route answered (logged as `unmatched`). */
+    unmatched?: boolean;
   };
 };
 
@@ -46,12 +48,20 @@ const METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PAT
 const GLOBAL = new Set(['*', '/*']);
 
 /**
- * The pattern of the route that answers: the first matched route that is not a global middleware
- * (the router lists routes in registration order, and the first registered one answers), or
- * `unmatched`. Never derived from the request path.
+ * The pattern of the route that answers, never derived from the request path:
+ *   - the first matched route registered for a method (the router lists routes in registration
+ *     order, and the first registered one answers). Middleware registers for every method (`ALL`),
+ *     so a path-scoped one such as the session cookie's `/api/v1/me/*` never names the route;
+ *   - else `unmatched` when the not-found handler answered;
+ *   - else the path-scoped middleware that answered (the admin gate's `/api/admin/*`), or `unmatched`.
  */
-export function routePattern(c: Context): string {
-  return matchedRoutes(c).find((r) => !GLOBAL.has(r.path))?.path ?? 'unmatched';
+export function routePattern(c: Context<ApiEnv>): string {
+  const routes = matchedRoutes(c);
+  const route = routes.find((r) => r.method !== 'ALL');
+  if (route !== undefined) return route.path;
+  if (c.get('unmatched') === true) return 'unmatched';
+  const answered = routes[c.req.routeIndex]?.path;
+  return answered === undefined || GLOBAL.has(answered) ? 'unmatched' : answered;
 }
 
 export function requestLog(logger: Logger): MiddlewareHandler<ApiEnv> {

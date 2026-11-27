@@ -10,7 +10,7 @@ import { mailbox, t } from './helpers.ts';
 
 type Member = { email: string; handle: string; name: string; signedInAs: string };
 
-/** A fresh member by invite, as auth.spec.ts does it; lands on the account page, so the sign-in is fresh. */
+/** A fresh member by invite, as auth.spec.ts does it; ends on the account page, so the sign-in is fresh. */
 async function signUp(page: Page, request: Parameters<typeof mailbox>[0], tag: string, browserName: string) {
   const invite = process.env.E2E_INVITE;
   if (!invite) throw new Error('E2E_INVITE is required: run deploy/e2e/stack.sh');
@@ -33,6 +33,14 @@ async function signUp(page: Page, request: Parameters<typeof mailbox>[0], tag: s
   await submit.click();
   await page.getByLabel(t('field_code')).fill(await mail.code());
   await page.getByRole('button', { name: t('action_verify'), exact: true }).click();
+  // A new member lands on the onboarding; the header's Account link leads on to the account page. In-page
+  // navigation once the museums have loaded: a full load would abort a fetch, which WebKit logs as "Load failed".
+  await expect(page).toHaveURL(/\/welkom$/);
+  await expect(page.locator('input[name="museum"]').first()).toBeVisible();
+  await page
+    .getByRole('banner')
+    .getByRole('link', { name: t('nav_account') })
+    .click();
   await expect(page.getByText(signedInAs)).toBeVisible();
   const member: Member = { email, handle, name, signedInAs };
   return member;

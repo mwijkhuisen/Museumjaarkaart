@@ -1,11 +1,13 @@
 import { ErrorBody, Healthz } from '@mjk/contracts';
+import type { Context } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { type ApiDeps, BODY_LIMIT_BYTES, buildApp, unavailable } from '../../src/api/app.ts';
+import { type ApiDeps, BODY_LIMIT_BYTES, buildApp, IMPORT_BODY_LIMIT_BYTES, unavailable } from '../../src/api/app.ts';
 import { createApp } from '../../src/api/create-app.ts';
 import { ApiError } from '../../src/api/errors.ts';
 import { parseParam, parseQuery } from '../../src/api/query.ts';
 import { sendJson } from '../../src/api/respond.ts';
+import type { AppKeys } from '../../src/auth/keys.ts';
 import type { Db } from '../../src/db/kysely.ts';
 import { memoryLogger } from '../../src/lib/log.ts';
 
@@ -21,13 +23,15 @@ const Echo = z.strictObject({
     .optional(),
 });
 
-function setup(opts: { ping?: () => Promise<boolean> } = {}) {
+function setup(opts: { ping?: () => Promise<boolean>; session?: boolean } = {}) {
   const { logger, lines } = memoryLogger('api');
   const deps: ApiDeps = {
     db: {} as Db,
     logger,
     ping: opts.ping ?? (async () => true),
     site: { domain: 'mjk.test', adminHost: 'admin.mjk.test' },
+    // With keys, buildApp registers the session middleware on /api/v1/me/* (no cookie: no query).
+    ...(opts.session === true ? { keys: {} as AppKeys } : {}),
   };
   const app = buildApp(deps, (v1) => {
     v1.get('/echo', (c) =>
@@ -49,7 +53,12 @@ function setup(opts: { ping?: () => Promise<boolean> } = {}) {
     v1.get('/not-found', () => {
       throw new ApiError('not_found');
     });
-    v1.post('/sink', async (c) => c.json({ bytes: (await c.req.arrayBuffer()).byteLength }));
+    const sink = async (c: Context) => c.json({ bytes: (await c.req.arrayBuffer()).byteLength });
+    v1.post('/sink', sink);
+    v1.on(['POST', 'PUT'], '/me/imports', sink);
+    v1.post('/me/imports/:id', sink);
+    v1.post('/me/imports/:id/confirm', sink);
+    v1.get('/me/sessions', (c) => c.json({ which: 'sessions' }));
   });
   return { app, lines };
 }
@@ -219,6 +228,28 @@ describe('the 64 KB body cap (headers only; socket.int.test.ts runs it over a re
     }
   });
 
+  it("takes 2 MiB only for an import's POST and its confirm (P2c design 4)", async () => {
+    const { app } = setup();
+    const at = async (method: string, path: string, length: number) =>
+      (
+        await get(app, path, {
+          method,
+          headers: { ...SAME, 'Content-Length': String(length) },
+          body: new Uint8Array(length),
+        })
+      ).status;
+    for (const path of ['/api/v1/me/imports', '/api/v1/me/imports/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/confirm']) {
+      expect(await at('POST', path, IMPORT_BODY_LIMIT_BYTES), path).toBe(200);
+      expect(await at('POST', path, IMPORT_BODY_LIMIT_BYTES + 1), path).toBe(413);
+    }
+    for (const [method, path] of [
+      ['PUT', '/api/v1/me/imports'],
+      ['POST', '/api/v1/me/imports/x'],
+      ['POST', '/api/v1/sink'],
+    ] as const)
+      expect(await at(method, path, BODY_LIMIT_BYTES + 1), `${method} ${path}`).toBe(413);
+  });
+
   it('never reads the body, and an admin path is a 404 before the cap', async () => {
     const { app } = setup();
     const admin = await post(app, '/api/admin/x', { 'Transfer-Encoding': 'chunked', 'Content-Length': '999999' }, 'x');
@@ -327,6 +358,13 @@ describe('the request log (invariant 8)', () => {
     const { app, lines } = setup();
     expect(await json(await get(app, '/api/v1/museums/suggest'))).toEqual({ which: 'suggest' });
     expect(lines()[0]?.route).toBe('/api/v1/museums/suggest');
+  });
+
+  it('names the route behind a path-scoped middleware, and unmatched when none answers', async () => {
+    const { app, lines } = setup({ session: true });
+    expect((await get(app, '/api/v1/me/sessions')).status).toBe(200);
+    expect((await get(app, '/api/v1/me/secret-path')).status).toBe(404);
+    expect(lines().map((l) => l.route)).toEqual(['/api/v1/me/sessions', 'unmatched']);
   });
 
   it.each([

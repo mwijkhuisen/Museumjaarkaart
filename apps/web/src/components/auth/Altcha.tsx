@@ -82,6 +82,10 @@ export function Altcha({ locale, onPayload }: Props) {
       {createElement('altcha-widget', {
         ref: widget,
         auto: 'onload',
+        // Four workers, not one per core: the SHA-256 challenge is small, and 16 workers at once (a 16-core
+        // machine) cost memory for nothing and made Chromium under Playwright lose a worker script's finish
+        // event, so `networkidle` never settled (P2c).
+        workers: '4',
         type: 'native',
         challenge: '/api/v1/auth/altcha',
         language: locale,

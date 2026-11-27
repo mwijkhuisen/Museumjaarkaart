@@ -6,5 +6,6 @@ export * from './common.ts';
 export * from './errors.ts';
 export * from './museums.ts';
 export * from './passkey.ts';
+export * from './passport.ts';
 export * from './queries.ts';
 export type * from './ssr.ts';

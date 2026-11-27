@@ -20,11 +20,12 @@ import { mountMuseumsList } from './routes/museums-list.ts';
 import { mountMuseumsNear } from './routes/museums-near.ts';
 import { mountMuseumsPoints } from './routes/museums-points.ts';
 import { mountProvinces } from './routes/provinces.ts';
+import { mountUsers } from './routes/users.ts';
 
 // The `api` role's Hono app (A§5, A§14). Middleware order (phase plan §2, P1e §2, P2a design 6):
 // request id and log → the client address (A§9) → the Access JWT on the admin host (ADR-0004) →
 // /api/admin/* is a 404 whatever the method and body unless the admin host's JWT passed → the
-// header-only 64 KB body cap (middleware/body-cap.ts) → CSRF on every unsafe method (403) → JSON-only
+// header-only body cap (64 KiB; 2 MiB for an import, `bodyLimit`) → CSRF on every unsafe method (403) → JSON-only
 // mutations (415) → the session cookie, on the auth, me and admin paths only → each route parses its
 // query and body strictly → the route → the fixed error handler.
 
@@ -42,6 +43,8 @@ export type ApiDeps = {
   site?: SiteDeps;
   /** The `app_keys` secret (P2a); set only by runApi, which also mounts the account routes with it. */
   keys?: AppKeys;
+  /** The export bundles (A§17.1: `/srv/mjk/exports`, read-only for the api); set only by runApi (P2c). */
+  exportsDir?: string;
 };
 
 export type ApiApp = Hono<ApiEnv>;
@@ -49,6 +52,13 @@ export type ApiApp = Hono<ApiEnv>;
 export type Mount = (v1: ApiApp, deps: ApiDeps) => void;
 
 export const BODY_LIMIT_BYTES = 64 * 1024;
+/** An import's file and its confirm (P2c design 4; Caddy's `@import` has the same method and paths). */
+export const IMPORT_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
+const IMPORT_PATH = /^\/api\/v1\/me\/imports(?:\/[^/]+\/confirm)?$/;
+
+/** The body cap of one request: 2 MiB for `POST /me/imports` and `POST /me/imports/:id/confirm`, else 64 KiB. */
+export const bodyLimit = (c: Context<ApiEnv>): number =>
+  c.req.method === 'POST' && IMPORT_PATH.test(c.req.path) ? IMPORT_BODY_LIMIT_BYTES : BODY_LIMIT_BYTES;
 
 /**
  * The fixed messages of the node-postgres errors that carry no `code`: a saturated pool
@@ -109,7 +119,7 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
     if (c.var.access === undefined) return respondError(c, 'not_found');
     await next();
   });
-  app.use('*', bodyCap(BODY_LIMIT_BYTES));
+  app.use('*', bodyCap(bodyLimit));
   app.use('*', csrf(deps.site));
   app.use('*', jsonOnly());
   // The session cookie is read only where a session can matter (A§14: public routes never read it).
@@ -132,7 +142,10 @@ export function buildApp(deps: ApiDeps, mount: Mount): ApiApp {
   app.route('/api/v1', v1);
   if (deps.site !== undefined && deps.keys !== undefined) app.route('/api/admin', adminRoutes());
 
-  app.notFound((c) => respondError(c, 'not_found'));
+  app.notFound((c) => {
+    c.set('unmatched', true);
+    return respondError(c, 'not_found');
+  });
   app.onError((err, c) => onError(err, c, deps.logger));
   return app;
 }
@@ -149,6 +162,8 @@ export const mountCatalogue: Mount = (v1, d) => {
   mountMuseumsNear(v1, d);
   mountMuseumsPoints(v1, d);
   mountMuseumDetail(v1, d);
+  // P2c: the public profiles; outside the session paths, readable as mjk_ssr.
+  mountUsers(v1, d);
 };
 
 // The api role's own app (the catalogue plus the account routes, mountAccounts and createApp) lives

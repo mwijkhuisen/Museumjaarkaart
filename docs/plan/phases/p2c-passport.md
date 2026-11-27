@@ -28,6 +28,8 @@ Status: draft for the owner's approval (2026-11-01). It holds the questions, des
 | Q8 | The stale-price rule (A§7.5; owner, 2026-11-22): a price last verified more than 18 months ago [U] counts as no price. Measured against today, or against the visit date? | Against today, with the one price column A§8 has: it keeps a neglected price from producing a wrong figure, and the January re-check keeps the list short. A price history per year would make old years exact, but it is a new table and more curation; revisit after the beta |
 | Q9 | The card price (A§7.5, checked 2026-11-22): €75 from 19 years, €39 up to and including 18, €69 for a renewal; and a card runs 365 days from its activation, not a calendar year (A§10) | Keep `card_type` as `adult` · `under_19` with the new-card price, and say on the page that the figure is an estimate per calendar year. A renewal price can join later as a third value |
 
+**Answers** (owner, 2026-11-27): Q1 to Q9 as recommended. Q1: 24 h on `visit.created_at`, in `pub_visit_log`. Q2: `noindex` and out of the sitemap unless `profile_indexable`. Q3: the name rule as written, candidates from the screen's search. Q4: no handle change. Q5: one open export and 3 a day. Q6: the numbers stay [U]. Q7: progress is public exactly when the visit log is. Q8: against today. Q9: `adult` · `under_19`, the estimate per calendar year. The built facts are in A§8 to A§15.
+
 ## 2. What the plan settles
 
 - **Schema** (A§8, A§10), each with its grants:

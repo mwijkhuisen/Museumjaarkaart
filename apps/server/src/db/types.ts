@@ -76,6 +76,14 @@ export interface ContentIpLog {
   user_id: string | null;
 }
 
+export interface DataExport {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp | null;
+  id: Generated<string>;
+  state: Generated<string>;
+  user_id: string;
+}
+
 export interface EmailCode {
   attempts: Generated<number>;
   code_hmac: Buffer;
@@ -261,6 +269,11 @@ export interface PubMkList {
   published_on: string | null;
 }
 
+export interface PubMkListProvince {
+  n: number | null;
+  province_code: string | null;
+}
+
 export interface PubMuseum {
   admission_adult_cents: number | null;
   categories: string[] | null;
@@ -303,6 +316,15 @@ export interface PubMuseumAlias {
   museum_id: string | null;
 }
 
+export interface PubProfile {
+  display_name: string | null;
+  handle: string | null;
+  indexable: boolean | null;
+  member_since: string | null;
+  visits_public: boolean | null;
+  wishlist_public: boolean | null;
+}
+
 export interface PubProvince {
   code: string | null;
   museum_count: number | null;
@@ -336,11 +358,38 @@ export interface Session {
   user_id: string;
 }
 
+export interface Visit {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  museum_id: string;
+  note: string | null;
+  source: string;
+  user_id: string;
+  visited_on: string | null;
+}
+
+export interface VisitImport {
+  confirmed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  format: string;
+  id: Generated<string>;
+  rows: Json;
+  state: Generated<string>;
+  user_id: string;
+}
+
+export interface Wishlist {
+  created_at: Generated<Timestamp>;
+  museum_id: string;
+  user_id: string;
+}
+
 export interface DB {
   app_user: AppUser;
   audit_log: AuditLog;
   auth_challenge: AuthChallenge;
   content_ip_log: ContentIpLog;
+  data_export: DataExport;
   email_code: EmailCode;
   invite: Invite;
   job: Job;
@@ -357,10 +406,15 @@ export interface DB {
   passkey: Passkey;
   province: Province;
   pub_mk_list: PubMkList;
+  pub_mk_list_province: PubMkListProvince;
   pub_museum: PubMuseum;
   pub_museum_alias: PubMuseumAlias;
+  pub_profile: PubProfile;
   pub_province: PubProvince;
   pub_slug_redirect: PubSlugRedirect;
   rate_limit: RateLimit;
   session: Session;
+  visit: Visit;
+  visit_import: VisitImport;
+  wishlist: Wishlist;
 }

@@ -116,6 +116,41 @@ describe('headOf', () => {
   });
 });
 
+describe('a profile head (Q2: noindex unless the member opted in)', () => {
+  const route = (locale: Locale): Route => ({ page: 'profile', locale, handle: 'anna_b' });
+  const profile = (over: Record<string, unknown> = {}) =>
+    new Map<string, unknown>([
+      [
+        apiPath.user('anna_b'),
+        {
+          handle: 'anna_b',
+          display_name: 'Anna <b>B</b>',
+          member_since: '2026-11',
+          indexable: false,
+          progress: null,
+          visits: null,
+          wishlist: null,
+          ...over,
+        },
+      ],
+    ]);
+
+  it('is noindex by default, with the display name in the title and the member month in the description', () => {
+    const nl = inLocaleOf('nl', () => headOf(route('nl'), profile(), CONFIG));
+    expect(nl.robots).toBe('noindex');
+    expect(nl.title).toBe('Anna <b>B</b> · Musea Test');
+    expect(nl.description).toBe('Het museumpaspoort van Anna <b>B</b>, lid sinds november 2026.');
+    expect(nl.canonical).toBe('https://mjk.test/u/anna_b');
+    const en = inLocaleOf('en', () => headOf(route('en'), profile(), CONFIG));
+    expect(en.description).toBe("Anna <b>B</b>'s museum passport, a member since November 2026.");
+    expect(en.canonical).toBe('https://mjk.test/en/u/anna_b');
+  });
+
+  it('has no robots tag once the member opted in', () => {
+    expect(inLocaleOf('nl', () => headOf(route('nl'), profile({ indexable: true }), CONFIG)).robots).toBeNull();
+  });
+});
+
 describe('jsonLdOf', () => {
   const route: Route = { page: 'museum', locale: 'en', slug: 'rijksmuseum' };
 
@@ -169,7 +204,7 @@ describe('sitemapXml', () => {
   const locs = (xml: string) => [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1] as string);
 
   it('lists both languages of the home page, the list, 12 provinces and every museum', () => {
-    const urls = locs(sitemapXml(slugs, CONFIG));
+    const urls = locs(sitemapXml(slugs, [], CONFIG));
     expect(urls).toHaveLength(2 * (1 + 1 + 12 + slugs.length));
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls).toContain('https://mjk.test/');
@@ -184,7 +219,7 @@ describe('sitemapXml', () => {
   });
 
   it('is in a stable order: NL then EN, each home, list, provinces, museums', () => {
-    const urls = locs(sitemapXml(slugs, CONFIG));
+    const urls = locs(sitemapXml(slugs, [], CONFIG));
     expect(urls.slice(0, 3)).toEqual([
       'https://mjk.test/',
       'https://mjk.test/musea',
@@ -196,11 +231,19 @@ describe('sitemapXml', () => {
       'https://mjk.test/musea/c-museum',
     ]);
     expect(urls[17]).toBe('https://mjk.test/en/');
-    expect(sitemapXml(slugs, CONFIG)).toBe(sitemapXml(slugs, CONFIG));
+    expect(sitemapXml(slugs, [], CONFIG)).toBe(sitemapXml(slugs, [], CONFIG));
+  });
+
+  it('lists the opted-in profiles after the museums, in both languages', () => {
+    const urls = locs(sitemapXml(slugs, ['anna_b', 'bob'], CONFIG));
+    expect(urls).toHaveLength(2 * (1 + 1 + 12 + slugs.length + 2));
+    expect(urls.slice(17, 19)).toEqual(['https://mjk.test/u/anna_b', 'https://mjk.test/u/bob']);
+    expect(urls).toContain('https://mjk.test/en/u/anna_b');
+    expect(urls).toContain('https://mjk.test/en/u/bob');
   });
 
   it('escapes XML metacharacters', () => {
-    const xml = sitemapXml(['a'], { brand: 'x', domain: `h&<>"'`, controller: 'x', contactEmail: 'x@x.nl' });
+    const xml = sitemapXml(['a'], [], { brand: 'x', domain: `h&<>"'`, controller: 'x', contactEmail: 'x@x.nl' });
     expect(xml).toContain('<loc>https://h&amp;&lt;&gt;&quot;&apos;/</loc>');
   });
 });

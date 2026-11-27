@@ -6,6 +6,7 @@ import {
   MuseumList as MuseumListSchema,
   PROVINCE_CODES,
   Provinces,
+  UserProfile,
 } from '@mjk/contracts';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -75,23 +76,24 @@ const list = (): MuseumList =>
   });
 
 /** The cache keys a route needs, seeded with fixtures (the same data on the server and in the browser). */
-function seed(route: Route, museum: MuseumDetail): Map<string, unknown> {
+function seed(route: Route, museum: MuseumDetail, profile: unknown): Map<string, unknown> {
   const data = new Map<string, unknown>();
   for (const path of apiPathsOf(route)) {
     if (path === apiPath.provinces) data.set(path, provinces);
     else if (path === apiPath.mkList) data.set(path, mkList);
     else if (path.startsWith('/api/v1/museums/')) data.set(path, museum);
+    else if (path.startsWith('/api/v1/users/')) data.set(path, profile);
     else data.set(path, list());
   }
   return data;
 }
 
-function render(path: string, museum: MuseumDetail = detail()): string {
+function render(path: string, museum: MuseumDetail = detail(), profile: unknown = null): string {
   const resolved = routeOf(path);
   if (resolved.kind !== 'route') throw new Error('not a route');
   setLocale(resolved.route.locale, { reload: false });
   const queryClient = createQueryClient();
-  for (const [key, value] of seed(resolved.route, museum)) queryClient.setQueryData([key], value);
+  for (const [key, value] of seed(resolved.route, museum, profile)) queryClient.setQueryData([key], value);
   return renderToStaticMarkup(
     <App
       path={path}
@@ -336,5 +338,89 @@ describe('the map page (server-rendered: the filters and the list, never the map
     }
     expect(render('/kaart')).toContain('<noscript><p>De kaart heeft JavaScript nodig.');
     expect(render('/en/map')).toContain('<noscript><p>The map needs JavaScript.');
+  });
+});
+
+describe('the profile page', () => {
+  const pm = (slug: string, over: Record<string, unknown> = {}) => ({
+    slug,
+    name: `Museum ${slug}`,
+    name_en: null,
+    place: 'Haarlem',
+    ...over,
+  });
+  const profile = (over: Record<string, unknown> = {}) =>
+    UserProfile.parse({
+      handle: 'anna_b',
+      display_name: 'Anna de Vries',
+      member_since: '2026-03',
+      indexable: false,
+      progress: {
+        list: {
+          published_on: '2026-11-05',
+          n: 512,
+          visited: 37,
+          provinces: [
+            { code: 'NL-NH', n: 80, visited: 9 },
+            { code: null, n: 3, visited: 0 },
+          ],
+        },
+        all_time: 41,
+        years: [{ year: 2026, museums: 12 }],
+      },
+      visits: {
+        items: [
+          { museum: pm('een'), visited_month: '2026-11', visits: 1 },
+          { museum: pm('twee', { name_en: 'Two' }), visited_month: '2026-11', visits: 3 },
+          { museum: pm('drie', { place: null }), visited_month: null, visits: 1 },
+        ],
+        next: 'abc',
+      },
+      wishlist: { items: [{ museum: pm('vier') }], next: null },
+      ...over,
+    });
+
+  it('shows the name, initials, member month, progress with its list date, the log by month and the wishlist (NL)', () => {
+    const html = render('/u/anna_b', detail(), profile());
+    expect(html).toContain('<h1>Anna de Vries</h1>');
+    expect(html).toContain('<span class="avatar" aria-hidden="true">AD</span>');
+    expect(html).toContain('Lid sinds maart 2026');
+    expect(html).toContain('37 van 512 · lijst november 2026');
+    expect(html).toContain('Noord-Holland: 9 van 80');
+    expect(html).toContain('Provincie onbekend: 0 van 3');
+    expect(html).toContain('Ooit bezocht: 41');
+    expect(html).toContain('<h3>november 2026</h3>');
+    expect(html).toContain('<h3>Eerder, datum onbekend</h3>');
+    expect(html).toContain('href="/musea/twee"');
+    expect(html).toContain('3 keer');
+    expect(html).toContain('Verlanglijst');
+    expect(html).toContain('href="/musea/vier"');
+    expect(html.match(/>Meer</g)).toHaveLength(1); // the log has a next page, the wishlist has not
+    expect(html).not.toContain('style=');
+  });
+
+  it('uses English names and labels (EN)', () => {
+    const html = render('/en/u/anna_b', detail(), profile());
+    expect(html).toContain('Member since March 2026');
+    expect(html).toContain('37 of 512 · list November 2026');
+    expect(html).toContain('href="/en/museums/twee"');
+    expect(html).toContain('>Two<');
+    expect(html).toContain('Earlier, date unknown');
+  });
+
+  it('leaves a private list out and says so when nothing is shared', () => {
+    const only = render('/u/anna_b', detail(), profile({ visits: null, wishlist: null }));
+    expect(only).not.toContain('Bezochte musea');
+    expect(only).not.toContain('Verlanglijst');
+    expect(only).toContain('Voortgang');
+    const none = render('/u/anna_b', detail(), profile({ progress: null, visits: null, wishlist: null }));
+    expect(none).toContain('Anna de Vries deelt nog niets.');
+    expect(none).not.toContain('Voortgang');
+  });
+
+  it('escapes a hostile name', () => {
+    const html = render('/u/anna_b', detail(), profile({ display_name: '<img src=x onerror=alert(1)>' }));
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(html).not.toContain('<img src=x');
   });
 });

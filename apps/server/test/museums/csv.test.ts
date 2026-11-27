@@ -51,6 +51,18 @@ it('refuses an unbalanced or misplaced quote', () => {
   expect(readCsv('"a"b')).toMatchObject({ ok: false, code: 'bad_quote' });
 });
 
+it('stops at maxRows: exactly the cap passes, one more is too_many_rows', () => {
+  expect(readCsv('a\nb\nc\n', { maxRows: 3 })).toEqual({ ok: true, rows: [['a'], ['b'], ['c']] });
+  expect(readCsv('a\nb\nc\nd\n', { maxRows: 3 })).toEqual({ ok: false, code: 'too_many_rows', line: 4 });
+  expect(readCsv('a\nb\nc\nd', { maxRows: 3 })).toMatchObject({ ok: false, code: 'too_many_rows' });
+  expect(readCsv('', { maxRows: 0 })).toEqual({ ok: true, rows: [] });
+});
+
+it('reads a semicolon delimiter and leaves commas as text', () => {
+  expect(readCsv('a;b,c;"d;e"\r\n', { delimiter: ';' })).toEqual({ ok: true, rows: [['a', 'b,c', 'd;e']] });
+  expect(readCsv('a;b\n')).toEqual({ ok: true, rows: [['a;b']] });
+});
+
 it('prefixes the formula starters and strips exactly one prefix', () => {
   for (const v of ['=1+1', '+1', '-1', '@x', '\tx', '\rx']) expect(escapeCell(v)).toBe(`'${v}`);
   expect(escapeCell('plain')).toBe('plain');

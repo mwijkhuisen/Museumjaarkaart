@@ -138,7 +138,22 @@ import profile-{$MJK_PROFILE}.caddy
 		# No Access JWT on this host: the api looks for one only on the admin host.
 		@api path /api/v1 /api/v1/*
 		handle @api {
-			request_body {
+			# P2c design 4: an import's file and its confirm take 2 MiB, the same method and paths as the
+			# api's bodyLimit; every other request 64 KiB. Matchers with no `path`, so no re-sort.
+			@import {
+				method POST
+				path_regexp ^/api/v1/me/imports(/[^/]+/confirm)?$
+			}
+			@not_import {
+				not {
+					method POST
+					path_regexp ^/api/v1/me/imports(/[^/]+/confirm)?$
+				}
+			}
+			request_body @import {
+				max_size 2MiB
+			}
+			request_body @not_import {
 				max_size 64KiB
 			}
 			reverse_proxy api:8080 {

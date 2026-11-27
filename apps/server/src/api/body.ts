@@ -4,7 +4,7 @@ import { ApiError, errorFields } from './errors.ts';
 import type { ApiEnv } from './middleware/request.ts';
 
 // The one JSON body reader (A§14). By the time a route calls it, the body cap has refused a
-// Transfer-Encoding and any Content-Length over 64 KB, and jsonOnly a non-JSON type. Here:
+// Transfer-Encoding and any Content-Length over its cap (`bodyLimit`), and jsonOnly a non-JSON type. Here:
 //   - no body (no Content-Length, or 0) → the schema sees `undefined`, so a route that needs a body
 //     answers 400, and the fields name what is missing;
 //   - the bytes read must equal the Content-Length (A§14: every route that reads a body counts what

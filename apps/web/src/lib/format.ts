@@ -50,6 +50,11 @@ export function formatCount(n: number, locale: Locale): string {
   return new Intl.NumberFormat(TAG[locale]).format(n);
 }
 
+/** "€ 12,50" / "€12.50": euro cents (a net figure can be negative). */
+export function formatMoney(cents: number, locale: Locale): string {
+  return new Intl.NumberFormat(TAG[locale], { style: 'currency', currency: 'EUR' }).format(cents / 100);
+}
+
 /** "450 m", "12,3 km": the distance of a near-me answer (whole metres from the API). */
 export function formatDistance(metres: number, locale: Locale): string {
   if (metres < 1000) return `${new Intl.NumberFormat(TAG[locale]).format(Math.round(metres))} m`;

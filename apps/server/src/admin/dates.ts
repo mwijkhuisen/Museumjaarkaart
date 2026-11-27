@@ -2,7 +2,11 @@
 // type it, so this file declares the few members it needs and is the only place that touches it.
 
 type Instant = { readonly epochMilliseconds: number; toString(opts?: { timeZone: string }): string };
-type PlainDate = { toString(): string; toZonedDateTime(tz: string): { toInstant(): Instant } };
+type PlainDate = {
+  toString(): string;
+  subtract(d: { months: number }): PlainDate;
+  toZonedDateTime(tz: string): { toInstant(): Instant };
+};
 type TemporalApi = {
   PlainDate: { from(text: string, opts: { overflow: 'reject' }): PlainDate };
   Instant: { from(text: string): Instant; fromEpochMilliseconds(ms: number): Instant };
@@ -44,3 +48,7 @@ export function parseInstantMs(text: string): number | undefined {
 
 /** Milliseconds as ISO with the Amsterdam offset, e.g. `2026-11-02T00:00:00+01:00`. */
 export const formatInstant = (ms: number): string => T.Instant.fromEpochMilliseconds(ms).toString({ timeZone: ZONE });
+
+/** A `YYYY-MM-DD` that many calendar months earlier; a day the month lacks becomes its last day (Mar 31 minus 1 is Feb 28). */
+export const monthsBefore = (date: string, months: number): string =>
+  T.PlainDate.from(date, { overflow: 'reject' }).subtract({ months }).toString();

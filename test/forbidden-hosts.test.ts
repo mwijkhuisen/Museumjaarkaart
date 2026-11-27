@@ -62,6 +62,12 @@ const ALLOWED: readonly Allowed[] = [
     why: 'the label of the link-out row on the museum page',
   },
   {
+    path: 'apps/server/test/passport/import/csv.test.ts',
+    pattern: 'museum.nl',
+    count: 2,
+    why: 'a museum.nl URL as an import cell and its normalised form (compared as text, never fetched; A§7.3)',
+  },
+  {
     path: 'apps/web/test/pages.test.tsx',
     pattern: 'museum.nl',
     count: 1,

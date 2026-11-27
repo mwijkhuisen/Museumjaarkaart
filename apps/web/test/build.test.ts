@@ -11,6 +11,7 @@ import {
   PROVINCE_CODES,
   Provinces,
   type SsrBundle,
+  UserProfile,
 } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildWeb } from '../build.ts';
@@ -111,6 +112,16 @@ const provinces = Provinces.parse({
 });
 const mkList = MkList.parse({ list: { published_on: '2026-11-05', n: 512 } });
 
+const profile = UserProfile.parse({
+  handle: 'anna_b',
+  display_name: 'Anna de Vries',
+  member_since: '2026-03',
+  indexable: false,
+  progress: null,
+  visits: null,
+  wishlist: null,
+});
+
 const answer = (status: number, body: unknown = null): ApiResult => ({ status, location: null, body });
 /** Contract-valid answers, or one failing status for every path. */
 const fake =
@@ -119,6 +130,7 @@ const fake =
     if (failure !== undefined) return answer(failure);
     if (path === '/api/v1/provinces') return answer(200, provinces);
     if (path === '/api/v1/mk-list') return answer(200, mkList);
+    if (path === '/api/v1/users/anna_b') return answer(200, profile);
     if (/^\/api\/v1\/museums\/[^/?]+$/.test(path)) return answer(200, detail);
     return answer(200, list);
   };
@@ -135,6 +147,7 @@ const KINDS: Kind[] = [
   ['shell', '/paspoort', '/en/passport'],
   ['signin', '/inloggen', '/en/sign-in'],
   ['account', '/account', '/en/account'],
+  ['profile', '/u/anna_b', '/en/u/anna_b'],
   ['404', '/nergens/naartoe', '/en/nowhere/at/all'],
   ['400', '/musea', '/en/museums', 400],
   ['5xx', '/musea', '/en/museums', 503],
