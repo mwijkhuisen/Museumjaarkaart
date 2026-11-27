@@ -65,6 +65,11 @@ export type WebAuthnDeps = {
   logger: Logger;
   /** Unix seconds; a test seam for the process-clock side of the expiry (the spend uses the database's). */
   nowS?: () => number;
+  /**
+   * Tests only, never set in production: awaited by verifySignIn after every check on the read row
+   * and before the transaction that spends and writes, so a test can change the row in between.
+   */
+  beforeCommit?: () => Promise<void>;
 };
 
 const nowOf = (d: WebAuthnDeps) => (d.nowS ?? (() => Date.now() / 1_000))();
@@ -264,6 +269,7 @@ export async function verifySignIn(
     d.logger.warn({ bucket: BUCKETS.passkeyUserHour.name }, 'rate_limited');
     return { ok: false, code: 'rate_limited', retryAfterS: perUser.retryAfterS };
   }
+  if (d.beforeCommit !== undefined) await d.beforeCommit();
 
   return d.db.transaction().execute(async (trx): Promise<SignInResult> => {
     if (!(await spendChallenge(trx, host, spend))) return refuse('replay');

@@ -353,34 +353,37 @@ describe('criterion 5: deleted passkeys and other members’ credentials', () =>
     expect(reasons(from)).toEqual(['unknown']);
   });
 
-  it('a passkey deleted between the read and the write never signs in (the compare-and-set)', async () => {
-    const { cred } = await enrolled();
+  it.each([
+    ['deleted', 'DELETE FROM passkey WHERE credential_id = $1'],
+    [
+      'used concurrently (its counter moved)',
+      'UPDATE passkey SET sign_count = sign_count + 3 WHERE credential_id = $1',
+    ],
+  ])('a passkey %s between the read and the write never signs in (the compare-and-set)', async (_name, change) => {
+    const { cred, user } = await enrolled({ counter: 5 });
     const { logger, lines } = memoryLogger('api');
-    let deleted = false;
-    // Delete the row the moment the signature is being checked: after the read, before the transaction.
+    let changed = 0;
+    // The test-only hook runs after every check on the row read, before the spending transaction.
     const wa: WebAuthnDeps = {
       db: a.db,
       keys: t.keys,
       site: SITE,
       logger,
-      nowS: () => {
-        if (!deleted) {
-          deleted = true;
-          void a.admin.query('DELETE FROM passkey WHERE credential_id = $1', [cred.id]);
-        }
-        return Date.now() / 1_000;
+      beforeCommit: async () => {
+        changed += (await a.admin.query(change, [cred.id])).rowCount ?? 0;
       },
     };
     const challenge = mintChallenge(t.keys, 'public', 'signin', [], Date.now() / 1_000).toString('base64url');
-    await new Promise((r) => setTimeout(r, 0));
     const result = await verifySignIn(wa, {
       host: 'public',
       credential: cred.assert({ challenge }),
       accessEmail: undefined,
       sentToken: null,
     });
+    expect(changed).toBe(1);
     expect(result).toEqual({ ok: false, code: 'unauthorized' });
     expect(lines().map((l) => l.reason)).toEqual(['changed']);
+    expect(await countRows('SELECT count(*) AS n FROM session WHERE user_id = $1', [user.id])).toBe(0);
   });
 
   it('another member’s credential never signs in to this account', async () => {
