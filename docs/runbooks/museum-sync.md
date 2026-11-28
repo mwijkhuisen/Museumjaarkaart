@@ -45,7 +45,7 @@ node apps/server/src/main.ts sync-museums --seed             # creates the catal
 
 - The seed runs only while `museum` is empty. On a filled table it ends `already_seeded` (exit 65).
 - It creates every non-dissolved Wikidata museum directly and matches RCE rows against them. After the seed, a new museum waits in the match queue (`no_candidate`); `match resolve --new` creates it.
-- First-run floors [U]: at least 1,000 Wikidata and 500 RCE rows, else `empty_guard` with `below_floor`. The expected size is about 1,361 and 629 rows [U].
+- First-run floors [U]: at least 1,000 Wikidata and 500 RCE rows, else `empty_guard` with `below_floor`. The seed on the VM (2026-11-26) had 1,412 Wikidata rows (1,422 items, 10 without a label) and 629 RCE rows, and created 1,336 museums (76 dissolved items ignored); 489 RCE rows matched and 140 waited in the match queue (118 `no_candidate`, 12 `duplicate`, 10 `ambiguous`). The dry run and the seed three minutes later gave the same counts.
 - Read the dry-run summary before the real seed: rows per source, `invalid`, `coverage` and `counts.queued` (rows that will wait for you).
 
 ## 4. A weekly run by hand
