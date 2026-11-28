@@ -117,7 +117,9 @@ export async function enqueueUnique(
 /**
  * The claim, one statement: the next due `queued` job, or a `running` one whose lease
  * expired, that still has attempts left. SKIP LOCKED passes over a row another
- * transaction holds, so two workers never take the same job.
+ * transaction holds, so two workers never take the same job. Due `mail_*` jobs come first,
+ * so a sign-in code waits at most for the one job already running, never behind a burst of
+ * photos (P3b review L5, A§16.2 "DoS on uploads").
  */
 export function claimQuery(db: Db, workerId: string, leaseSeconds: number) {
   return db
@@ -144,6 +146,7 @@ export function claimQuery(db: Db, workerId: string, leaseSeconds: number) {
             w('attempts', '<', w.ref('max_attempts')),
           ]),
         )
+        .orderBy(sql`starts_with(kind, 'mail_')`, 'desc')
         .orderBy('run_at')
         .orderBy('id')
         .limit(1)
