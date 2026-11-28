@@ -14,7 +14,7 @@ Start a stopwatch: the RTO is the time from §1 to the end of §5, plus the rein
 
 ## 1. Restore the files
 
-On the workstation, with the environment of `docs/runbooks/backup.md` §4 (`RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_DEFAULT_REGION`):
+On the workstation, with the environment of `docs/runbooks/backup.md` §4 (`RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_DEFAULT_REGION`, and `RESTIC_KEY_HINT`, the real key's full id from the password manager: restic tries it first, so key files planted under `keys/` should not stop the restore, A§17.6 [U]):
 
 ```bash
 D=$(mktemp -d /var/tmp/mjk-drill.XXXXXX); echo "$D"
@@ -78,6 +78,8 @@ Expected, in this order of importance:
 ```bash
 grep -E '^(job|session|email_code|auth_challenge|rate_limit)\|' /tmp/counts-drill.txt
 ```
+
+The next drill is the first with the P2a and P2b tables: `app_user`, `invite`, `passkey`, `audit_log` and `content_ip_log` come back with production's counts, and `session`, `email_code`, `auth_challenge`, `rate_limit` and `job` (the dump's `--exclude-table-data` list, `apps/server/src/backup/plan.ts`) come back empty. Write both into A§17.6.
 
 3. The structure is intact: the same tables exist in both files (the `diff` above shows a missing or extra table as a whole line).
 
