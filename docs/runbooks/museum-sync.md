@@ -367,3 +367,23 @@ mjkc --profile tools run --rm admin museum flag --help
 
 - `MJK_SYNC_CONTACT` comes from `/etc/mjk/mjk.env`. The weekly run (Tuesday 03:17) is the `worker`'s own schedule; its health ping is the check `mjk-worker` (`docs/runbooks/install.md` §7).
 - Never run the seed twice: it refuses on a filled table (`already_seeded`, exit 65).
+
+**The curation CSV in production** (§7's bulk route). The `admin` container runs as 63532 on a read-only file
+system, so `--csv museums.csv` fails with `EROFS`: mount a host directory for the file.
+
+```bash
+install -d -m 0700 -o 63532 -g 63532 /srv/mjk/curation    # once; museum data only, no personal data
+mjkc --profile tools run --rm -v /srv/mjk/curation:/work admin museum export --csv /work/museums.csv
+# edit /srv/mjk/curation/museums.csv here, or scp it to your laptop and back
+chown 63532:63532 /srv/mjk/curation/museums.csv            # an editor or scp may leave it root-owned 0600
+mjkc --profile tools run --rm -v /srv/mjk/curation:/work admin museum import --csv /work/museums.csv --dry-run
+mjkc --profile tools run --rm -v /srv/mjk/curation:/work admin museum import --csv /work/museums.csv
+mjkc --profile tools run --rm admin list show
+mjkc --profile tools run --rm admin list publish             # only once the flags are as complete as you want
+```
+
+- Export and import with the same deployed version: P2c added the read-only `price_stale` column, and the import
+  refuses a header that differs from its own (`bad_header`). After a deploy that changes the header, export again.
+- `list publish` copies the museums that are `participating` and not hidden; with none it refuses (`list_empty`).
+  A published version is never removed, so publish after the import, not before.
+- `admin museum flag …` and `admin museum price …` change one museum and need no mount.
