@@ -161,6 +161,8 @@ GRANT SELECT (trusted_at) ON app_user TO mjk_worker;
 GRANT SELECT ON pub_media, pub_museum_image TO mjk_api, mjk_ssr;
 
 -- migrate:down
+REVOKE SELECT (trusted_at) ON app_user FROM mjk_worker;
+REVOKE UPDATE (trusted_at) ON app_user FROM mjk_api;
 DROP VIEW pub_museum_image;
 DROP VIEW pub_media;
 DROP TABLE museum_image;
