@@ -1,6 +1,8 @@
 import {
   EmptyQuery,
   HANDLE_RE,
+  PhotoList,
+  PhotoListQuery,
   PublicListQuery,
   PublicVisitList,
   PublicWishlist,
@@ -10,6 +12,7 @@ import {
 } from '@mjk/contracts';
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../../db/kysely.ts';
+import { InvalidPhotoCursor, photosOfUser } from '../../media/public.ts';
 import { decodeCursor, encodeCursor } from '../../museums/cursor.ts';
 import { publicProgress } from '../../passport/progress.ts';
 import { InvalidReviewCursor, reviewsOfUser } from '../../reviews/public.ts';
@@ -160,6 +163,18 @@ export function mountUsers(v1: ApiApp, deps: ApiDeps): void {
       return sendJson(c, ReviewList, await reviewsOfUser(db, handle, q), CACHE_PUBLIC);
     } catch (err) {
       if (err instanceof InvalidReviewCursor) throw new ApiError('bad_request', ['cursor']);
+      throw err;
+    }
+  });
+  // P3b: the member's published photos, newest first (pub_media only; an active member, like the reviews).
+  v1.get('/users/:handle/photos', async (c) => {
+    const handle = handleOf(c.req.param('handle'));
+    const q = parseQuery(c, PhotoListQuery);
+    if ((await findProfile(db, handle)) === undefined) throw new ApiError('not_found');
+    try {
+      return sendJson(c, PhotoList, await photosOfUser(db, handle, q), CACHE_PUBLIC);
+    } catch (err) {
+      if (err instanceof InvalidPhotoCursor) throw new ApiError('bad_request', ['cursor']);
       throw err;
     }
   });

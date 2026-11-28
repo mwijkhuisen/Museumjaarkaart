@@ -11,7 +11,7 @@ import { EXIT_NOT_BUILT, EXIT_USAGE, parseSyncArgs, run } from '../src/main.ts';
 import { writeTestKeys } from './auth/test-keys.ts';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'mjk-test-'));
-const USAGE = 'usage: main.ts <api|ssr|worker|migrate|healthcheck|sync-museums|admin|backup> [args]';
+const USAGE = 'usage: main.ts <api|ssr|worker|media|migrate|healthcheck|sync-museums|admin|backup> [args]';
 const MAIN = fileURLToPath(new URL('../src/main.ts', import.meta.url));
 /** The api's config (P1e): the domain and the Access team and AUD, test values only. */
 const API_ENV = { MJK_DOMAIN: 'mjk.test', CF_ACCESS_TEAM: 'test-team', CF_ACCESS_AUD: 'a'.repeat(64) };
@@ -25,11 +25,14 @@ describe('run', () => {
     expect(lines).toEqual([USAGE]);
   });
 
-  it.each([[['healthcheck', 'x']], [['migrate', 'x']], [['ssr', 'x']]])('%j is a usage error', async (argv) => {
-    const lines: string[] = [];
-    expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
-    expect(lines).toEqual([USAGE]);
-  });
+  it.each([[['healthcheck', 'x']], [['migrate', 'x']], [['ssr', 'x']], [['media', 'x']]])(
+    '%j is a usage error',
+    async (argv) => {
+      const lines: string[] = [];
+      expect(await run(argv, {}, (l) => lines.push(l))).toBe(EXIT_USAGE);
+      expect(lines).toEqual([USAGE]);
+    },
+  );
 
   it('backup with an argument is a usage error', async () => {
     const lines: string[] = [];

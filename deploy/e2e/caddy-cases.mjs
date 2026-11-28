@@ -53,7 +53,8 @@ const ADMIN_HEADERS = {
  * One request. `via`: 'edge' (https through the stand-in), 'edge-http' (its plain-http site), or an
  * address of caddy (a direct, untrusted peer). Resolves with status, headers, body and the time taken.
  */
-function send(via, path, { host = DOMAIN, method = 'GET', headers = {}, body } = {}) {
+function send(via, path, opts = {}, tries = 3) {
+  const { host = DOMAIN, method = 'GET', headers = {}, body } = opts;
   const tls = via === 'edge';
   const options = {
     host: via === 'edge' || via === 'edge-http' ? EDGE : via,
@@ -66,20 +67,31 @@ function send(via, path, { host = DOMAIN, method = 'GET', headers = {}, body } =
   };
   const started = Date.now();
   return new Promise((resolve, reject) => {
+    let answered = false;
     const req = (tls ? https : http).request(options, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
-      res.on('end', () =>
+      res.on('end', () => {
+        answered = true;
         resolve({
           status: res.statusCode,
           headers: res.headers,
           body: Buffer.concat(chunks).toString('utf8'),
           ms: Date.now() - started,
-        }),
-      );
+        });
+      });
     });
     req.setTimeout(20_000, () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
+    req.on('error', (err) => {
+      // The whole answer was read: a reset after it (Caddy closing on a body it refused) changes nothing.
+      if (answered) return;
+      // A body over a cap: Caddy answers 413 and closes while this client may still be writing, and the reset can
+      // beat the answer (seen once in P3b, on the 2 MiB + 1 import case). Only a write-side reset of a request with
+      // a body is sent again; the case still has to see its 413 and headers.
+      if (body && tries > 1 && /^write (ECONNRESET|EPIPE)$/.test(err.message))
+        resolve(send(via, path, opts, tries - 1));
+      else reject(err);
+    });
     req.end(body);
   });
 }
@@ -337,6 +349,43 @@ async function echoCases() {
     await check(`${method} ${path}: a body over 64 KiB is a 413`, async (expect) => {
       const res = await send('edge', path, { method, body: Buffer.alloc(64 * 1024 + 1, 'a') });
       statusIs(expect, res, 413, '413');
+    });
+  }
+
+  // P3b: an upload chunk takes 8 MiB, and only `PUT /api/v1/uploads/<uuid>/chunks/<n>`.
+  const chunk = '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/chunks/0';
+  await check(`PUT ${chunk}: 8 MiB reaches the api, over 8 MiB is a no-store 413`, async (expect) => {
+    const ok = await send('edge', chunk, { method: 'PUT', body: Buffer.alloc(8 * 1024 * 1024, 'a') });
+    statusIs(expect, ok, 200, '8 MiB');
+    reached(expect, ok, 'api');
+    const big = await send('edge', chunk, { method: 'PUT', body: Buffer.alloc(8 * 1024 * 1024 + 1, 'a') });
+    statusIs(expect, big, 413, '413');
+    headersAre(expect, big, { ...PUBLIC, 'cache-control': 'no-store' }, '413');
+  });
+  for (const [method, path] of [
+    ['POST', chunk],
+    ['PUT', '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/chunks/100'],
+    ['PUT', '/api/v1/uploads/x/chunks/0'],
+    ['PUT', '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/chunks/0/x'],
+  ]) {
+    await check(`${method} ${path}: a body over 64 KiB is a 413`, async (expect) => {
+      const res = await send('edge', path, { method, body: Buffer.alloc(64 * 1024 + 1, 'a') });
+      statusIs(expect, res, 413, '413');
+    });
+  }
+  // P3b: a pending photo's preview gets the media host's sandbox CSP instead of the page CSP (A§12, A§14);
+  // every other api path keeps the page CSP. Through the real Caddy, so the deferred header order is proven.
+  const preview = '/api/v1/uploads/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b/preview';
+  await check(`${preview} has default-src 'none'; sandbox`, async (expect) => {
+    const res = await send('edge', `${preview}?w=400`);
+    reached(expect, res, 'api');
+    headersAre(expect, res, { ...PUBLIC, 'content-security-policy': "default-src 'none'; sandbox" }, preview);
+  });
+  for (const path of [`${preview}/x`, '/api/v1/uploads/x/preview', '/api/v1/uploads']) {
+    await check(`${path} keeps the page CSP`, async (expect) => {
+      const res = await send('edge', path);
+      reached(expect, res, 'api');
+      headersAre(expect, res, PUBLIC, path);
     });
   }
 

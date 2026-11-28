@@ -9,7 +9,7 @@ import { ReviewForm } from '../src/components/reviews/ReviewForm.tsx';
 // no inline style) and the empty slot every visitor gets (A§15.1).
 
 const ID = '7b0d0c3e-5b2e-4f3a-8a53-0c2d5f9d1a11';
-const museum = { id: ID, slug: 'm', name: 'Museum <b>', name_en: null };
+const museum = { id: ID, slug: 'm', name: 'Museum <b>', name_en: null, photo_policy: 'allowed' as const };
 const visit = (id: string, visited_on: string | null): Visit => ({
   id,
   museum: { id: ID, slug: 'm', name: 'Museum', name_en: null, place: 'Utrecht' },
@@ -28,9 +28,9 @@ describe('ReviewForm (server render)', () => {
     <ReviewForm museum={museum} locale="nl" visits={visits} onSaved={() => {}} onDeleted={() => {}} />,
   );
 
-  it('has seven radio fieldsets with legends, native radios and a label on every input', () => {
-    expect(html.match(/<fieldset/g)).toHaveLength(7);
-    expect(html.match(/<legend>/g)).toHaveLength(7);
+  it('has seven radio fieldsets and the photo consents with legends, native radios and a label on every input', () => {
+    expect(html.match(/<fieldset/g)).toHaveLength(8);
+    expect(html.match(/<legend>/g)).toHaveLength(8);
     // rating: 5 radios; six aspects: 6 each
     expect(html.match(/type="radio"/g)).toHaveLength(5 + 6 * 6);
     expect(html.match(/<label class="choice"><input type="radio"/g)).toHaveLength(5 + 6 * 6);

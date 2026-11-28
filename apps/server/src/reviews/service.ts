@@ -1,7 +1,18 @@
-import { ASPECTS, type Aspect, type OwnReview, type ReviewCreate, type ReviewPatch } from '@mjk/contracts';
+import {
+  ASPECTS,
+  type Aspect,
+  type OwnPhoto,
+  type OwnReview,
+  type ReviewCreate,
+  type ReviewPatch,
+} from '@mjk/contracts';
 import { sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
+import { ownPhotosOfReviews } from '../media/public.ts';
+import { markRemoved } from '../media/remove.ts';
+import { MEDIA_PUBLISH_JOB } from '../media/types.ts';
 import { NL_TODAY } from '../museums/near.ts';
+import { enqueueIn } from '../worker/queue.ts';
 
 // The review writes (A§8, A§14, P3a). Every query is keyed on the member's id (the session's), so another
 // member's review is "not found", never "forbidden". Callers own the rate limit, the `content_ip_log` row and
@@ -11,7 +22,7 @@ import { NL_TODAY } from '../museums/near.ts';
 export type ReviewWrite = Omit<ReviewCreate, 'body'> & { body: string | null };
 
 /** Why a create was refused; the route maps each to its answer, the import to a row error. */
-export type CreateRefusal = 'museum_unknown' | 'museum_closed' | 'visit_not_own' | 'review_exists';
+export type CreateRefusal = 'museum_unknown' | 'museum_closed' | 'visit_not_own' | 'review_exists' | 'media_ids';
 
 export type CreateResult = { ok: true; id: string } | { ok: false; reason: CreateRefusal };
 
@@ -19,7 +30,8 @@ export type CreateResult = { ok: true; id: string } | { ok: false; reason: Creat
  * The one create path (POST /reviews and the import's confirm), on the caller's transaction. It checks that the
  * museum is known, not hidden and not closed, that the visit is the member's own visit to that museum (the row is
  * locked FOR KEY SHARE, so a concurrent visit delete cannot slip between this check and the insert's foreign
- * key) and that the member has no review of it yet, then inserts.
+ * key) and that the member has no review of it yet, then inserts. `media_ids` (P3b) attach the member's own photos of
+ * this museum that no review has yet; a refusal (`media_ids`) means the caller must roll back, as for any refusal.
  */
 export async function createReview(trx: Db, userId: string, input: ReviewWrite): Promise<CreateResult> {
   const museum = await sql<{ closed: boolean }>`SELECT (closed_on IS NOT NULL AND closed_on <= ${NL_TODAY}) AS closed
@@ -38,7 +50,45 @@ export async function createReview(trx: Db, userId: string, input: ReviewWrite):
       ${aspect('facilities')}, ${aspect('value_for_money')}, ${input.body})
     ON CONFLICT DO NOTHING RETURNING id`.execute(trx);
   const id = rows[0]?.id;
-  return id === undefined ? { ok: false, reason: 'review_exists' } : { ok: true, id };
+  if (id === undefined) return { ok: false, reason: 'review_exists' };
+  if (input.media_ids !== undefined && input.media_ids.length > 0 && !(await attachPhotos(trx, userId, id, input)))
+    return { ok: false, reason: 'media_ids' };
+  return { ok: true, id };
+}
+
+/** A photo that is still in the pipeline or published; a failed, rejected or removed one cannot be attached. */
+const ATTACHABLE = ['quarantined', 'processing', 'pending_review', 'approved'] as const;
+
+/**
+ * Attaches the photos in one UPDATE whose row count must equal the list: each is the member's own, of this
+ * museum, unattached and live, else nothing is attached (false, and the caller rolls back). The publish job is
+ * queued for a trusted author's photos that already finished processing (a photo still processing is queued by
+ * the worker when it finishes, WP3); the guard `review_id IS NULL` plus the row lock make the two paths exclusive.
+ */
+async function attachPhotos(trx: Db, userId: string, reviewId: string, input: ReviewWrite): Promise<boolean> {
+  const ids = input.media_ids ?? [];
+  if (new Set(ids).size !== ids.length) return false;
+  const attached = await trx
+    .updateTable('media')
+    .set({ review_id: reviewId })
+    .where('id', 'in', ids)
+    .where('user_id', '=', userId)
+    .where('museum_id', '=', input.museum_id)
+    .where('review_id', 'is', null)
+    .where('state', 'in', ATTACHABLE)
+    .returning(['id', 'state'])
+    .execute();
+  if (attached.length !== ids.length) return false;
+  // A banned member has no session (auth/session.ts), so the status check is defence in depth (P3b review L3).
+  const owner = await trx
+    .selectFrom('app_user')
+    .select(['trusted_at', 'status'])
+    .where('id', '=', userId)
+    .executeTakeFirst();
+  if (owner?.trusted_at != null && owner.status === 'active')
+    for (const m of attached)
+      if (m.state === 'pending_review') await enqueueIn(trx, MEDIA_PUBLISH_JOB, { media_id: m.id }, {});
+  return true;
 }
 
 /** Locks the member's own visit to the museum FOR KEY SHARE; its date as text (null undated), undefined when none. */
@@ -71,8 +121,9 @@ type OwnRow = {
   edited_at: Date | null;
 };
 
-const toOwn = (r: OwnRow): OwnReview => ({
+const toOwn = (r: OwnRow, photos: OwnPhoto[] | undefined): OwnReview => ({
   ...r,
+  photos: photos ?? [],
   created_at: r.created_at.toISOString(),
   edited_at: r.edited_at === null ? null : r.edited_at.toISOString(),
 });
@@ -84,14 +135,18 @@ const OWN_COLUMNS = sql`r.id, r.museum_id, r.visit_id, v.visited_on, r.rating, r
 export async function ownReview(db: Db, userId: string, id: string): Promise<OwnReview | undefined> {
   const { rows } = await sql<OwnRow>`SELECT ${OWN_COLUMNS} FROM review r JOIN visit v ON v.id = r.visit_id
     WHERE r.id = ${id}::uuid AND r.user_id = ${userId}::uuid AND r.state = 'visible'`.execute(db);
-  return rows[0] === undefined ? undefined : toOwn(rows[0]);
+  const row = rows[0];
+  if (row === undefined) return undefined;
+  return toOwn(row, (await ownPhotosOfReviews(db, userId, [row.id])).get(row.id));
 }
 
 /** The member's own visible review of a museum, or null. */
 export async function ownReviewOfMuseum(db: Db, userId: string, museumId: string): Promise<OwnReview | null> {
   const { rows } = await sql<OwnRow>`SELECT ${OWN_COLUMNS} FROM review r JOIN visit v ON v.id = r.visit_id
     WHERE r.museum_id = ${museumId}::uuid AND r.user_id = ${userId}::uuid AND r.state = 'visible'`.execute(db);
-  return rows[0] === undefined ? null : toOwn(rows[0]);
+  const row = rows[0];
+  if (row === undefined) return null;
+  return toOwn(row, (await ownPhotosOfReviews(db, userId, [row.id])).get(row.id));
 }
 
 export type EditResult = { ok: true } | { ok: false; reason: 'not_found' | 'museum_closed' | 'visit_not_own' };
@@ -154,8 +209,24 @@ export async function editReview(trx: Db, userId: string, id: string, patch: Rev
   return { ok: true };
 }
 
-/** Deletes the member's own visible review; false when there is none (another member's, removed, unknown). */
+/**
+ * Deletes the member's own visible review; false when there is none (another member's, removed, unknown). Its
+ * photos are marked `removed` first, in the same transaction (the foreign key would detach them, and the worker's
+ * `media_delete` job then takes their files and R2 objects, A§12).
+ */
 export async function deleteReview(trx: Db, userId: string, id: string): Promise<boolean> {
+  const photos = await trx
+    .selectFrom('media as md')
+    .innerJoin('review as r', 'r.id', 'md.review_id')
+    .select('md.id')
+    .where('md.review_id', '=', id)
+    .where('r.user_id', '=', userId)
+    .where('r.state', '=', 'visible')
+    .execute();
+  await markRemoved(
+    trx,
+    photos.map((p) => p.id),
+  );
   const gone = await trx
     .deleteFrom('review')
     .where('id', '=', id)

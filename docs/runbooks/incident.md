@@ -13,10 +13,10 @@ Never touch the Waterheight (`rws`) or F1 (`f1`) stacks while fixing this one; `
 ## 1. First look (any incident)
 
 ```bash
-mjkc ps                                                    # state and health of the six daemons
+mjkc ps                                                    # state and health of the seven daemons (`media` is one)
 systemctl list-timers 'mjk-*' --no-pager                   # are the three timers on?
 journalctl -u mjk-update.service -u mjk-tick.service -u mjk-backup.service --since '-6 hours' --no-pager | tail -60
-cat /srv/mjk/state/current.env /srv/mjk/state/disk 2>/dev/null; ls /srv/mjk/state
+cat /srv/mjk/state/current.env /srv/mjk/state/guard/disk 2>/dev/null; ls /srv/mjk/state
 nft list table inet mjk >/dev/null && echo 'firewall table loaded' || echo 'FIREWALL TABLE MISSING (section 5)'
 curl -sS -o /dev/null -w 'caddy %{http_code}\n' -H 'Host: <domain>' http://127.0.0.1:8280/api/v1/healthz
 ```
@@ -50,7 +50,7 @@ A rollback never runs a migration down; a migration must work with the previous 
 
 ## 4. The disk is full or nearly
 
-`/srv/mjk/state/disk` (written every 10 minutes) holds `free_pct`, `free_bytes`, `total_bytes`, `checked`. Below 10 % free [U] the `api` refuses new uploads (from P3b) and the status panel turns red (P3c). A file older than 30 minutes counts as "full" for that guard, so also check that `mjk-tick.timer` runs.
+`/srv/mjk/state/guard/disk` (written every 10 minutes; an older install's `/srv/mjk/state/disk` is stale and may be removed) holds `free_pct`, `free_bytes`, `total_bytes`, `checked`. Below 10 % free [U] the `api` refuses new uploads (from P3b) and the status panel turns red (P3c). A file older than 30 minutes counts as "full" for that guard, so also check that `mjk-tick.timer` runs.
 
 ```bash
 df -h /srv /var/lib/docker
@@ -86,6 +86,7 @@ The table `inet mjk` is the egress policy of the stack; without it the stack's e
 - **The table is missing** (for example Debian's `nftables.service` stopped and emptied everything): `mjk-tick` loads it again from `/etc/mjk/mjk.nft` within 10 minutes, and refills `resolvers4`. To do it now: `systemctl restart mjk-firewall.service; systemctl start mjk-tick.service`. `mjk-update` refuses to deploy (`firewall_missing`, exit 1) until the table is back.
 - **It cannot be loaded** (a bad `/etc/mjk/mjk.nft`): `mjk-tick` fails closed: it stops every `mjk` container and writes `/srv/mjk/state/firewall-stopped`. The site is down on purpose. Fix `mjk.nft` (a PR, then `deploy/bin/mjk-install`, or `nft -c -f /etc/mjk/mjk.nft` to see the error), then `systemctl start mjk-tick.service`: it starts `current.env` again and removes the marker. Never run a command that empties the whole ruleset: it would delete Docker's tables and those of Waterheight and F1.
 - **DNS fails in the egress containers** (the worker cannot resolve Wikidata): `resolvers4` is empty or stale. `mjk-resolvers && nft list set inet mjk resolvers4`. After a change of the host's resolvers: `systemctl start mjk-tick.service`.
+- **The worker resolves a host but cannot connect to it** (a sync, a mail, the ping or a tiles refresh times out, from P3b): the host's address is not in `worker_dst4`, or the host is missing from `/etc/mjk/egress-hosts`. `mjk-egress; echo $?` (0 replaced · 75 some host had no address, the line numbers are named · 1 nothing changed) and `nft list set inet mjk worker_dst4`. A host the code dials that the list lacks is a PR to `deploy/host/egress-hosts` (`test/egress-hosts.test.ts` holds the two equal), then `deploy/bin/mjk-install`. R2 and other Cloudflare-fronted hosts go through `cf4` instead (`docs/runbooks/cloudflare.md`).
 - **A Cloudflare range changed** and the backup, the Access certs (admin 503) or the tunnel time out while the table is loaded: `cf4` or `cf_tunnel4` is stale. Compare with the live lists (`docs/runbooks/cloudflare.md` §6), fix `deploy/host/nftables/mjk.nft` through a PR and run `deploy/bin/mjk-install`.
 - To see what the table drops: `nft list table inet mjk | grep -B1 counter` (the counters count packets; only the "everything else" and "private" lines mean a blocked attempt).
 

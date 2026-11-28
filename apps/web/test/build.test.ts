@@ -39,6 +39,9 @@ const ALLOWED_URLS = [
   'http://fallback.com',
   'http://example.com',
   'http://[${',
+  // The link-outs of a Commons image's caption (`@mjk/contracts` commons.ts, ADR-0018): `<a href>` navigations, never fetched.
+  'https://creativecommons.org/',
+  'https://commons.wikimedia.org/wiki/File:',
   // MapLibre's and pmtiles' bundles (A§15.3; inspected in P1d, all inert: none is fetched by code we run).
   // The href of MapLibre's opt-in logo control and of its default attribution text: we pass
   // `attributionControl: { compact: true }` and never `maplibreLogo`, so neither renders, and an
@@ -102,6 +105,7 @@ const detail = MuseumDetail.parse({
   price_verified_at: null,
   photo_policy: 'unknown',
   temp_closed_until: null,
+  image: null,
   mk_list: { published_on: '2026-11-05', n: 512, member: true },
   aspects: {
     collection: { mean: 4.5, count: 6 },
@@ -248,6 +252,8 @@ describe('the rendered HTML of every page kind', () => {
           if (!/^(src|href|srcset|action|poster|data|content)$/i.test(attr)) continue;
           if (tag === 'a' && attr === 'href') {
             if (ABSOLUTE.test(v)) linkOuts.set(v, (linkOuts.get(v) ?? 0) + 1);
+          } else if (tag === 'meta' && v === `https://media.${CONFIG.domain}` && /name="mjk-media"/.test(attrs)) {
+            // The photo origin the client reads (P3b): data for the page's own <img>, fetched by nothing.
           } else if (ABSOLUTE.test(v)) {
             expect(v === SELF || v.startsWith(`${SELF}/`), `${name} <${tag} ${attr}>`).toBe(true);
           }

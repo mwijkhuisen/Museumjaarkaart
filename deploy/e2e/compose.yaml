@@ -4,6 +4,9 @@
 # is published to the host. P2a: the edge also answers as Cloudflare Access's certs host and as Lettermint's API
 # (a throw-away CA in E2E_PKI, trusted by `api` and `worker` only; `mailsink` keeps the mails). `edge` and `tunnel-edge` copy A§17.3's mjk-edge and mjk-tunnel-edge with
 # caddy's and cloudflared's fixed addresses, so the production Caddyfile runs here unchanged.
+# P3b: the photo pipeline as in production (A§17.1): `api` and `worker` share quarantine, `worker` and `media` share
+# media-work (tmpfs volumes owned by 63532, below), `media` has no network at all, and the worker publishes to the
+# MinIO stand-in through the edge's r2.mjk.test, an https origin as the production R2 client requires.
 name: mjk-e2e
 
 x-node: &node
@@ -103,7 +106,7 @@ services:
     cpus: 1.0
     pids_limit: 256
 
-  # One-shot, after minio: the bucket, its anonymous-read policy for tiles/* and the fixture tiles.
+  # One-shot, after minio: the bucket, its anonymous-read policy for tiles/* and p/* and the fixture tiles.
   tiles:
     <<: *node
     command: ["node", "apps/server/scripts/seed-e2e-tiles.ts"]
@@ -125,6 +128,9 @@ services:
     volumes:
       - ../..:/app:ro
       - ${E2E_PKI:?set E2E_PKI to the PKI directory}/ca.pem:/e2e-ca.pem:ro
+      - quarantine:/srv/mjk/quarantine
+      # The disk guard's directory, as in production (read-only; stack.sh writes a fresh guard/disk before each pass).
+      - ${E2E_GUARD:?set E2E_GUARD to the guard directory}:/srv/mjk/state/guard:ro
     networks: [default, edge]
     secrets:
       - db_mjk_api
@@ -152,13 +158,20 @@ services:
       MJK_MAIL_CAP: "300"
       MJK_CONTACT_EMAIL: info@mjk.test
       NODE_EXTRA_CA_CERTS: /e2e-ca.pem
+      # The media bucket (P3b): the MinIO stand-in behind the edge, under the throw-away CA.
+      MJK_R2_ENDPOINT: https://r2.mjk.test
+      MJK_R2_BUCKET_MEDIA: mjk-media
     volumes:
       - ../..:/app:ro
       - ${E2E_PKI:?}/ca.pem:/e2e-ca.pem:ro
+      - quarantine:/srv/mjk/quarantine
+      - originals:/srv/mjk/originals
+      - media-work:/srv/mjk/media-work
     secrets:
       - db_mjk_worker
       - app_keys
       - lettermint_api_token
+      - r2_media_rw
     healthcheck:
       test: ["CMD", "node", "apps/server/src/main.ts", "healthcheck"]
       interval: 3s
@@ -167,6 +180,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # The photo decoder (P3b), as production's `media`: no network at all, no secret, no environment, one mount and
+  # A§17.2's limits. stack.sh checks its restarts and OOM kills after the main pass.
+  media:
+    <<: *node
+    command: ["node", "apps/server/src/main.ts", "media"]
+    network_mode: none
+    # As production: a crash of the role restarts it (its watchdog kills only the task's child), and stack.sh's
+    # restart count sees it.
+    restart: unless-stopped
+    volumes:
+      - ../..:/app:ro
+      - media-work:/srv/mjk/media-work
+    ulimits:
+      fsize:
+        soft: 64000000
+        hard: 64000000
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "node", "apps/server/src/main.ts", "healthcheck"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
 
   # Lettermint's stand-in (deploy/e2e/mail-sink.mjs): the specs read the codes from it.
   mailsink:
@@ -240,7 +276,8 @@ services:
 
   # Stands in for Cloudflare's edge and cloudflared: TLS for mjk.test, admin.mjk.test and media.mjk.test (R2's custom
   # domain, in front of minio), X-Forwarded-Proto, the visitor's address appended to X-Forwarded-For, from
-  # cloudflared's fixed 10.63.6.10. Also the two outside names the api and the worker dial (P2a), under E2E_PKI's CA.
+  # cloudflared's fixed 10.63.6.10. Also the outside names the api and the worker dial (P2a; P3b's r2.mjk.test, R2's
+  # S3 API), under E2E_PKI's CA.
   edge:
     <<: *caddy
     volumes:
@@ -254,6 +291,7 @@ services:
           - media.mjk.test
           - test-team.cloudflareaccess.com
           - api.lettermint.co
+          - r2.mjk.test
       tunnel-edge:
         ipv4_address: 10.63.6.10
     depends_on:
@@ -288,6 +326,17 @@ networks:
       config:
         - subnet: 10.63.6.0/24
           ip_range: 10.63.6.128/25
+
+# P3b: the shared photo directories. tmpfs, owned by the containers' 63532 (no host directory to chown as root, and
+# nothing left behind: `down -v` removes them). One mount is shared by every container that names the volume.
+volumes:
+  quarantine:
+    driver_opts: {type: tmpfs, device: tmpfs, o: "uid=63532,gid=63532,mode=0700"}
+  originals:
+    driver_opts: {type: tmpfs, device: tmpfs, o: "uid=63532,gid=63532,mode=0700"}
+  # As production: capped at 256 MB (A§17.1).
+  media-work:
+    driver_opts: {type: tmpfs, device: tmpfs, o: "size=256m,uid=63532,gid=63532,mode=0700"}
 
 secrets:
   db_postgres:

@@ -225,6 +225,23 @@ it('stores the payload and honours runAt', async () => {
   expect(await claim(db, 'w1', { leaseSeconds: LEASE_SECONDS })).toBeUndefined();
 });
 
+it('takes due mail jobs before older jobs of other kinds, then by run_at (P3b review L5)', async () => {
+  const past = (s: number) => ({ runAt: new Date(Date.now() - s * 1000) });
+  const photo = await enqueue(db, 'media_process', {}, past(60));
+  const sync = await enqueue(db, 'museum_sync', {}, past(30));
+  const code = await enqueue(db, 'mail_code', {}, past(1));
+  const notice = await enqueue(db, 'mail_notice', {}, past(5));
+  await enqueue(db, 'mail_code', {}, { runAt: new Date(Date.now() + 3_600_000) }); // not due
+  const order: string[] = [];
+  for (;;) {
+    const job = await claim(db, 'w1', { leaseSeconds: LEASE_SECONDS });
+    if (job === undefined) break;
+    order.push(job.id);
+    await complete(db, job, 'w1');
+  }
+  expect(order).toEqual([notice, code, photo, sync]);
+});
+
 it('compiles the claim into one UPDATE with a SKIP LOCKED subselect', () => {
   const { sql: text, parameters } = claimQuery(db, 'w1', LEASE_SECONDS).compile();
   console.info(`claim SQL: ${text}\nparameters: ${JSON.stringify(parameters)}`);

@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# mjk-egress: fill the set worker_dst4 of table inet mjk with the IPv4 addresses of the hosts the worker
+# dials outside Cloudflare (A§17.4, P3b Q3). R2 and other Cloudflare-fronted hosts are in cf4 already.
+#
+# Run by mjk-egress.service right after mjk-firewall.service loads the table (a load leaves the set empty),
+# by mjk-tick on every run and by mjk-install when the list changed. Root-owned copy in /usr/local/bin; the list is the
+# root-owned /etc/mjk/egress-hosts (deploy/host/egress-hosts). One host per line: a lower-case DNS name,
+# or a literal IPv4 address (the tests); `#` starts a comment, blank lines are ignored. A line that is
+# neither refuses the whole list.
+# Names resolve through `getent ahostsv4`, the host's own resolver: the one Docker's embedded DNS answers
+# the worker from (it asks from the host's namespace), so the set holds what the worker is told. An
+# address inside the table's own set private4 is left out (the table drops those before this set anyway).
+#   every host has an address   the set is replaced: flush and add in one nft transaction
+#   some host has none          the others' addresses are only added, nothing is removed, so a passing
+#                               lookup failure never locks a host out; stale addresses go at the next run
+#                               where every host resolves
+#   no host has one             the set is left as it was
+# Exit 0 the set replaced · 75 some host had no address (the others' added) · 1 table inet mjk is not
+# loaded, the list is missing, empty or malformed, no host had an address, or nft failed (the set left as
+# it was) · 64 usage · 78 a bad MJK_ROOT. It logs counts and line numbers, never names or addresses.
+# MJK_ROOT moves /etc/mjk below it (deploy/tests only).
+set -euo pipefail
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL=C
+
+die() {
+  echo "mjk-egress: $1" >&2
+  exit "${2:-1}"
+}
+
+(($# == 0)) || die "usage: mjk-egress" 64
+ROOT=${MJK_ROOT:-}
+if [[ -n $ROOT ]]; then
+  [[ $ROOT == /* && $ROOT != */ ]] || die "MJK_ROOT must be an absolute path without a trailing slash" 78
+fi
+LIST=$ROOT/etc/mjk/egress-hosts
+# Each label 1-63 letters, digits and inner hyphens; at least two labels; the last starts with a letter
+# (so a dotted quad is never a name).
+NAME_RE='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
+# Seconds per lookup: eight hosts stay well inside mjk-egress.service's 2 min start timeout.
+LOOKUP_TIMEOUT=5
+
+# A dotted quad with four decimal octets of 0-255 and no leading zeros (nft would read 010 as octal).
+valid_ipv4() {
+  local IFS=. octet
+  local -a parts
+  [[ $1 =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+  read -r -a parts <<<"$1"
+  for octet in "${parts[@]}"; do
+    [[ $octet == 0 || $octet =~ ^[1-9][0-9]*$ ]] || return 1
+    ((10#$octet <= 255)) || return 1
+  done
+}
+
+nft list set inet mjk worker_dst4 >/dev/null 2>&1 || die "table inet mjk is not loaded"
+[[ -f $LIST && -r $LIST ]] || die "the hosts list is missing or unreadable; worker_dst4 left as it was"
+
+# Read and check the whole list before any lookup.
+hosts=()
+lines=()
+n=0
+while IFS= read -r line || [[ -n $line ]]; do
+  n=$((n + 1))
+  read -r host extra <<<"${line%%#*}"
+  [[ -n $host ]] || continue
+  if [[ -n $extra ]] || ! { [[ ${#host} -le 253 && $host =~ $NAME_RE ]] || valid_ipv4 "$host"; }; then
+    die "line $n of the hosts list is not one host name or IPv4 address; worker_dst4 left as it was"
+  fi
+  hosts+=("$host")
+  lines+=("$n")
+done <"$LIST"
+((${#hosts[@]} > 0)) || die "the hosts list names no host; worker_dst4 left as it was"
+
+declare -A seen=()
+addrs=()
+failed=()
+for i in "${!hosts[@]}"; do
+  host=${hosts[i]}
+  if valid_ipv4 "$host"; then
+    found=$host
+  else
+    found=$(timeout "$LOOKUP_TIMEOUT" getent ahostsv4 "$host" 2>/dev/null | awk '{print $1}' || true)
+  fi
+  usable=0
+  while read -r addr; do
+    valid_ipv4 "$addr" || continue
+    # The table is the one source of the private ranges.
+    nft get element inet mjk private4 "{ $addr }" >/dev/null 2>&1 && continue
+    usable=1
+    [[ -z ${seen[$addr]:-} ]] || continue
+    seen[$addr]=1
+    addrs+=("$addr")
+  done <<<"$found"
+  ((usable)) || failed+=("${lines[i]}")
+done
+
+((${#addrs[@]} > 0)) || die "no host in the hosts list has a public IPv4 address; worker_dst4 left as it was"
+
+elements=$(IFS=,; printf '%s' "${addrs[*]}")
+if ((${#failed[@]} == 0)); then
+  printf 'flush set inet mjk worker_dst4\nadd element inet mjk worker_dst4 { %s }\n' "$elements" |
+    nft -f - || die "nft refused the update; worker_dst4 left as it was"
+  echo "mjk-egress: worker_dst4 holds ${#addrs[@]} address(es) of ${#hosts[@]} host(s)"
+else
+  printf 'add element inet mjk worker_dst4 { %s }\n' "$elements" |
+    nft -f - || die "nft refused the update; worker_dst4 left as it was"
+  echo "mjk-egress: ${#failed[@]} of ${#hosts[@]} host(s) had no public IPv4 address (line(s) ${failed[*]}); ${#addrs[@]} address(es) added, none removed" >&2
+  exit 75
+fi

@@ -4,11 +4,12 @@
 #   1. table inet mjk missing (for example nftables.service stopped and emptied it) -> load it again from
 #      /etc/mjk/mjk.nft. When that fails the stack fails closed: every mjk container is stopped and
 #      /srv/mjk/state/firewall-stopped is written (an mjk stack without its table has open egress).
-#   2. refill resolvers4 (a table load empties it): mjk-resolvers runs on every tick.
+#   2. refill resolvers4 and worker_dst4 (a table load empties both): mjk-resolvers and mjk-egress run on every
+#      tick. A failure of either is logged and the tick goes on (the empty set fails closed).
 #   3. with the table loaded and the marker present: start current.env again and remove the marker.
 #   4. restart unhealthy mjk containers (Docker restarts only exited ones).
-#   5. write the disk check to /srv/mjk/state/disk (free_pct, free_bytes, total_bytes, checked): the api's
-#      disk guard reads it, and a file older than 30 minutes counts as full.
+#   5. write the disk check to /srv/mjk/state/guard/disk (free_pct, free_bytes, total_bytes, checked): the api's
+#      disk guard reads it through its read-only mount of guard/, and a file older than 30 minutes counts as full.
 # The lock /run/mjk/deploy.lock: mjk-update takes it exclusive, mjk-backup.service and mjk-tick shared.
 # The firewall never waits for it: steps 1 and 2 (and the fail-closed stop) run first, whether the lock is
 # free, held or cannot even be opened (that is exit 1). Only the compose actions (3, 4) need it: the tick waits up to 5
@@ -36,6 +37,8 @@ CURRENT=$STATE/current.env
 MARKER=$STATE/firewall-stopped
 NFT_FILE=$ETC/mjk.nft
 RESOLVERS=$ROOT/usr/local/bin/mjk-resolvers
+# mjk-egress reads MJK_ROOT itself (its hosts list under $ROOT/etc/mjk).
+EGRESS=$ROOT/usr/local/bin/mjk-egress
 RESOLVER_ARGS=()
 NFT=nft
 OVERRIDE=
@@ -90,7 +93,9 @@ fail_closed() {
 write_disk() {
   local total avail
   if read -r total avail < <(df -P -B1 "$STATE" 2>/dev/null | awk 'NR == 2 {print $2, $4}') && [[ ${total:-0} =~ ^[0-9]+$ && ${avail:-} =~ ^[0-9]+$ ]] && ((total > 0)); then
-    write_state "$STATE/disk" \
+    # guard/ is mjk-install's (root 0755); a host installed before P3b gets it here until the next install.
+    [[ -d $STATE/guard ]] || mkdir -m 0755 -- "$STATE/guard" || { problem "the disk check failed"; return; }
+    write_state "$STATE/guard/disk" \
       "free_pct=$((avail * 100 / total))" "free_bytes=$avail" "total_bytes=$total" "checked=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   else
     problem "the disk check failed"
@@ -108,10 +113,12 @@ if ! table_loaded; then
   fi
 fi
 
-# --- 2. resolvers4 -----------------------------------------------------------------------------------
+# --- 2. resolvers4 and worker_dst4 -------------------------------------------------------------------
 if ! "$RESOLVERS" "${RESOLVER_ARGS[@]}" >/dev/null 2>&1; then
   problem "resolvers4 was not refreshed (no usable resolver); DNS stays blocked until it is"
 fi
+"$EGRESS" >/dev/null 2>&1 ||
+  problem "worker_dst4 was not fully refreshed (mjk-egress exit $?); the worker reaches cf4 and the addresses already in the set"
 
 # --- the lock, only now: the firewall steps above never wait for it ---------------------------------
 locked=0
@@ -122,7 +129,7 @@ else
 fi
 if ((!locked)); then
   write_disk
-  log "busy: the deploy lock is held or cannot be opened; only the table, resolvers4 and the disk file were checked"
+  log "busy: the deploy lock is held or cannot be opened; only the table, resolvers4, worker_dst4 and the disk file were checked"
   exit "$rc"
 fi
 

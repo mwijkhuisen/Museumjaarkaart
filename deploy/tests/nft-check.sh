@@ -7,8 +7,12 @@
 #    ruleset.
 # 3. `nft -c -f` accepts the file.
 # 4. In a throw-away network namespace (unshare -n; it disappears when its last process exits): the file
-#    loads twice with the same listing, holds only table inet mjk, and mjk-resolvers fills resolvers4,
-#    refuses a loopback-only resolv.conf and a missing table. The host's own ruleset is never touched.
+#    loads twice with the same listing, holds only table inet mjk, every accept of the egress chain is one
+#    of the expected source and destination sets (the worker's tcp/443 only to cf4 or worker_dst4);
+#    mjk-resolvers fills resolvers4, refuses a loopback-only resolv.conf and a missing table; mjk-egress
+#    replaces worker_dst4 when every host resolves, only adds when one does not, changes nothing when none
+#    does or the list is bad. Its lists hold literal addresses and reserved .invalid names only, so no
+#    outside name is ever looked up. The host's own ruleset is never touched.
 # Steps 3 and 4 need nft and root (or an unprivileged user namespace). Without them the steps are
 # skipped with a message, except under CI, where a skip is a failure.
 set -euo pipefail
@@ -17,6 +21,7 @@ export LC_ALL=C
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 NFT_FILE=$ROOT/deploy/host/nftables/mjk.nft
 RESOLVERS=$ROOT/deploy/bin/mjk-resolvers
+EGRESS=$ROOT/deploy/bin/mjk-egress
 SELF=$ROOT/deploy/tests/nft-check.sh
 
 fail() {
@@ -24,6 +29,8 @@ fail() {
   exit 1
 }
 ok() { echo "nft-check: ok: $1"; }
+# The elements of a set of table inet mjk, sorted and comma-separated (empty when it has none).
+elements() { nft list set inet mjk "$1" | tr -d '\n\t ' | sed -nE 's/.*elements=\{([^}]*)\}.*/\1/p' | tr ',' '\n' | sort | paste -sd, -; }
 skip() {
   if [[ -n ${CI:-} ]]; then fail "$1 (a skip is a failure under CI)"; fi
   echo "nft-check: SKIP: $1" >&2
@@ -63,7 +70,7 @@ in_netns() {
   grep -Eq 'type filter hook input priority filter - 10; policy accept;' "$tmp/first" ||
     fail "chain input is not an input-hook base chain with policy accept"
   [[ $(grep -c 'hook ' "$tmp/first") == 2 ]] || fail "expected exactly two base chains"
-  for set in cf4 cf_tunnel4 resolvers4 private4 dns_nets4; do
+  for set in cf4 cf_tunnel4 resolvers4 worker_dst4 private4 dns_nets4; do
     grep -Eq "^[[:space:]]*set $set \{" "$tmp/first" || fail "no set $set"
   done
   # Every jump into the filter chains is keyed on an mjk-* interface.
@@ -76,7 +83,20 @@ in_netns() {
     last=$(awk -v c="chain $chain {" 'index($0, c) {f = 1; next} f && $0 == "\t}" {print prev; exit} f && NF {prev = $0}' "$tmp/first")
     [[ $last =~ [[:space:]]drop([[:space:]]comment[[:space:]]|$) ]] || fail "chain $chain does not end in a drop: $last"
   done
-  ok "two base chains (forward, input), the five sets, jumps keyed on mjk-*, egress and ingress end in a drop"
+  ok "two base chains (forward, input), the six sets, jumps keyed on mjk-*, egress and ingress end in a drop"
+
+  # Every accept of the egress chain names a source and a destination set, and the pairs are exactly
+  # these: no network reaches an arbitrary public address, the worker's tcp/443 only cf4 and worker_dst4.
+  local accepts pairs expected
+  accepts=$(awk 'index($0, "chain egress {") {f = 1; next} f && $0 == "\t}" {exit} f' "$tmp/first" |
+    sed -E 's/ comment "[^"]*"$//' | grep -E '[[:space:]]accept$' || true)
+  pairs=$(sed -nE 's/^[[:space:]]*ip saddr ([^ ]+) ip daddr (@[a-z0-9_]+) .*accept$/\1 \2/p' <<<"$accepts" | sort)
+  [[ $(grep -c . <<<"$accepts") == $(grep -c . <<<"$pairs") ]] ||
+    fail "an accept of chain egress names no source and destination set: $accepts"
+  expected=$(printf '%s\n' '10.63.3.0/24 @cf4' '10.63.3.0/24 @worker_dst4' '10.63.4.0/24 @cf4' \
+    '10.63.5.0/24 @cf_tunnel4' '10.63.8.0/24 @cf4' '@dns_nets4 @resolvers4' | sort)
+  [[ $pairs == "$expected" ]] || fail "the accepts of chain egress are, as source and destination: $pairs"
+  ok "every accept of chain egress is a known source and destination set; the worker's tcp/443 goes to cf4 or worker_dst4 only"
 
   # mjk-resolvers: a resolv.conf with loopback, IPv6, a malformed and two good resolvers (one twice).
   cat >"$tmp/resolv.conf" <<'EOF'
@@ -109,15 +129,66 @@ EOF
   [[ $got == "192.0.2.54" ]] || fail "a refused run changed resolvers4 to '$got'"
   ok "mjk-resolvers refuses a loopback-only resolv.conf and leaves the set as it was"
 
-  # A reload empties the set again: mjk-firewall.service and mjk-tick refill it after every load.
+  # mjk-egress, with its list under MJK_ROOT: literal addresses (no lookup) and a reserved .invalid name,
+  # which no resolver knows (RFC 6761) and which cannot leave this namespace (it has no network).
+  local eroot=$tmp/egress list=$tmp/egress/etc/mjk/egress-hosts rc out bad
+  mkdir -p "$eroot/etc/mjk"
+  run_egress() {
+    rc=0
+    out=$(MJK_ROOT=$eroot "$EGRESS" 2>&1) || rc=$?
+  }
+  printf '# the hosts (test)\n\n9.9.9.9\n149.112.112.112   # a trailing comment\n9.9.9.9\n' >"$list"
+  run_egress
+  ((rc == 0)) || fail "mjk-egress with every host resolved exited $rc: $out"
+  got=$(elements worker_dst4)
+  [[ $got == "149.112.112.112,9.9.9.9" ]] || fail "worker_dst4 holds '$got', expected 149.112.112.112 and 9.9.9.9"
+  [[ $out != *9.9.9.9* && $out != *149.112* ]] || fail "mjk-egress printed an address: $out"
+  ok "mjk-egress fills worker_dst4 (comments, blank lines and duplicates skipped) and prints counts only"
+
+  # Hosts with no address (an unresolvable name, a private literal): add only, nothing removed.
+  printf '9.9.9.10\nmjk-egress-check.invalid\n10.1.2.3\n' >"$list"
+  run_egress
+  ((rc == 75)) || fail "mjk-egress with two hosts unresolved exited $rc, not 75: $out"
+  got=$(elements worker_dst4)
+  [[ $got == "149.112.112.112,9.9.9.10,9.9.9.9" ]] ||
+    fail "after a partial run worker_dst4 holds '$got', expected the old two plus 9.9.9.10 (and no private address)"
+  [[ $out == *"line(s) 2 3"* ]] || fail "mjk-egress did not name the unresolved lines: $out"
+  ok "with a host unresolved mjk-egress only adds (exit 75): the old addresses stay, a private one is never added"
+
+  # Every host resolved again: the set is replaced and the stale addresses go.
+  printf '9.9.9.11\n' >"$list"
+  run_egress
+  ((rc == 0)) || fail "mjk-egress after the partial run exited $rc: $out"
+  got=$(elements worker_dst4)
+  [[ $got == "9.9.9.11" ]] || fail "after a full run worker_dst4 holds '$got', expected 9.9.9.11 alone"
+  ok "the next run where every host resolves replaces worker_dst4 (flush and add in one transaction)"
+
+  # No host with an address; an empty, malformed or missing list: exit 1, the set as it was.
+  for bad in 'mjk-egress-check.invalid\n192.0.2.10\n' '# only a comment\n\n' '010.1.2.3\n' '9.9.9.12 9.9.9.13\n' \
+    'Query.Wikidata.org\n' 'bad_name.example\n' '-x.example\n' 'example\n' '9.9.9.12\nnot a host\n' missing; do
+    if [[ $bad == missing ]]; then rm -f "$list"; else printf '%b' "$bad" >"$list"; fi
+    run_egress
+    ((rc == 1)) || fail "mjk-egress with the list '$bad' exited $rc, not 1: $out"
+    got=$(elements worker_dst4)
+    [[ $got == "9.9.9.11" ]] || fail "mjk-egress with the list '$bad' changed worker_dst4 to '$got'"
+  done
+  ok "mjk-egress changes nothing and exits 1 when no host resolves or the list is empty, malformed or missing"
+
+  # A reload empties the sets again: mjk-firewall.service (resolvers4), mjk-egress.service (worker_dst4) and
+  # mjk-tick (both) refill them after every load.
   nft -f "$NFT_FILE"
-  got=$(nft list set inet mjk resolvers4)
-  [[ $got != *elements* ]] || fail "a reload kept resolvers4's elements"
-  ok "a reload empties resolvers4 (the unit refills it)"
+  for set in resolvers4 worker_dst4; do
+    got=$(nft list set inet mjk "$set")
+    [[ $got != *elements* ]] || fail "a reload kept $set's elements"
+  done
+  ok "a reload empties resolvers4 and worker_dst4 (mjk-firewall.service, mjk-egress.service and mjk-tick refill them)"
 
   nft delete table inet mjk
   if "$RESOLVERS" "$tmp/resolv.conf" >/dev/null 2>&1; then fail "mjk-resolvers succeeded without the table"; fi
-  ok "mjk-resolvers fails when table inet mjk is not loaded"
+  printf '9.9.9.9\n' >"$list"
+  run_egress
+  ((rc == 1)) || fail "mjk-egress without the table exited $rc, not 1: $out"
+  ok "mjk-resolvers and mjk-egress fail when table inet mjk is not loaded"
 }
 
 if [[ ${1:-} == --in-netns ]]; then

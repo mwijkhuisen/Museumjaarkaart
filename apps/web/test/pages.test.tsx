@@ -65,6 +65,7 @@ const detail = (over: Record<string, unknown> = {}): MuseumDetail =>
     price_verified_at: null,
     photo_policy: 'unknown',
     temp_closed_until: null,
+    image: null,
     mk_list: { published_on: '2026-11-05', n: 512, member: true },
     aspects: {
       collection: { mean: null, count: 0 },
@@ -117,7 +118,12 @@ function render(
     <App
       path={path}
       queryClient={queryClient}
-      config={{ brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' }}
+      config={{
+        brand: 'Testmerk',
+        controller: 'Test Beheerder',
+        contactEmail: 'info@mjk.test',
+        media: 'https://media.mjk.test',
+      }}
     />,
   );
 }
@@ -241,6 +247,59 @@ describe('the museum page', () => {
     expect(render('/musea/voorbeeld-museum')).not.toContain('gesloten');
   });
 
+  describe('the Commons image (ADR-0018)', () => {
+    const KEY = 'ab'.repeat(16);
+    const image = (over: Record<string, unknown> = {}) => ({
+      public_key: KEY,
+      widths: [640, 1280],
+      width: 1920,
+      height: 1280,
+      licence: 'cc-by-sa-4.0',
+      attribution: 'Jane Doe',
+      file: 'Het Muzeum (1).jpg',
+      ...over,
+    });
+
+    it('shows our own variants, the credit as text, the deed, the file page and the edit note (NL and EN)', () => {
+      const nl = render('/musea/voorbeeld-museum', detail({ image: image() }));
+      expect(nl).toContain(`<source type="image/avif" srcSet="https://media.mjk.test/p/${KEY}/640.avif 640w, `);
+      expect(nl).toContain('<figcaption class="muted">Foto: Jane Doe · ');
+      expect(nl).toContain(
+        '<a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener noreferrer">CC BY-SA 4.0</a>',
+      );
+      expect(nl).toContain('href="https://commons.wikimedia.org/wiki/File:Het_Muzeum_(1).jpg"');
+      expect(nl).toContain('bewerkt (verkleind)');
+      const en = render('/en/museums/voorbeeld-museum', detail({ image: image() }));
+      expect(en).toContain('Photo: Jane Doe');
+      expect(en).toContain('File on Wikimedia Commons');
+      expect(en).toContain('resized');
+    });
+
+    it('requests nothing from a Wikimedia host: no src or srcset names one', () => {
+      const html = render('/musea/voorbeeld-museum', detail({ image: image() }));
+      const urls = [...html.matchAll(/(?:src|srcSet)="([^"]*)"/g)].map((x) => x[1] as string);
+      expect(urls.length).toBeGreaterThan(0);
+      expect(urls.join(' ')).not.toMatch(/wikimedia|wikipedia/);
+      expect(urls.join(' ')).toContain('https://media.mjk.test/p/');
+    });
+
+    it('escapes a hostile credit and shows a public-domain file with no credit', () => {
+      const html = render(
+        '/musea/voorbeeld-museum',
+        detail({ image: image({ attribution: '<script>alert(1)</script><img src=x onerror=alert(2)>' }) }),
+      );
+      expect(html).toContain('Foto: &lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(2)&gt;');
+      expect(html).not.toMatch(/<script|<img src=x/);
+      const pd = render('/musea/voorbeeld-museum', detail({ image: image({ licence: 'pd', attribution: null }) }));
+      expect(pd).not.toContain('Foto:');
+      expect(pd).toContain('Publiek domein');
+    });
+
+    it('shows no figure without an image', () => {
+      expect(render('/musea/voorbeeld-museum')).not.toContain('<figure');
+    });
+  });
+
   it('shows an unknown value as a dash with its reason', () => {
     const html = render(
       '/musea/voorbeeld-museum',
@@ -303,7 +362,11 @@ describe('the museum page scores and the review pages (P3a)', () => {
     queryClient.setQueryData([apiPath.provinces], provinces);
     setLocale('nl', { reload: false });
     const html = renderToStaticMarkup(
-      <App path="/musea" queryClient={queryClient} config={{ brand: 'T', controller: 'T', contactEmail: 'a@b.nl' }} />,
+      <App
+        path="/musea"
+        queryClient={queryClient}
+        config={{ brand: 'T', controller: 'T', contactEmail: 'a@b.nl', media: 'https://media.mjk.test' }}
+      />,
     );
     expect(html).toContain('class="card-score cluster"');
     expect(html).toContain('<strong>4,0</strong>');
@@ -370,7 +433,12 @@ describe('the list page', () => {
         <App
           path="/musea"
           queryClient={queryClient}
-          config={{ brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' }}
+          config={{
+            brand: 'Testmerk',
+            controller: 'Test Beheerder',
+            contactEmail: 'info@mjk.test',
+            media: 'https://media.mjk.test',
+          }}
         />,
       ),
     ).toContain('Geen musea gevonden');

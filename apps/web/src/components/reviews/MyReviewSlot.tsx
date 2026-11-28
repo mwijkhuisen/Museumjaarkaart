@@ -12,6 +12,7 @@ import { useMarks } from '../../lib/member.ts';
 import { museumName } from '../../lib/names.ts';
 import type { Locale } from '../../lib/routes.ts';
 import { m } from '../../paraglide/messages.js';
+import { OwnPhotoView, photoAlt } from '../photos/Picture.tsx';
 import { ReviewForm } from './ReviewForm.tsx';
 import { isClosed, resetSignal, setHasReview, useReviewSignal } from './signal.ts';
 
@@ -105,6 +106,15 @@ export function MyReviewSlot({ museum, locale }: { museum: MuseumDetail; locale:
             <p className="review-body" dir="auto">
               {review.body}
             </p>
+          )}
+          {review.photos.length === 0 ? null : (
+            <ul className="photo-grid plain-list">
+              {review.photos.map((p) => (
+                <li key={p.id}>
+                  <OwnPhotoView photo={p} alt={photoAlt(p, name, null)} />
+                </li>
+              ))}
+            </ul>
           )}
           <div className="cluster">
             {closed ? (

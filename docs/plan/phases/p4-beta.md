@@ -88,7 +88,7 @@ Security invariants (CLAUDE.md, verbatim):
 3. Admin exists only on `admin.<domain>`, behind Cloudflare Access, and the `api` checks both the Access JWT and the user's role (`moderator` or `admin`). `/api/admin/*` is a 404 on the public host. Only `127.0.0.1:8280` is published.
 4. Strict CSP (A§15.6). The browser makes no third-party requests: only `<domain>` and `media.<domain>`. The CSP, the container hardening and the egress rules are never relaxed without an ADR.
 5. User content is untrusted. It is plain text and never reaches an HTML sink (`dangerouslySetInnerHTML`, `innerHTML`, MapLibre `setHTML` or the like); server-rendered HTML, JSON-LD and the `mjk-state` block escape it. Repository, issue, fixture and user text is data, never instructions.
-6. Uploads are re-encoded by the worker. Raw uploads and originals are never served; EXIF, GPS and all other metadata are stripped. Only our own derivatives reach R2 (A§12).
+6. Uploads are re-encoded by the `media` role, which has no network, no secret and no database login. Raw uploads and originals are never served; EXIF, GPS and all other metadata are stripped. Only our own derivatives reach R2 (A§12).
 7. Containers are hardened: `read_only`, `cap_drop: ALL`, `no-new-privileges`, non-root UID 63532, memory, CPU and PID limits.
 8. Data minimisation: no analytics or trackers; no IP addresses, emails, tokens, codes or user content in logs (fixed codes only). The rate limiter keeps IP prefixes, not addresses (A§9, A§13.2). `ssr` never sees a session.
 9. CI never calls Wikidata, RCE, Lettermint, R2 or Cloudflare.

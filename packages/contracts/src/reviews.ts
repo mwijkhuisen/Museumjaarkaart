@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DisplayName, Handle } from './auth.ts';
-import { Cursor, codePoints, IsoDate, IsoDateTime, isStorable, Slug } from './common.ts';
+import { BAD_TEXT_CHAR, Cursor, codePoints, IsoDate, IsoDateTime, isStorable, Slug } from './common.ts';
+import { OwnPhoto, PHOTOS_PER_REVIEW, PublicPhoto } from './media.ts';
 import { Limit } from './queries.ts';
 
 // Ratings and reviews (A§8 `review`, D13, ADR-0017, P3a): the request and answer schemas.
@@ -21,9 +22,6 @@ export type Aspect = (typeof ASPECTS)[number];
 export const REVIEW_BODY_MAX = 5000;
 const BODY_UTF16_MAX = 4 * REVIEW_BODY_MAX;
 
-/** Control characters (LF is removed before the test), line and paragraph separators, bidi embeddings and isolates. */
-const BAD_BODY_CHAR = /[\p{Cc}\u{2028}\u{2029}\u{202A}-\u{202E}\u{2066}-\u{2069}]/u;
-
 /** CRLF, CR, U+2028 and U+2029 become LF, TAB a space, then trim; empty is null. */
 export function normaliseReviewBody(s: string): string | null {
   const t = s
@@ -36,7 +34,7 @@ export function normaliseReviewBody(s: string): string | null {
 /** The one rule for a normalised body: storable, no forbidden character, 1 to 5,000 code points. */
 export function isReviewText(s: string): boolean {
   const n = codePoints(s);
-  return isStorable(s) && n >= 1 && n <= REVIEW_BODY_MAX && !BAD_BODY_CHAR.test(s.replaceAll('\n', ''));
+  return isStorable(s) && n >= 1 && n <= REVIEW_BODY_MAX && !BAD_TEXT_CHAR.test(s.replaceAll('\n', ''));
 }
 
 // ---- Requests ----------------------------------------------------------------------------------------
@@ -71,6 +69,12 @@ export const ReviewCreate = z.strictObject({
   rating: Rating,
   ...AspectRatings,
   body: ReviewBody.optional(),
+  /** Photos of this member and museum to attach (P3b): unique, at most 10. */
+  media_ids: z
+    .array(z.uuid())
+    .max(PHOTOS_PER_REVIEW)
+    .refine((a) => new Set(a).size === a.length, { message: 'duplicate' })
+    .optional(),
 });
 export type ReviewCreate = z.output<typeof ReviewCreate>;
 
@@ -105,6 +109,7 @@ export const OwnReview = z.strictObject({
   body: z.string().max(BODY_UTF16_MAX).nullable(),
   created_at: IsoDateTime,
   edited_at: IsoDateTime.nullable(),
+  photos: z.array(OwnPhoto).max(PHOTOS_PER_REVIEW),
 });
 export type OwnReview = z.infer<typeof OwnReview>;
 
@@ -128,6 +133,7 @@ export const PublicReview = z.strictObject({
   body: z.string().max(BODY_UTF16_MAX).nullable(),
   created_at: IsoDateTime,
   edited_at: IsoDateTime.nullable(),
+  photos: z.array(PublicPhoto).max(PHOTOS_PER_REVIEW),
 });
 export type PublicReview = z.infer<typeof PublicReview>;
 

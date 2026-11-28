@@ -8,6 +8,8 @@ All commands run as root on the VM. Shorthand (as in `docs/runbooks/install.md` 
 mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/state/current.env "$@"; }
 ```
 
+**Before the deploy that brings P3b (an existing host):** run `mjk-install` first. It creates `/srv/mjk/state/guard` (root 0755), installs the new units and starts `mjk-egress.service` (the worker's egress set, after the firewall unit and never before Docker). The `worker` and the new `media` container share the tmpfs volume `mjk_media_work` (256 MB, A§17.1), which Compose creates itself. A host that ran an earlier P3b build has an unused `/srv/mjk/media-work` directory: once the deploy is healthy, it may be removed (`rm -r /srv/mjk/media-work`, as root; it holds only task directories that ended). The disk file moves to `state/guard/disk`; the old `state/disk` is stale and may be removed. Services to check after the deploy are now seven: `media` joins `db`, `api`, `ssr`, `worker`, `caddy` and `cloudflared` (`docs/runbooks/photos.md`).
+
 **Before the deploy that brings P1d (an existing P1e host):** create the secret file `/etc/mjk/secrets/r2_media_rw` and set `MJK_R2_BUCKET_MEDIA` in `mjk.env` first (`docs/runbooks/tiles-refresh.md` §2), then run `mjk-install`. Compose cannot create the `worker` without the file, and a rollback keeps the new compose file, so `mjk-update` refuses the deploy until every secret file of the compose file exists (step 2b).
 
 ## 1. How an update happens (A§17.5)
@@ -24,7 +26,7 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
   6. only after all that, replaces `current.env`; on any failure writes `failed.env`, puts the images of `current.env` back (600 s) and waits until they are healthy (without a `current.env` it stops the stack). A failed compose step logs compose's last error lines as `compose: …`;
   7. after a success, removes the local references of `ghcr.io/mwijkhuisen/mjk-*` that `current.env` does not use (`old images: N reference(s) … removed`). Other projects' images are never touched.
 - Every step is bounded; the worst case is about 57 minutes, under the unit's `TimeoutStartSec=65min`.
-- State, all in `/srv/mjk/state`: `current.env` (the three refs of the last good deploy and `MJK_COMPOSE_SHA256`), `failed.env` (the same for the last failed one), `disk` (written by `mjk-tick`), `firewall-stopped` (see `docs/runbooks/incident.md`).
+- State, all in `/srv/mjk/state`: `current.env` (the three refs of the last good deploy and `MJK_COMPOSE_SHA256`), `failed.env` (the same for the last failed one), `guard/disk` (written by `mjk-tick`; a P3b install no longer writes `state/disk`, and the old file is stale and may be removed), `firewall-stopped` (see `docs/runbooks/incident.md`).
 - **A migration must work with the previous image** (expand now, contract in a later release): a rollback restores the old images but never runs `down`. P1e itself adds no migration.
 
 ## 2. Watching and forcing

@@ -48,9 +48,9 @@ cd /root/mjk-checkout && deploy/bin/mjk-install
 
 The first run:
 - refuses (exit 1, `REFUSED: …`, nothing changed) when a group name or GID collides with `rws` or `f1`, a path resolves into their trees, an `mjk-*` Docker network belongs to another compose project, or one of the eight subnets (10.63.1.0/24 … 10.63.8.0/24) overlaps another Docker network or a host route;
-- creates the groups `mjk_<secret>` (GIDs 63001 to 63013), `/etc/mjk` (0755), `/etc/mjk/secrets` (0700 root), `/etc/mjk/postgres`, `/srv/mjk/state` (root 0755) and `/srv/mjk/{originals,quarantine,exports,tiles-build,backup-staging}` (63532:63532 0700);
-- copies the compose file, `roles.sql`, `mjk.nft`, the units and `mjk-update`, `mjk-tick`, `mjk-resolvers`, `mjk-ping`;
-- enables and starts `mjk-firewall.service` (loads `table inet mjk`; `nft -c` first);
+- creates the groups `mjk_<secret>` (GIDs 63001 to 63013), `/etc/mjk` (0755), `/etc/mjk/secrets` (0700 root), `/etc/mjk/postgres`, `/srv/mjk/state` (root 0755), `/srv/mjk/state/guard` (root 0755; P3b: `mjk-tick` writes the disk file there and the `api` mounts it read-only) and `/srv/mjk/{originals,quarantine,exports,tiles-build,backup-staging}` (63532:63532 0700). The `media` container's one mount, `media-work`, is not a host directory but the tmpfs volume `mjk_media_work` (256 MB), which Compose makes at the first start (A§17.1);
+- copies the compose file, `roles.sql`, `mjk.nft`, the worker's hosts list `/etc/mjk/egress-hosts` (P3b), the units and `mjk-update`, `mjk-tick`, `mjk-resolvers`, `mjk-egress`, `mjk-ping`; a changed `mjk.nft` reloads the firewall unit, a changed hosts list alone runs `mjk-egress` (it refills `worker_dst4`, A§17.4);
+- enables and starts `mjk-firewall.service` (loads `table inet mjk`; `nft -c` first), then starts `mjk-egress.service` (P3b review: fills `worker_dst4`; wanted by the firewall unit and ordered after it, never before Docker, so its lookups do not hold up any stack at boot);
 - prints `NOT ENABLED: …` and the names of everything still missing, and leaves the three timers off.
 
 ### The secrets
@@ -250,8 +250,10 @@ probe() { # <container> <command...>
 The probes and what each must show:
 
 ```bash
-# worker: tcp/443 to the internet is allowed, port 80 is not, private ranges are not.
-probe mjk-worker-1 nc -w 3 -z 9.9.9.9 443              # allowed: exit 0, no counter moved
+# worker (from P3b, A§17.4): tcp/443 only to cf4 and worker_dst4; port 80 and private ranges never.
+probe mjk-worker-1 nc -w 3 -z 9.9.9.9 443              # dropped (outside cf4 and worker_dst4): "everything else" counter moved
+probe mjk-worker-1 nc -w 3 -z "$(nft list set inet mjk worker_dst4 | grep -oE '([0-9]+\.){3}[0-9]+' | head -1)" 443   # allowed: exit 0, no counter moved
+probe mjk-worker-1 nc -w 3 -z 104.16.0.1 443           # allowed (inside cf4, R2's ranges): no counter moved
 probe mjk-worker-1 nc -w 3 -z 9.9.9.9 80               # dropped: "everything else" counter moved
 probe mjk-worker-1 nc -w 3 -z 192.168.0.1 443          # dropped: "private, link-local and CGNAT ranges" counter moved
 # ssr reaches nothing (no external network at all).
@@ -306,7 +308,7 @@ The host-input drop `containers never open a connection to the host` moves by a 
 
 ## 9. A day of `docker stats` (criterion 11)
 
-Sample the six daemons once an hour for a day, in a tmux or screen session, then summarise the peak memory, CPU and PIDs of each service into A§17.2 and say whether A3 (the resize) holds:
+Sample the seven daemons once an hour for a day, in a tmux or screen session, then summarise the peak memory, CPU and PIDs of each service into A§17.2 and say whether A3 (the resize) holds:
 
 ```bash
 for i in $(seq 24); do

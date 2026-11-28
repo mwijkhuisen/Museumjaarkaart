@@ -14,7 +14,7 @@ export const CURRENT_KEY = 'tiles/current.json';
 /** `nl-<YYYYMMDD>.pmtiles`: the only names that ever reach a key. */
 export const TILES_FILE = /^nl-20[0-9]{6}\.pmtiles$/;
 const TILES_TYPE = 'application/vnd.pmtiles';
-const IMMUTABLE = 'public, max-age=31536000, immutable';
+export const IMMUTABLE = 'public, max-age=31536000, immutable';
 const CURRENT_CACHE = 'public, max-age=300';
 const CURRENT_MAX_BYTES = 1024;
 

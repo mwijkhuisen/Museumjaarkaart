@@ -2,7 +2,7 @@
 // reads back (only `visits` and `wishlist`; see import/mjk.ts). Bump `version` for any change that an
 // old reader would misread.
 
-import { IsoDate, IsoDateTime, Rating, Settings, Slug } from '@mjk/contracts';
+import { IsoDate, IsoDateTime, MediaStateSchema, Rating, Settings, Slug } from '@mjk/contracts';
 import { z } from 'zod';
 
 /** The export's two CSV files. The CSV import reads `visits.csv` back through its column aliases. */
@@ -66,6 +66,21 @@ export const MjkExportV1 = z.strictObject({
         created_at: IsoDateTime,
         edited_at: IsoDateTime.nullable(),
         revisions: z.array(z.strictObject({ ...MjkReviewContent, created_at: IsoDateTime })),
+      }),
+    )
+    .optional(),
+  // P3b: the member's photos as metadata only (no file, key, hash or address). Optional like `reviews`.
+  photos: z
+    .array(
+      z.strictObject({
+        id: z.uuid(),
+        review_id: z.uuid().nullable(),
+        museum_slug: Slug,
+        state: MediaStateSchema,
+        created_at: IsoDateTime,
+        alt_text: z.string().nullable(),
+        width: z.number().int().nullable(),
+        height: z.number().int().nullable(),
       }),
     )
     .optional(),

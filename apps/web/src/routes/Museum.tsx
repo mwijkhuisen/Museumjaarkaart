@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Loading } from '../components/layout/Layout.tsx';
 import { ClosureNote } from '../components/museum/ClosureNote.tsx';
 import { CATEGORY_LABEL } from '../components/museum/categories.ts';
+import { MuseumImage } from '../components/museum/MuseumImage.tsx';
 import { MuseumkaartStatus } from '../components/museum/MuseumkaartStatus.tsx';
 import { MarkSlot, VisitForm } from '../components/museum/MuseumMarks.tsx';
 import { PROVINCE_NAME, provinceSlugOf } from '../components/museum/provinces.ts';
@@ -88,6 +89,7 @@ export function Museum({ route }: { route: Extract<Route, { page: 'museum' }> })
         tempClosedUntil={museum.temp_closed_until}
         locale={locale}
       />
+      {museum.image === null ? null : <MuseumImage image={museum.image} museum={museumName(museum, locale)} />}
       {description === null ? null : <p>{description}</p>}
       <section className="stack" aria-labelledby="museum-score">
         <h2 id="museum-score">{m.score_h()}</h2>

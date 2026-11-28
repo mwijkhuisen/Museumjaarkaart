@@ -104,7 +104,7 @@ For `cf_tunnel4` (198.41.192.0/24 and 198.41.200.0/24), read Cloudflare's "Tunne
 getent ahostsv4 region1.v2.argotunnel.com region2.v2.argotunnel.com | awk '{print $1}' | sort -u
 ```
 
-Every address must lie inside 198.41.192.0/24 or 198.41.200.0/24. A difference is a change to `mjk.nft` through a PR, then `deploy/bin/mjk-install` (it reloads the table, and `mjk-resolvers` refills `resolvers4`). A stale `cf4` shows up as the backup or the Access certs failing with a connection timeout (`docs/runbooks/incident.md` §5). Also confirm with the first backup run that R2's S3 endpoint lies inside `cf4` [U box] (`docs/runbooks/backup.md` §3).
+Every address must lie inside 198.41.192.0/24 or 198.41.200.0/24. A difference is a change to `mjk.nft` through a PR, then `deploy/bin/mjk-install` (it reloads the table, and `mjk-resolvers` and `mjk-egress` refill `resolvers4` and `worker_dst4`). A stale `cf4` shows up as the backup or the Access certs failing with a connection timeout (`docs/runbooks/incident.md` §5). Also confirm with the first backup run that R2's S3 endpoint lies inside `cf4` [U box] (`docs/runbooks/backup.md` §3).
 
 ## 7. Account settings
 

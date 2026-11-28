@@ -98,6 +98,7 @@ describe('the how-we-check link', () => {
       price_verified_at: null,
       photo_policy: 'unknown',
       temp_closed_until: null,
+      image: null,
       mk_list: null,
       aspects: ASPECTS,
     });
@@ -107,7 +108,9 @@ describe('the how-we-check link', () => {
     setLocale('nl', { reload: false });
     const out = renderToStaticMarkup(
       <QueryClientProvider client={queryClient}>
-        <ConfigContext value={{ brand: 'Testmerk', controller: 'Test', contactEmail: 'a@b.nl' }}>
+        <ConfigContext
+          value={{ brand: 'Testmerk', controller: 'Test', contactEmail: 'a@b.nl', media: 'https://media.mjk.test' }}
+        >
           <RouterProvider initialPath="/musea/voorbeeld-museum/reviews">
             <MuseumReviews route={{ page: 'museum-reviews', locale: 'nl', slug: 'voorbeeld-museum' }} />
           </RouterProvider>
@@ -159,7 +162,9 @@ describe('the how-we-check page', () => {
     (locale) => {
       const messages = locale === 'nl' ? nl : en;
       const out = html(
-        <ConfigContext value={{ brand: 'Testmerk', controller: 'Test', contactEmail: 'a@b.nl' }}>
+        <ConfigContext
+          value={{ brand: 'Testmerk', controller: 'Test', contactEmail: 'a@b.nl', media: 'https://media.mjk.test' }}
+        >
           <Legal route={{ page: 'legal', locale, doc: 'reviews' }} />
         </ConfigContext>,
         locale,

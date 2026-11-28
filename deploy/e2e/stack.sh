@@ -5,7 +5,9 @@
 # with both replaced by an echo server (caddy-cases.yaml), then with the echo servers stopped, and last
 # Caddy's own log, which must hold no client address, URI or query. P2a: the sign-up and sign-in specs (mail
 # through the sink, the admin host through the Access stand-in), the log checks after them and, last, the
-# @load pass (50 parallel password sign-ins, then the api's restart count and cgroup memory events).
+# @load pass (50 parallel password sign-ins, then the api's restart count and cgroup memory events). P3b: the
+# no-network `media` role, the worker's R2 through the edge's r2.mjk.test, a fresh disk-guard file before each
+# Playwright pass, and after the main pass the media container's restart count and cgroup memory events.
 # Run from the repository root, after `pnpm --filter @mjk/web build`.
 #   DBMATE_BIN=/path/to/dbmate deploy/e2e/stack.sh [playwright arguments, e.g. headers.spec.ts]
 # DBMATE_BIN is a dbmate 2.36.0 binary (the workflow installs it, sha256-checked). PLAYWRIGHT_IMAGE
@@ -46,13 +48,25 @@ export E2E_PKI
 openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 2 -subj /CN=mjk-e2e-ca \
   -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign \
   -keyout "$E2E_PKI/ca.key" -out "$E2E_PKI/ca.pem" 2>/dev/null
-for host in test-team.cloudflareaccess.com api.lettermint.co; do
+for host in test-team.cloudflareaccess.com api.lettermint.co r2.mjk.test; do
   openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -subj "/CN=$host" \
     -keyout "$E2E_PKI/$host.key" -out "$E2E_PKI/$host.csr" 2>/dev/null
   openssl x509 -req -in "$E2E_PKI/$host.csr" -CA "$E2E_PKI/ca.pem" -CAkey "$E2E_PKI/ca.key" -CAcreateserial -days 2 \
     -extfile <(printf 'subjectAltName=DNS:%s\nextendedKeyUsage=serverAuth\n' "$host") -out "$E2E_PKI/$host.pem" 2>/dev/null
 done
 chmod 0444 "$E2E_PKI"/*
+
+# The api's disk guard (A§17.7, owner Q6) reads guard/disk, as mjk-tick writes it; a file older than 30 minutes
+# refuses every upload, so it is written again before each Playwright pass. World-readable: the api runs as 63532.
+E2E_GUARD=$(mktemp -d)
+export E2E_GUARD
+chmod 0755 "$E2E_GUARD"
+write_guard() {
+  printf 'free_pct=50\nchecked=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$E2E_GUARD/disk.tmp"
+  chmod 0644 "$E2E_GUARD/disk.tmp"
+  mv -f "$E2E_GUARD/disk.tmp" "$E2E_GUARD/disk"
+}
+write_guard
 
 compose() { docker compose -p mjk-e2e -f deploy/e2e/compose.yaml "$@"; }
 
@@ -61,7 +75,7 @@ cleanup() {
   trap - EXIT
   if ((rc != 0)); then compose logs --no-color --tail 200 >&2 || true; fi
   compose down -v --remove-orphans >&2 || true
-  rm -rf "$E2E_SECRETS" "$E2E_PKI"
+  rm -rf "$E2E_SECRETS" "$E2E_PKI" "$E2E_GUARD"
   exit "$rc"
 }
 trap cleanup EXIT
@@ -78,6 +92,9 @@ E2E_INVITE=$(compose run --rm -T admin invite create --uses 10 --days 1 | sed -n
 [[ -n $E2E_INVITE ]] || { echo "stack: admin invite create printed no invite code" >&2; exit 1; }
 compose run --rm -T admin user role owner_chromium admin >/dev/null
 compose run --rm -T admin user role owner_webkit moderator >/dev/null
+# P3b: one trusted photo member per engine (seed-e2e.ts), so an attached photo is published to the bucket stand-in.
+compose run --rm -T admin user trust photo_chromium >/dev/null
+compose run --rm -T admin user trust photo_webkit >/dev/null
 access_jwts=$(compose run --rm -T --user "$(id -u):$(id -g)" -v "$E2E_PKI:/pki" access-stub)
 { read -r E2E_ACCESS_JWT_CHROMIUM; read -r E2E_ACCESS_JWT_WEBKIT; } <<<"$access_jwts"
 for jwt in "$E2E_ACCESS_JWT_CHROMIUM" "$E2E_ACCESS_JWT_WEBKIT"; do
@@ -130,9 +147,10 @@ compose run --rm -T --no-deps caddy caddy adapt --config /etc/caddy/Caddyfile |
     console.log("caddy adapt: every reverse_proxy keeps idle upstream connections 30 s and retries 5 s");
   '
 
-compose up -d --wait api worker mailsink ssr caddy edge
+compose up -d --wait api worker media mailsink ssr caddy edge
 
 playwright() {
+  write_guard
   docker run --rm --init --ipc=host --network mjk-e2e_default --user "$(id -u):$(id -g)" \
     -e HOME=/tmp -e CI -e E2E_BASE_URL=https://mjk.test -e E2E_MAIL_URL=http://mailsink:8025 \
     -e E2E_INVITE -e E2E_ACCESS_JWT_CHROMIUM -e E2E_ACCESS_JWT_WEBKIT \
@@ -140,7 +158,15 @@ playwright() {
     node_modules/.bin/playwright test -c e2e/playwright.config.ts "$@"
 }
 
-playwright --grep-invert '@ssr-down|@load' "$@"
+playwright --grep-invert '@ssr-down|@load|@photos' --pass-with-no-tests "$@"
+
+# P3b: photo-upload.spec.ts signs three members a test engine in by mailed code. With the main pass's own sign-ins
+# that passes code_prefix's 20 an hour from the one Playwright address, so the photo pass starts with the three code
+# buckets emptied (test rows only; the limiter is unchanged). It runs before the log scans and media's restart and
+# OOM check below, so both cover it.
+compose exec -T db psql -U postgres -d mjk -q -v ON_ERROR_STOP=1 \
+  -c "DELETE FROM rate_limit WHERE bucket IN ('code_prefix', 'code_email_prefix', 'code_email_day')"
+playwright --grep @photos --pass-with-no-tests "$@"
 
 # A§15.3 "never logged": near-me.spec.ts presses the button at 52.37312, 4.89351 (rounded 52.373, 4.894). Neither the
 # raw nor the rounded position, nor a lat or lon query, is in the api's, ssr's or caddy's log. A number that merely
@@ -167,7 +193,7 @@ check_auth_logs() {
   local codes service service_log needle
   codes=$(mail_codes)
   [[ -n $codes ]] || { echo "stack: the mail sink holds no code" >&2; exit 1; }
-  for service in api worker ssr caddy db mailsink; do
+  for service in api worker media ssr caddy db mailsink; do
     service_log=$(compose logs --no-color --no-log-prefix "$service")
     for needle in @mjk.test 'e2e staple seven horses' "${E2E_ACCESS_JWT_CHROMIUM##*.}" "${E2E_ACCESS_JWT_WEBKIT##*.}" "$E2E_INVITE"; do
       if grep -qF -- "$needle" <<<"$service_log"; then
@@ -184,7 +210,17 @@ check_auth_logs() {
   done
 }
 check_auth_logs
-echo "logs: no address, password, invite, JWT signature or code in the api, worker, ssr, caddy, db and mailsink logs"
+echo "logs: no address, password, invite, JWT signature or code in the api, worker, media, ssr, caddy, db and mailsink logs"
+
+# A§17.2 (P3b criterion 3): the photos of the main pass must not restart or OOM-kill the media role.
+media_id=$(compose ps -q media)
+read -r status restarts oom_killed < <(docker inspect -f '{{.State.Status}} {{.RestartCount}} {{.State.OOMKilled}}' "$media_id")
+[[ "$status $restarts $oom_killed" == 'running 0 false' ]] ||
+  { echo "stack: media is $status, restarted ($restarts) or was OOM-killed ($oom_killed)" >&2; exit 1; }
+grep -qx 'oom_kill 0' < <(docker exec "$media_id" cat /sys/fs/cgroup/memory.events) ||
+  { echo "stack: the media role's cgroup logged an OOM kill" >&2; exit 1; }
+peak=$(docker exec "$media_id" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo unavailable)
+echo "media: restarted 0 times, no OOM kill, memory.peak $peak bytes (limit 768 MB)"
 compose run --rm -T --no-deps probe node deploy/e2e/caddy-cases.mjs real
 
 compose stop ssr

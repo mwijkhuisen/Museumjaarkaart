@@ -64,6 +64,23 @@ export async function getMuseumDetail(db: Db, slug: string): Promise<DetailRow |
       return [a, { mean: count >= ASPECT_MIN ? (stats?.[`${a}_mean`] ?? null) : null, count }];
     }),
   ) as MuseumDetail['aspects'];
+  const img = await db
+    .selectFrom('pub_museum_image')
+    .select(['public_key', 'widths', 'width', 'height', 'licence', 'attribution', 'file'])
+    .where('museum_id', '=', r.id as string)
+    .executeTakeFirst();
+  const image =
+    img === undefined || img.public_key === null || img.widths === null || img.width === null || img.height === null
+      ? null
+      : {
+          public_key: img.public_key,
+          widths: img.widths,
+          width: img.width,
+          height: img.height,
+          licence: img.licence as string,
+          attribution: img.attribution,
+          file: img.file as string,
+        };
   return {
     id: r.id as string,
     slug: r.slug as string,
@@ -94,6 +111,7 @@ export async function getMuseumDetail(db: Db, slug: string): Promise<DetailRow |
     price_verified_at: iso(r.price_verified_at),
     photo_policy: r.photo_policy as DetailRow['photo_policy'],
     temp_closed_until: r.temp_closed_until,
+    image,
     mk_list: list === null ? null : { ...list, member: r.mk_list_member === true },
     rating_count: stats?.rating_count ?? 0,
     rating_mean: stats?.rating_mean ?? null,

@@ -68,3 +68,9 @@ export const StorableText = z.string().refine(isStorable, { message: 'not storab
 
 /** Code points, what PostgreSQL's `char_length` counts (`.length` counts UTF-16 units). */
 export const codePoints = (s: string): number => [...s].length;
+
+/**
+ * Control characters (a caller that allows LF removes it before the test), line and paragraph separators, bidi
+ * embeddings and isolates: the text rule of a review body and of a photo's alt text (P3a, P3b).
+ */
+export const BAD_TEXT_CHAR = /[\p{Cc}\u{2028}\u{2029}\u{202A}-\u{202E}\u{2066}-\u{2069}]/u;

@@ -47,12 +47,21 @@ import profile-{$MJK_PROFILE}.caddy
 }
 
 # The public host's A§15.6 headers; the profile's `robots` adds X-Robots-Tag.
+# One exception (P3b, A§12, A§14): a pending photo's preview, an image the api reads from quarantine, gets the
+# media host's `default-src 'none'; sandbox` instead of the page CSP. Two sibling blocks on exclusive matchers
+# (`@preview`, `@not_preview`, defined once in the :80 site because this snippet is imported three times): a
+# deferred block nested deeper would be overwritten by this outer one, which is applied last.
 (public_headers) {
 	import common_headers
 	import robots
-	header {
+	header @not_preview {
 		defer
 		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://media.{$MJK_DOMAIN}; media-src https://media.{$MJK_DOMAIN}; connect-src 'self' https://media.{$MJK_DOMAIN}; worker-src 'self'; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+	header @preview {
+		defer
+		Content-Security-Policy "default-src 'none'; sandbox"
 		Referrer-Policy strict-origin-when-cross-origin
 	}
 }
@@ -113,6 +122,9 @@ import profile-{$MJK_PROFILE}.caddy
 }
 
 :80 {
+	# The pending-photo preview's path (P3b; see public_headers). Exactly the api's route shape.
+	@preview path_regexp ^/api/v1/uploads/[0-9a-f-]{36}/preview$
+	@not_preview not path_regexp ^/api/v1/uploads/[0-9a-f-]{36}/preview$
 	@site host {$MJK_DOMAIN}
 	@admin_host host admin.{$MJK_DOMAIN}
 	# Cloudflare names the visitor's scheme (A§17.2): plain http is a 308 to https on the same host.
@@ -138,22 +150,34 @@ import profile-{$MJK_PROFILE}.caddy
 		# No Access JWT on this host: the api looks for one only on the admin host.
 		@api path /api/v1 /api/v1/*
 		handle @api {
-			# P2c design 4: an import's file and its confirm take 2 MiB, the same method and paths as the
-			# api's bodyLimit; every other request 64 KiB. Matchers with no `path`, so no re-sort.
+			# P2c design 4: an import's file and its confirm take 2 MiB, and P3b's upload chunks 8 MiB, the same
+			# methods and paths as the api's bodyLimit; every other request 64 KiB. Matchers with no `path`, so no
+			# re-sort.
 			@import {
 				method POST
 				path_regexp ^/api/v1/me/imports(/[^/]+/confirm)?$
 			}
-			@not_import {
+			@chunk {
+				method PUT
+				path_regexp ^/api/v1/uploads/[0-9a-f-]{36}/chunks/[0-9]{1,2}$
+			}
+			@default_body {
 				not {
 					method POST
 					path_regexp ^/api/v1/me/imports(/[^/]+/confirm)?$
+				}
+				not {
+					method PUT
+					path_regexp ^/api/v1/uploads/[0-9a-f-]{36}/chunks/[0-9]{1,2}$
 				}
 			}
 			request_body @import {
 				max_size 2MiB
 			}
-			request_body @not_import {
+			request_body @chunk {
+				max_size 8MiB
+			}
+			request_body @default_body {
 				max_size 64KiB
 			}
 			reverse_proxy api:8080 {

@@ -23,6 +23,8 @@ const VIEWS = [
   'pub_profile',
   'pub_mk_list_province',
   'pub_museum_stats', // P3a
+  'pub_media', // P3b
+  'pub_museum_image', // P3b
 ] as const;
 
 const PUB_MUSEUM_COLUMNS = [
@@ -155,7 +157,8 @@ describe('definitions', () => {
     const cols = rows.map((r) => r.column_name);
     expect(cols).toEqual(PUB_MUSEUM_COLUMNS);
     for (const f of FORBIDDEN) expect(cols, f).not.toContain(f);
-    for (const v of VIEWS.filter((x) => x !== 'pub_museum')) {
+    // pub_media shows its created_at on purpose (P3b); its columns are pinned in media/grants.int.test.ts
+    for (const v of VIEWS.filter((x) => x !== 'pub_museum' && x !== 'pub_media')) {
       const r = await owner.query<{ column_name: string }>(
         "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1",
         [v],

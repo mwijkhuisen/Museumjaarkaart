@@ -8,6 +8,15 @@ import { createPool, WORKER_POOL_MAX } from './db/pool.ts';
 import { HEARTBEAT_PATH, healthy } from './heartbeat.ts';
 import { createLogger } from './lib/log.ts';
 import { lettermintMailer } from './mail/lettermint.ts';
+import { createDecode } from './media/handoff.ts';
+import { QUARANTINE_DIR } from './media/limits.ts';
+import { mediaProcessJob } from './media/process-job.ts';
+import { mediaPublishJob } from './media/publish.ts';
+import { mediaDeleteJob } from './media/remove.ts';
+import { MEDIA_DELETE_JOB, MEDIA_PROCESS_JOB, MEDIA_PUBLISH_JOB } from './media/types.ts';
+import { commonsImageJob } from './museums/commons/image-job.ts';
+import { COMMONS_IMAGE_JOB, COMMONS_SYNC_JOB } from './museums/commons/store.ts';
+import { commonsSyncJob } from './museums/commons/sync-job.ts';
 import type { Source } from './museums/fields.ts';
 import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
@@ -20,7 +29,17 @@ import { mailJobs } from './worker/mail.ts';
 import { runWorkerRole } from './worker/role.ts';
 
 /** Roles of the single server image (A§5); the first argument picks one. */
-export const ROLES = ['api', 'ssr', 'worker', 'migrate', 'healthcheck', 'sync-museums', 'admin', 'backup'] as const;
+export const ROLES = [
+  'api',
+  'ssr',
+  'worker',
+  'media',
+  'migrate',
+  'healthcheck',
+  'sync-museums',
+  'admin',
+  'backup',
+] as const;
 export type Role = (typeof ROLES)[number];
 
 /** A role its phase has not built yet, a missing role and an unknown role. */
@@ -139,6 +158,11 @@ async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promis
       // file r2_media_rw is not optional: Compose does not start the worker without it.
       [TILES_REFRESH_JOB]: tilesRefreshJob({ logger, env }),
       [TILES_ROLLBACK_JOB]: tilesRollbackJob({ logger, env }),
+      [MEDIA_PROCESS_JOB]: mediaProcessJob({ db, quarantineDir: QUARANTINE_DIR, decode: createDecode() }),
+      [MEDIA_PUBLISH_JOB]: mediaPublishJob({ db, env }),
+      [MEDIA_DELETE_JOB]: mediaDeleteJob({ db, env }),
+      [COMMONS_SYNC_JOB]: commonsSyncJob({ db, env, logger }),
+      [COMMONS_IMAGE_JOB]: commonsImageJob({ db, env, logger }),
     }),
     logger,
     signal: stopSignal(deps),
@@ -203,6 +227,16 @@ export async function run(
       }
       if (role === 'worker') return runWorker(env, heartbeatPath, deps);
       return role === 'api' ? runApiRole(env, heartbeatPath, log, deps) : runSsrRole(env, heartbeatPath, log, deps);
+    case 'media': {
+      if (rest.length > 0) {
+        log(USAGE);
+        return EXIT_USAGE;
+      }
+      // Loaded only here, so the api, ssr and worker processes never load sharp or libvips.
+      const { runMediaRole } = await import('./media/role.ts');
+      // The container's /tmp and PID namespace: wiped and swept after every task (media/role.ts).
+      return runMediaRole({ signal: stopSignal(deps), heartbeatPath, container: { tmpDir: '/tmp', procDir: '/proc' } });
+    }
     case 'backup':
       if (rest.length > 0) {
         log(USAGE);

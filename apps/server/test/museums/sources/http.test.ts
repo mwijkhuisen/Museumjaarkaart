@@ -5,6 +5,7 @@ import {
   ALLOWED_HOSTS,
   allowedUrl,
   BACKOFF_MS,
+  fetchBytes,
   fetchJson,
   type HttpDeps,
   REPO_URL,
@@ -54,8 +55,13 @@ const limited = (status: number, retryAfter?: string) =>
   });
 
 describe('allowlist', () => {
-  it('is frozen and holds exactly the two source hosts', () => {
-    expect([...ALLOWED_HOSTS]).toEqual(['query.wikidata.org', 'services.rce.geovoorziening.nl']);
+  it('is frozen and holds exactly the four hosts', () => {
+    expect([...ALLOWED_HOSTS]).toEqual([
+      'query.wikidata.org',
+      'services.rce.geovoorziening.nl',
+      'commons.wikimedia.org',
+      'upload.wikimedia.org',
+    ]);
     expect(Object.isFrozen(ALLOWED_HOSTS)).toBe(true);
   });
 
@@ -69,7 +75,8 @@ describe('allowlist', () => {
     ['a sub-domain', 'https://evil.query.wikidata.org/sparql'],
     ['a look-alike prefix', 'https://query.wikidata.org.example.com/sparql'],
     ['a trailing dot', 'https://query.wikidata.org./sparql'],
-    ['a Commons host', 'https://commons.wikimedia.org/w/api.php'],
+    ['a Wikimedia host that is not listed', 'https://thumb.wikimedia.org/x.jpg'],
+    ['a Commons look-alike', 'https://commons.wikimedia.org.example.com/w/api.php'],
     ['another scheme', 'ftp://query.wikidata.org/sparql'],
     ['text that is not a URL', 'not a url'],
     ['an empty string', ''],
@@ -494,5 +501,63 @@ describe('the batched Wikidata fetch (A§7.1)', () => {
     server.use(http.post(WD, () => json({ nope: true })));
     const bad = await fetchWikidataAll(deps());
     expect(bad.ok && parseWikidata(bad.body)).toEqual({ ok: false, code: 'schema' });
+  });
+});
+
+describe('fetchBytes', () => {
+  const IMG = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/X.jpg';
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+
+  it('returns the bytes and the content type', async () => {
+    server.use(http.get(IMG, () => new HttpResponse(png, { headers: { 'Content-Type': 'image/png' } })));
+    expect(await fetchBytes(IMG, {}, deps())).toEqual({ ok: true, bytes: png, contentType: 'image/png' });
+  });
+
+  it('sends our User-Agent', async () => {
+    let ua: string | null = null;
+    server.use(
+      http.get(IMG, ({ request }) => {
+        ua = request.headers.get('user-agent');
+        return new HttpResponse(png);
+      }),
+    );
+    await fetchBytes(IMG, { headers: { 'User-Agent': 'evil' } }, deps());
+    expect(ua).toBe(userAgent());
+  });
+
+  it('refuses a host outside the allowlist without a request', async () => {
+    expect(await fetchBytes('https://thumb.wikimedia.org/x.jpg', {}, deps())).toEqual({
+      ok: false,
+      code: 'host_not_allowed',
+    });
+    expect(await fetchBytes(OSM, {}, deps())).toEqual({ ok: false, code: 'host_not_allowed' });
+  });
+
+  it('refuses a redirect, even to an allowed host', async () => {
+    server.use(http.get(IMG, () => new HttpResponse(null, { status: 302, headers: { Location: RCE } })));
+    expect(await fetchBytes(IMG, {}, deps())).toEqual({ ok: false, code: 'redirect' });
+  });
+
+  it('caps the body, declared or streamed', async () => {
+    server.use(http.get(IMG, () => new HttpResponse(new Uint8Array(100))));
+    expect(await fetchBytes(IMG, {}, deps({ maxBytes: 99 }))).toEqual({ ok: false, code: 'too_large' });
+    expect(await fetchBytes(IMG, {}, deps({ maxBytes: 100 }))).toMatchObject({ ok: true });
+  });
+
+  it('retries a 429 with Retry-After, then succeeds; gives up after three tries', async () => {
+    let n = 0;
+    server.use(http.get(IMG, () => (++n < 2 ? limited(429, '7') : new HttpResponse(png))));
+    const d = deps();
+    expect(await fetchBytes(IMG, {}, d)).toMatchObject({ ok: true });
+    expect(d.waits).toEqual([7000]);
+    server.use(http.get(IMG, () => limited(429)));
+    expect(await fetchBytes(IMG, {}, deps())).toEqual({ ok: false, code: 'rate_limited' });
+  });
+
+  it('maps a 404 to http_status and never carries the body', async () => {
+    server.use(http.get(IMG, () => new HttpResponse('SECRET-BODY', { status: 404 })));
+    const r = await fetchBytes(IMG, {}, deps());
+    expect(r).toEqual({ ok: false, code: 'http_status' });
+    expect(JSON.stringify(r)).not.toContain('SECRET');
   });
 });

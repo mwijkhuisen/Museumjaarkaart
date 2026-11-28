@@ -30,8 +30,14 @@ const HOSTILE_REVIEW_BODY = '</script><b>x</b> [x](y)\nTweede regel 🦊';
 //     visit, to R2 (rated, visited: unfolds), none to R1 or R3 (rated, unvisited: stay folded).
 //   - Reviewer members `reviewer_<engine>` (email `reviewer-<engine>@mjk.test`, current terms): one dated visit
 //     (2026-09-12, logged three days ago) to R4 (`seed.prompt`, open, no review by anyone), for the prompt spec.
+// P3b (photos, for photo-upload.spec.ts): two museums after R4, neither reviewed: P (`seed.photo`, photo_policy
+// `allowed`) and PF (`seed.photo.forbidden`, `forbidden`: the form warns and still allows, owner Q4). Members
+// `photo_<engine>` (stack.sh trusts them through the production `admin user trust`, so an attached photo is
+// published), `photo_pending_<engine>` (untrusted: "wacht op controle") and `photo_bomb_<engine>` (the decompression
+// bomb), emails `photo[-pending|-bomb]-<engine>@mjk.test`, each with a dated visit to P and PF.
 //   - Last, one stats recompute as mjk_worker, called directly so no spec races the worker's job.
-// The seed prints the slugs (`seed-e2e: reviewed hostile=… rich=… plain=… prompt=…`).
+// The seed prints the slugs (`seed-e2e: reviewed hostile=… rich=… plain=… prompt=…`, `seed-e2e: photo plain=…
+// forbidden=…`).
 
 const urls = {} as Record<DbLogin | 'admin', string>;
 for (const login of ['mjk_worker', 'mjk_api', 'mjk_migrator'] as const) {
@@ -127,6 +133,39 @@ async function seedReviews(owner: pg.Client): Promise<void> {
     await visit(reviewer, r4.id, '2026-09-12');
   }
   console.log(`seed-e2e: reviewed hostile=${r1.slug} rich=${r2.slug} plain=${r3.slug} prompt=${r4.slug}`);
+  await seedPhotos(owner, user, visit, r4.id);
+}
+
+async function seedPhotos(
+  owner: pg.Client,
+  user: (handle: string, email: string, name: string) => Promise<string>,
+  visit: (userId: string, museumId: string, on: string) => Promise<string>,
+  after: string,
+): Promise<void> {
+  const rows = (
+    await owner.query<{ id: string; slug: string; photo_policy: string }>(
+      `SELECT DISTINCT ON (photo_policy) id, slug, photo_policy FROM museum
+        WHERE NOT hidden AND closed_on IS NULL AND slug <> $1 AND id > $2 AND photo_policy IN ('allowed', 'forbidden')
+        ORDER BY photo_policy, id`,
+      ['hostile-museum-zwolle', after],
+    )
+  ).rows;
+  const plain = rows.find((r) => r.photo_policy === 'allowed');
+  const forbidden = rows.find((r) => r.photo_policy === 'forbidden');
+  if (plain === undefined || forbidden === undefined) throw new Error('seed-e2e: no photo museums');
+  for (const engine of ['chromium', 'webkit'] as const) {
+    for (const [handle, email] of [
+      [`photo_${engine}`, `photo-${engine}@mjk.test`],
+      [`photo_pending_${engine}`, `photo-pending-${engine}@mjk.test`],
+      // The decompression bomb's uploader: a member of its own, so no spec signs one address in twice.
+      [`photo_bomb_${engine}`, `photo-bomb-${engine}@mjk.test`],
+    ] as const) {
+      const id = await user(handle, email, `E2E ${handle}`);
+      await visit(id, plain.id, '2026-09-12');
+      await visit(id, forbidden.id, '2026-10-03');
+    }
+  }
+  console.log(`seed-e2e: photo plain=${plain.slug} forbidden=${forbidden.slug}`);
 }
 
 const pool = createPool('mjk_api', { DATABASE_URL: urls.mjk_api }, { max: 1 });

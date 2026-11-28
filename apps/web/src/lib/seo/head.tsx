@@ -1,6 +1,7 @@
 import { MuseumDetail, Provinces, PublicReview, type SsrConfig, UserProfile } from '@mjk/contracts';
 import { m } from '../../paraglide/messages.js';
 import { formatMonth } from '../format.ts';
+import { mediaOrigin } from '../media.ts';
 import { museumName, provinceName } from '../names.ts';
 import { apiPath, inLocale, type Locale, PROVINCE_SLUGS, pathOf, type Route } from '../routes.ts';
 import { museumJsonLd } from './jsonld.ts';
@@ -24,6 +25,8 @@ export type HeadData = {
   brand: string;
   controller: string;
   contactEmail: string;
+  /** `https://media.<domain>`: where the photos are (the CSP's `img-src`). */
+  media: string;
 };
 
 const pageTitle = (page: string, brand: string) => m.head_title({ page, brand });
@@ -158,6 +161,7 @@ export function headOf(route: Route, data: PageData, config: SsrConfig): HeadDat
     brand: config.brand,
     controller: config.controller,
     contactEmail: config.contactEmail,
+    media: mediaOrigin(config.domain),
   };
 }
 
@@ -179,6 +183,7 @@ export function errorHeadOf(kind: ErrorKind, locale: Locale, config: SsrConfig):
     brand: config.brand,
     controller: config.controller,
     contactEmail: config.contactEmail,
+    media: mediaOrigin(config.domain),
   };
 }
 
@@ -200,6 +205,7 @@ export function Head({ head }: { head: HeadData }) {
       <meta name="application-name" content={head.brand} />
       <meta name="mjk-controller" content={head.controller} />
       <meta name="mjk-contact" content={head.contactEmail} />
+      <meta name="mjk-media" content={head.media} />
       {head.robots === null ? null : <meta name="robots" content={head.robots} />}
       {head.description === null ? null : <meta name="description" content={head.description} />}
       {head.canonical === null ? null : <link rel="canonical" href={head.canonical} />}

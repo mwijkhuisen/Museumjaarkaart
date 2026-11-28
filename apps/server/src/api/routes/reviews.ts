@@ -32,15 +32,19 @@ const reviewId = (raw: string | undefined): string => {
 
 /**
  * The request body. Schema failures are 400 (A§14), except that a body text the rule refuses (a control or bidi
- * character, over 5,000 code points) is a 422 `["body"]`: the member's text, not the request's shape, is at fault.
+ * character, over 5,000 code points) is a 422 `["body"]` and a `media_ids` list the schema refuses (an 11th, a
+ * duplicate, not a uuid) a 422 `["media_ids"]`: the member's content, not the request's shape, is at fault.
  * ponytail: a body of the wrong JSON type also names only `body` and so also answers 422.
  */
 async function readReview<S extends z.ZodType>(c: Context<ApiEnv>, schema: S): Promise<z.output<S>> {
   try {
     return await readJson(c, schema);
   } catch (err) {
-    if (err instanceof ApiError && err.code === 'bad_request' && err.fields?.join() === 'body')
-      throw new ApiError('invalid', ['body']);
+    if (err instanceof ApiError && err.code === 'bad_request' && err.fields !== undefined) {
+      if (err.fields.join() === 'body') throw new ApiError('invalid', ['body']);
+      if (err.fields.length > 0 && err.fields.every((f) => f === 'media_ids' || f.startsWith('media_ids.')))
+        throw new ApiError('invalid', ['media_ids']);
+    }
     throw err;
   }
 }
@@ -76,6 +80,7 @@ export function mountReviews(v1: ApiApp, deps: ApiDeps): void {
       if (!made.ok) {
         if (made.reason === 'museum_unknown') throw new ApiError('invalid', ['museum_id']);
         if (made.reason === 'visit_not_own') throw new ApiError('invalid', ['visit_id']);
+        if (made.reason === 'media_ids') throw new ApiError('invalid', ['media_ids']); // rolls the create back
         throw new ApiError('conflict'); // museum_closed, review_exists
       }
       await afterWrite(trx, d, userId, made.id, client);

@@ -3,6 +3,7 @@ import { ApiError } from '../api/errors.ts';
 import type { ClientAddress } from '../api/middleware/client-address.ts';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
+import { PHOTOS_PER_DAY } from '../media/limits.ts';
 import { hmac } from './crypto.ts';
 import type { AppKeys } from './keys.ts';
 
@@ -30,6 +31,7 @@ export const BUCKETS = {
   importUserHour: { name: 'import_user_hour', limit: 10, windowS: 3_600 }, // import uploads per member (a user-id HMAC; A§14, P2c)
   exportUserDay: { name: 'export_user_day', limit: 3, windowS: 86_400 }, // export requests per member (a user-id HMAC; P2c Q5: each costs a mail)
   reviewUserDay: { name: 'review_user_day', limit: 20, windowS: 86_400 }, // review writes (POST and PATCH /reviews) per member (a user-id HMAC; A§9, P3a)
+  photoUserDay: { name: 'photo_user_day', limit: PHOTOS_PER_DAY, windowS: 86_400 }, // photos started (POST /uploads) per member a day (a user-id HMAC; A§9, A§12, P3b)
 } as const satisfies Record<string, Bucket>;
 
 export type Hit = {
@@ -90,8 +92,11 @@ export async function peek(db: Db, bucket: Bucket, key: string, opts: Opts = {})
 export const emailKey = (keys: AppKeys, email: string): string => hmac(keys.otp_pepper, 'rl', email).toString('hex');
 
 /** The key for a member's own buckets: an HMAC of the scope and the user id, never the id in clear (invariant 8). */
-export const userKey = (keys: AppKeys, scope: 'passkey' | 'import' | 'export' | 'review', userId: string): string =>
-  hmac(keys.otp_pepper, 'rl', scope, userId).toString('hex');
+export const userKey = (
+  keys: AppKeys,
+  scope: 'passkey' | 'import' | 'export' | 'review' | 'photo',
+  userId: string,
+): string => hmac(keys.otp_pepper, 'rl', scope, userId).toString('hex');
 
 /** The key for a member's passkey buckets. */
 export const passkeyUserKey = (keys: AppKeys, userId: string): string => userKey(keys, 'passkey', userId);

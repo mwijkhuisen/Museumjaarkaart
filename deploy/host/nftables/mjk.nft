@@ -8,13 +8,14 @@
 #
 # Atomic and idempotent: the three statements below run as one transaction. The first declares the
 # table (a no-op when it exists), the second deletes it, the third defines it again. A reload therefore
-# empties the set resolvers4 too: mjk-firewall.service and mjk-tick run mjk-resolvers right after.
+# empties the sets resolvers4 and worker_dst4 too: mjk-firewall.service runs mjk-resolvers and
+# mjk-egress.service runs mjk-egress right after, and mjk-tick runs both.
 #
 # Only interfaces named mjk-* are filtered (A§17.3 names every bridge mjk-*). The networks are told
 # apart by their fixed A§17.3 subnets, so this file does not depend on the exact bridge names:
 #   10.63.1.0/24 mjk-db             internal       no egress
 #   10.63.2.0/24 mjk-edge           internal       no egress
-#   10.63.3.0/24 mjk-egress         worker         DNS, tcp/443 to public addresses (sets from P3b)
+#   10.63.3.0/24 mjk-egress         worker         DNS, tcp/443 to cf4 (R2) and worker_dst4 (the named hosts)
 #   10.63.4.0/24 mjk-api-egress     api            DNS, tcp/443 to cf4 (the Access certs)
 #   10.63.5.0/24 mjk-tunnel         cloudflared    DNS, tcp+udp/7844 to cf_tunnel4
 #   10.63.6.0/24 mjk-tunnel-edge    internal       no egress
@@ -68,6 +69,13 @@ table inet mjk {
 		type ipv4_addr
 	}
 
+	# The addresses of the hosts the worker dials outside Cloudflare (/etc/mjk/egress-hosts), filled by
+	# mjk-egress from the host's resolver at start and on every mjk-tick. Empty after a load until
+	# mjk-egress runs: the worker then reaches only cf4 (fail closed).
+	set worker_dst4 {
+		type ipv4_addr
+	}
+
 	# Never reachable from a container, not even on 443: this-network, private, CGNAT, loopback,
 	# link-local, IETF protocol assignments, documentation, benchmarking, multicast, reserved, broadcast.
 	set private4 {
@@ -117,7 +125,8 @@ table inet mjk {
 
 		ip daddr @private4 counter drop comment "private, link-local and CGNAT ranges, even on 443"
 
-		ip saddr 10.63.3.0/24 tcp dport 443 accept comment "mjk-egress (worker): tcp/443, not 80"
+		ip saddr 10.63.3.0/24 ip daddr @cf4 tcp dport 443 accept comment "mjk-egress (worker): R2 and other Cloudflare-fronted hosts"
+		ip saddr 10.63.3.0/24 ip daddr @worker_dst4 tcp dport 443 accept comment "mjk-egress (worker): the hosts of egress-hosts"
 		ip saddr 10.63.4.0/24 ip daddr @cf4 tcp dport 443 accept comment "mjk-api-egress (api): Cloudflare only"
 		ip saddr 10.63.8.0/24 ip daddr @cf4 tcp dport 443 accept comment "mjk-backup-egress (backup): R2"
 		ip saddr 10.63.5.0/24 ip daddr @cf_tunnel4 meta l4proto { tcp, udp } th dport 7844 accept comment "mjk-tunnel (cloudflared)"

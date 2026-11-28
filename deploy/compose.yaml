@@ -31,7 +31,8 @@ x-server: &server
     - path: /etc/mjk/mjk.env
       required: true
   pids_limit: 256
-  healthcheck:
+  # The heartbeat check; `media` reuses it without the rest of this anchor.
+  healthcheck: &heartbeat
     test: ["CMD", "/usr/local/bin/node", "/app/apps/server/src/main.ts", "healthcheck"]
     interval: 15s
     timeout: 5s
@@ -134,6 +135,14 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      # The disk guard (A§17.7, owner Q6): mjk-tick's guard/disk. The directory, never the file: mjk-tick
+      # replaces the file by rename, and a file bind mount would keep showing the old inode.
+      - type: bind
+        source: /srv/mjk/state/guard
+        target: /srv/mjk/state/guard
+        read_only: true
+        bind:
+          create_host_path: false
     secrets:
       - db_mjk_api
       # The four peppers and keys of sign-in (P2a); read at start, exit 78 without them.
@@ -182,6 +191,11 @@ services:
         target: /srv/mjk/tiles-build
         bind:
           create_host_path: false
+      # The photo hand-off to `media` (P3b): one task directory at a time in, the variants out. A size-capped
+      # tmpfs volume, never the host disk (P3b security review M3).
+      - type: volume
+        source: media-work
+        target: /srv/mjk/media-work
     secrets:
       - db_mjk_worker
       - hc_ping_key
@@ -198,11 +212,35 @@ services:
       fsize:
         soft: 4400000000
         hard: 4400000000
-    mem_limit: 768m
+    # 768m until P3b; sharp now runs in `media`, not here (owner Q1). [box] `docker stats` tunes it (A§17.2).
+    mem_limit: 512m
     cpus: 1.0
     networks:
       - mjk-egress
       - mjk-db
+
+  # The photo decoder (P3b, owner Q1, A§16.2): sharp and libvips parse untrusted bytes here, so a decoder
+  # exploit lands in a container with no network at all, no secret, no GID, no database login and no
+  # environment. Its one mount is media-work, which the worker fills one task at a time and reads back.
+  media:
+    <<: *hardening
+    image: ${MJK_SERVER_IMAGE:?set MJK_SERVER_IMAGE to the server image ref (tag@digest)}
+    command: ["media"]
+    network_mode: none
+    healthcheck: *heartbeat
+    volumes:
+      - type: volume
+        source: media-work
+        target: /srv/mjk/media-work
+    # No file it writes may pass 64 MB (a 2000 px variant is a few MB; the input is the worker's copy, at
+    # most 25 MiB). RLIMIT_FSIZE is in bytes.
+    ulimits:
+      fsize:
+        soft: 64000000
+        hard: 64000000
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
 
   caddy:
     <<: *hardening
@@ -457,6 +495,13 @@ networks:
 volumes:
   pgdata:
     name: mjk_pgdata
+  # The worker's and the media role's hand-off (P3b, A§17.1): a tmpfs capped at 256 MB, so a compromised decoder
+  # cannot fill the VM's shared disk (security review M3). One task needs at most 25 MiB in and about 8 × 16 MiB
+  # out. tmpfs pages are charged to the memory limit of the container that writes them (A§17.2). Empty after
+  # every restart of the volume's last user; nothing in it outlives a task.
+  media-work:
+    name: mjk_media_work
+    driver_opts: {type: tmpfs, device: tmpfs, o: "size=256m,uid=63532,gid=63532,mode=0700"}
 
 # root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3). Only the secrets a role of
 # the phases built so far uses are here (least privilege). r2_media_rw (63009) arrived with P1d, in the

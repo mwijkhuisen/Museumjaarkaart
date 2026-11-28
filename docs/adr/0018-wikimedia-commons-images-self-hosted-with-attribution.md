@@ -45,3 +45,13 @@
 - **No images until members' photos (ADR-0005's first answer):** empty pages for months.
 - **Hotlinking Commons:** a third-party request from every page view (invariant 4), and no control over what is served.
 - **A separate Commons pipeline in P1a:** sharp and the R2 client do not exist yet in P1a, and two image pipelines would drift apart.
+
+## Amended in P3b (2026-11-28)
+
+- **The rendering is 1920 px** (owner Q8): the job asks `imageinfo` for `iiurlwidth=1920` and downloads that rendering; the original only when it is smaller than 1920 px.
+- **The allowlist stays two hosts.** `imageinfo` names most `thumburl`s on `thumb.wikimedia.org` (P3b's recording, 2026-11-27); the same path is served by `upload.wikimedia.org`, so the job rewrites the host and downloads from `upload.wikimedia.org` (`apps/server/src/museums/commons/api.ts`). The hosts the job may contact stay `commons.wikimedia.org` and `upload.wikimedia.org`.
+- **Its own weekly check:** `commons_sync` runs Thursday 04:11, apart from the museum sync, and queues `commons_image` per changed museum, 10 s apart, so the `media` role takes them one by one.
+- **Our copy moves before the old one goes:** a new image is put under a new random key and the row points at it before the previous image's objects are deleted, so a page never names a deleted object.
+- **A row never names a deleted object:** a museum that lost its file loses its row first, then the objects (P3b review L6). **Accepted residual:** an object delete that fails after the row changed (here, and in `writeRow` when a new image or a skip replaces an old one) leaves those objects on R2 under their random 128-bit key, which no row or page names any more and no retry finds. Anyone who saw the URL before can still fetch them, and Cloudflare may serve them for up to the 4 h edge TTL. The upgrade path, if it matters (a takedown), is a durable delete list that the job empties.
+- **Skipped, with a fixed code:** a file whose `extmetadata.Restrictions` holds anything (personality rights, a trademark) is `commons_restricted`, asked again each week; a rendering that does not decode is `commons_decode_failed`, fetched again only for a new sha1 or file (P3b reviews). Whether `pd` should need more than the `License` value (US-only tags such as `PD-US` or `PD-USGov` may not be free in the Netherlands) is open for the owner (security review L4).
+- **Hiding is the admin CLI's** (`admin museum image hide|unhide`, as `mjk_api`, which holds no R2 key): the image leaves the page at once and the worker deletes the objects (A§12).

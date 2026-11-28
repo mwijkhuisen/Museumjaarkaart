@@ -9,6 +9,7 @@ import { prerender } from 'react-dom/static';
 import { App } from './App.tsx';
 import { createQueryClient } from './lib/api.ts';
 import { type Assets, assetPath, documentHtml } from './lib/document.ts';
+import { mediaOrigin } from './lib/media.ts';
 import { apiPathsOf, type Locale, pathOf, type Route, routeOf } from './lib/routes.ts';
 import { type ErrorKind, errorHeadOf, Head, type HeadData, headOf, jsonLdOf } from './lib/seo/head.tsx';
 import { sitemapXml } from './lib/seo/sitemap.ts';
@@ -77,7 +78,12 @@ async function document(
     <App
       path={path}
       queryClient={queryClient}
-      config={{ brand: config.brand, controller: config.controller, contactEmail: config.contactEmail }}
+      config={{
+        brand: config.brand,
+        controller: config.controller,
+        contactEmail: config.contactEmail,
+        media: mediaOrigin(config.domain),
+      }}
       {...(page.fallback === null ? {} : { fallback: page.fallback })}
     />,
   );

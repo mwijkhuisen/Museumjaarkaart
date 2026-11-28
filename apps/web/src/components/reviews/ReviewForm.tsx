@@ -9,7 +9,7 @@ import {
   ReviewPatch,
   type Visit,
 } from '@mjk/contracts';
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useCallback, useId, useState } from 'react';
 import { sendJson } from '../../lib/api.ts';
 import { formatDate } from '../../lib/format.ts';
 import { museumName } from '../../lib/names.ts';
@@ -17,6 +17,7 @@ import type { Locale } from '../../lib/routes.ts';
 import { m } from '../../paraglide/messages.js';
 import type { Failure } from '../auth/errors.ts';
 import { FormError } from '../auth/fields.tsx';
+import { PhotoUploader } from '../photos/PhotoUploader.tsx';
 import { describeReviewError, reviewFields } from './errors.ts';
 
 // The member's review form (A§11, owner N2, P3a): a visit picker, the overall rating and six aspects as native
@@ -82,7 +83,7 @@ export function ReviewForm({
   onDeleted,
   onCancel,
 }: {
-  museum: Pick<MuseumDetail, 'id' | 'name' | 'name_en'>;
+  museum: Pick<MuseumDetail, 'id' | 'name' | 'name_en' | 'photo_policy'>;
   locale: Locale;
   visits: readonly Visit[];
   review?: OwnReview | undefined;
@@ -101,6 +102,9 @@ export function ReviewForm({
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
+  // A new review's photos are uploaded first and attached by id; the form waits for files still on their way.
+  const [media, setMedia] = useState<{ ids: string[]; sending: boolean }>({ ids: [], sending: false });
+  const onMedia = useCallback((ids: string[], sending: boolean) => setMedia({ ids, sending }), []);
   const n = codePoints(body);
   const field = (name: string) => failure?.fields[name];
 
@@ -127,6 +131,7 @@ export function ReviewForm({
             rating: rating === 0 ? undefined : rating,
             ...Object.fromEntries(Object.entries(aspectValues).filter(([, v]) => v !== null)),
             body,
+            ...(media.ids.length === 0 ? {} : { media_ids: media.ids }),
           })
         : ReviewPatch.safeParse({
             ...(visit === review.visit_id ? {} : { visit_id: visit }),
@@ -220,9 +225,16 @@ export function ReviewForm({
         </p>
         {bodyError ? <p className="field__error">{bodyError}</p> : null}
       </div>
+      <PhotoUploader
+        museum={museum}
+        museumLabel={museumName(museum, locale)}
+        reviewId={review?.id}
+        photos={review?.photos}
+        onChange={onMedia}
+      />
       <FormError failure={failure} />
       <div className="cluster">
-        <button type="submit" className="button" disabled={busy}>
+        <button type="submit" className="button" disabled={busy || media.sending}>
           {m.action_save()}
         </button>
         {onCancel === undefined ? null : (

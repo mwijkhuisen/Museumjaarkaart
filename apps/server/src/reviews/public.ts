@@ -1,6 +1,7 @@
-import type { PublicReview, ReviewList } from '@mjk/contracts';
+import type { PublicPhoto, PublicReview, ReviewList } from '@mjk/contracts';
 import { sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
+import { photosOfReviews } from '../media/public.ts';
 import { decodeCursor, encodeCursor } from '../museums/cursor.ts';
 
 // The public reads of reviews (A§8, A§14, P3a): only the three `pub_review*` functions, which return visible
@@ -37,7 +38,7 @@ type Row = {
   edited_at: Date | null;
 };
 
-const toPublic = (r: Row): PublicReview => ({
+const toPublic = (r: Row, photos: PublicPhoto[] | undefined): PublicReview => ({
   id: r.id,
   museum: { id: r.museum_id, slug: r.museum_slug, name: r.museum_name, name_en: r.museum_name_en },
   author: {
@@ -57,12 +58,15 @@ const toPublic = (r: Row): PublicReview => ({
   body: r.body,
   created_at: r.created_at.toISOString(),
   edited_at: r.edited_at === null ? null : r.edited_at.toISOString(),
+  photos: photos ?? [],
 });
 
 /** The review with this id, or undefined (removed, hidden museum, deleted author and unknown are all one). */
 export async function reviewById(db: Db, id: string): Promise<PublicReview | undefined> {
   const { rows } = await sql<Row>`SELECT * FROM pub_review(${id}::uuid)`.execute(db);
-  return rows[0] === undefined ? undefined : toPublic(rows[0]);
+  const row = rows[0];
+  if (row === undefined) return undefined;
+  return toPublic(row, (await photosOfReviews(db, [row.id])).get(row.id));
 }
 
 function beforeOf(raw: string | undefined): string | null {
@@ -72,11 +76,16 @@ function beforeOf(raw: string | undefined): string | null {
   return d.cursor.i;
 }
 
-function pageOf(rows: Row[], limit: number): ReviewList {
+async function pageOf(db: Db, rows: Row[], limit: number): Promise<ReviewList> {
   const page = rows.slice(0, limit);
   const last = page.at(-1);
+  // The published photos of the whole page in one query, from pub_media only.
+  const photos = await photosOfReviews(
+    db,
+    page.map((r) => r.id),
+  );
   return {
-    items: page.map(toPublic),
+    items: page.map((r) => toPublic(r, photos.get(r.id))),
     next_cursor: rows.length > limit && last !== undefined ? encodeCursor({ m: 'i', i: last.id }) : null,
   };
 }
@@ -88,7 +97,7 @@ export async function reviewsOfMuseum(db: Db, museumId: string, p: Page): Promis
   const before = beforeOf(p.cursor);
   const { rows } =
     await sql<Row>`SELECT * FROM pub_reviews_of_museum(${museumId}::uuid, ${before}::uuid, ${p.limit + 1})`.execute(db);
-  return pageOf(rows, p.limit);
+  return pageOf(db, rows, p.limit);
 }
 
 /** One page of an active member's reviews, newest first. The caller has checked the handle (HANDLE_RE). */
@@ -96,5 +105,5 @@ export async function reviewsOfUser(db: Db, handle: string, p: Page): Promise<Re
   const before = beforeOf(p.cursor);
   const { rows } =
     await sql<Row>`SELECT * FROM pub_reviews_of_user(${handle}, ${before}::uuid, ${p.limit + 1})`.execute(db);
-  return pageOf(rows, p.limit);
+  return pageOf(db, rows, p.limit);
 }

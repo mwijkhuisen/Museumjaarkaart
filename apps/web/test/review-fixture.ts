@@ -26,6 +26,7 @@ export const review = (over: Record<string, unknown> = {}): PublicReview =>
     body: 'Mooie collectie.',
     created_at: '2026-10-01T10:00:00.000Z',
     edited_at: null,
+    photos: [],
     ...over,
   });
 

@@ -24,7 +24,12 @@ import { saveInBatches } from '../src/routes/Onboarding.tsx';
 // is not known before the browser asks, A§15.1) and the node environment has no DOM, so the
 // screens are rendered from props and the logic is tested apart. Network goes through msw.
 
-const config = { brand: 'Testmerk', controller: 'Test Beheerder', contactEmail: 'info@mjk.test' };
+const config = {
+  brand: 'Testmerk',
+  controller: 'Test Beheerder',
+  contactEmail: 'info@mjk.test',
+  media: 'https://media.mjk.test',
+};
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 function page(path: string, locale: Locale): string {

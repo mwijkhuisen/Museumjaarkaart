@@ -1,13 +1,14 @@
 # mjk-tick.service: the housekeeping run (A§17.7): reload table inet mjk if it is missing, refill
-# resolvers4, restart unhealthy containers, write the disk check. Started by mjk-tick.timer.
+# resolvers4 and worker_dst4, restart unhealthy containers, write the disk check. Started by mjk-tick.timer.
 #
 # Installed by mjk-install as /etc/systemd/system/mjk-tick.service; it runs the root-owned copy
 # /usr/local/bin/mjk-tick, which takes mjk-update's lock. It needs nft (a netlink socket and
-# CAP_NET_ADMIN) and the Docker socket, so the sandbox below keeps the capability and the address
+# CAP_NET_ADMIN), the Docker socket and DNS (mjk-egress's getent asks the host's resolvers over UDP and
+# TCP; it runs mjk-egress itself for the refill), so the sandbox below keeps the capability and the address
 # families it needs and shuts the rest.
 
 [Unit]
-Description=mjk housekeeping: firewall table, resolvers, unhealthy containers, disk
+Description=mjk housekeeping: firewall table, resolvers, worker egress set, unhealthy containers, disk
 Documentation=file:///etc/mjk/compose.yaml
 After=docker.service mjk-firewall.service
 Wants=mjk-firewall.service
@@ -33,7 +34,7 @@ ProtectKernelLogs=yes
 ProtectControlGroups=yes
 ProtectClock=yes
 ProtectHostname=yes
-RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes

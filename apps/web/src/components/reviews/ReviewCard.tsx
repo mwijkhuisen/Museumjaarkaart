@@ -4,6 +4,7 @@ import { museumName } from '../../lib/names.ts';
 import { Link } from '../../lib/router.tsx';
 import { type Locale, pathOf } from '../../lib/routes.ts';
 import { m } from '../../paraglide/messages.js';
+import { PhotoGrid } from '../photos/Picture.tsx';
 import { HowWeCheck } from './HowWeCheck.tsx';
 import { RatingFold } from './RatingFold.tsx';
 import { Stars } from './Stars.tsx';
@@ -74,6 +75,7 @@ export function ReviewCard({
               {review.body}
             </p>
           )}
+          <PhotoGrid photos={review.photos} museum={museumName(review.museum, locale)} handle={review.author.handle} />
           <p className="muted review-meta">
             <Author review={review} locale={locale} />
             {' · '}
