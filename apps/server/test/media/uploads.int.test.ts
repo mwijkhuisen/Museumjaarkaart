@@ -224,6 +224,29 @@ describe('PUT /uploads/:id/chunks/:n', () => {
     expect((await f.p.owner.query('SELECT 1 FROM media_chunk WHERE media_id = $1', [made.id])).rowCount).toBe(0);
     expect((await stat(join(f.root, made.id, 'upload'))).size).toBeLessThanOrEqual(1000);
   });
+
+  it('a body that runs past its Content-Length is refused and writes nothing past the chunk', async () => {
+    const m = await member();
+    const made = (await (await f.create(m.token, { museumId, size: 1000 })).json()) as { id: string };
+    // Node's HTTP framing cannot deliver a long body; app.request() can, as a stream with no framing (M3).
+    const stream = new ReadableStream<Uint8Array>({
+      start(ctl) {
+        ctl.enqueue(new Uint8Array(900));
+        ctl.enqueue(new Uint8Array(600));
+        ctl.close();
+      },
+    });
+    const r = await f.raw(`/uploads/${made.id}/chunks/0`, {
+      method: 'PUT',
+      token: m.token,
+      body: stream,
+      headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': '1000' },
+    });
+    expect(r.status).toBe(422);
+    expect(await r.json()).toEqual({ error: 'invalid', fields: ['body'] });
+    expect((await f.p.owner.query('SELECT 1 FROM media_chunk WHERE media_id = $1', [made.id])).rowCount).toBe(0);
+    expect((await stat(join(f.root, made.id, 'upload'))).size).toBeLessThanOrEqual(1000);
+  });
 });
 
 describe('POST /uploads/:id/complete', () => {
