@@ -102,6 +102,7 @@ const detail = MuseumDetail.parse({
   price_verified_at: null,
   photo_policy: 'unknown',
   temp_closed_until: null,
+  image: null,
   mk_list: { published_on: '2026-11-05', n: 512, member: true },
   aspects: {
     collection: { mean: 4.5, count: 6 },

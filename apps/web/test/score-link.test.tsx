@@ -98,6 +98,7 @@ describe('the how-we-check link', () => {
       price_verified_at: null,
       photo_policy: 'unknown',
       temp_closed_until: null,
+      image: null,
       mk_list: null,
       aspects: ASPECTS,
     });

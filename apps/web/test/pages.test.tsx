@@ -65,6 +65,7 @@ const detail = (over: Record<string, unknown> = {}): MuseumDetail =>
     price_verified_at: null,
     photo_policy: 'unknown',
     temp_closed_until: null,
+    image: null,
     mk_list: { published_on: '2026-11-05', n: 512, member: true },
     aspects: {
       collection: { mean: null, count: 0 },

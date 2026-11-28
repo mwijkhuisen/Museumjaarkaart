@@ -11,6 +11,8 @@ import { enqueueUnique } from './queue.ts';
 export const MUSEUM_SYNC_PATTERN = '17 3 * * 2';
 /** `0#1` is the first Sunday of the month. */
 export const TILES_REFRESH_PATTERN = '23 2 * 1,4,7,10 0#1';
+/** The weekly Commons check (ADR-0018): Thursday 04:11, a day and a quiet hour away from the museum sync. */
+export const COMMONS_SYNC_PATTERN = '11 4 * * 4';
 export const PURGE_PATTERN = '*/10 * * * *';
 export const SCHEDULE_TIMEZONE = 'Europe/Amsterdam';
 /** A quarterly job that fails on a flaky night tries again twice (15 and 30 minutes later), then waits for the owner. */
@@ -21,6 +23,8 @@ export type Schedule = {
   cron: Cron;
   /** The tiles refresh's. */
   tilesCron: Cron;
+  /** The Commons image check's. */
+  commonsCron: Cron;
   /** The retention purge's. */
   purgeCron: Cron;
   stop(): void;
@@ -42,6 +46,7 @@ export function startSchedule(opts: { db: Db; logger: Logger } & PurgeOpts): Sch
     });
   const cron = every(MUSEUM_SYNC_PATTERN, 'museum_sync');
   const tilesCron = every(TILES_REFRESH_PATTERN, 'tiles_refresh', TILES_REFRESH_ATTEMPTS);
+  const commonsCron = every(COMMONS_SYNC_PATTERN, 'commons_sync');
   // The retention purge (A§13.2) runs here directly, with no job row.
   const purgeCron = new Cron(PURGE_PATTERN, { timezone: SCHEDULE_TIMEZONE, protect: true, name: 'purge' }, async () => {
     try {
@@ -58,10 +63,12 @@ export function startSchedule(opts: { db: Db; logger: Logger } & PurgeOpts): Sch
   return {
     cron,
     tilesCron,
+    commonsCron,
     purgeCron,
     stop: () => {
       cron.stop();
       tilesCron.stop();
+      commonsCron.stop();
       purgeCron.stop();
     },
   };

@@ -14,6 +14,9 @@ import { mediaProcessJob } from './media/process-job.ts';
 import { mediaPublishJob } from './media/publish.ts';
 import { mediaDeleteJob } from './media/remove.ts';
 import { MEDIA_DELETE_JOB, MEDIA_PROCESS_JOB, MEDIA_PUBLISH_JOB } from './media/types.ts';
+import { commonsImageJob } from './museums/commons/image-job.ts';
+import { COMMONS_IMAGE_JOB, COMMONS_SYNC_JOB } from './museums/commons/store.ts';
+import { commonsSyncJob } from './museums/commons/sync-job.ts';
 import type { Source } from './museums/fields.ts';
 import { type Fetchers, runSync, type SyncResult } from './museums/sync.ts';
 import { liveFetchers, MUSEUM_SYNC_JOB, museumSyncJob } from './museums/sync-job.ts';
@@ -158,6 +161,8 @@ async function runWorker(env: Env, heartbeatPath: string, deps: RunDeps): Promis
       [MEDIA_PROCESS_JOB]: mediaProcessJob({ db, quarantineDir: QUARANTINE_DIR, decode: createDecode() }),
       [MEDIA_PUBLISH_JOB]: mediaPublishJob({ db, env }),
       [MEDIA_DELETE_JOB]: mediaDeleteJob({ db, env }),
+      [COMMONS_SYNC_JOB]: commonsSyncJob({ db, env, logger }),
+      [COMMONS_IMAGE_JOB]: commonsImageJob({ db, env, logger }),
     }),
     logger,
     signal: stopSignal(deps),

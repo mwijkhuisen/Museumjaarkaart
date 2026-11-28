@@ -34,6 +34,7 @@ import {
 import { TILES_REFRESH_JOB, TILES_ROLLBACK_JOB } from '../tiles/job.ts';
 import { enqueueUnique } from '../worker/queue.ts';
 import { TILES_REFRESH_ATTEMPTS } from '../worker/schedule.ts';
+import { museumImage } from './image.ts';
 import { inviteCreate } from './invite.ts';
 import { userRole, userTrust } from './user.ts';
 
@@ -167,6 +168,7 @@ const museum: Group = {
       return 0;
     },
   },
+  image: { spec: { min: 2, max: 2 }, run: museumImage },
   export: {
     spec: { min: 0, max: 0, values: ['csv'], required: ['csv'] },
     async run(ctx) {
@@ -327,7 +329,7 @@ export const GROUPS: Record<string, Group> = { museum, list, match, change, tile
 export const NOT_BUILT: readonly string[] = [];
 
 const USAGE =
-  'usage: admin <museum flag|price|pin|slug|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback | invite create | user role|trust> …';
+  'usage: admin <museum flag|price|pin|slug|image|export|import | list publish|show | match list|resolve | change list|apply|reject | tiles refresh|rollback | invite create | user role|trust> …';
 
 // --- dispatch ------------------------------------------------------------------------------------
 

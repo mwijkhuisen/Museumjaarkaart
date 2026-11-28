@@ -47,6 +47,18 @@ export const MuseumList = z.strictObject({
 });
 export type MuseumList = z.infer<typeof MuseumList>;
 
+/** The Commons image of a museum (ADR-0018): `https://media.<domain>/p/<public_key>/<width>.<avif|webp>`; the credit is plain text. */
+export const MuseumImage = z.strictObject({
+  public_key: z.string().regex(/^[0-9a-f]{32}$/),
+  widths: z.array(z.int().min(1).max(2000)).min(1).max(4),
+  width: z.int().min(1).max(100000),
+  height: z.int().min(1).max(100000),
+  licence: z.string().max(40),
+  attribution: z.string().min(1).max(200).nullable(),
+  file: z.string().min(1).max(255),
+});
+export type MuseumImage = z.infer<typeof MuseumImage>;
+
 export const MuseumDetail = MuseumListItem.extend({
   description_nl: z.string().max(250).nullable(),
   description_en: z.string().max(250).nullable(),
@@ -71,6 +83,7 @@ export const MuseumDetail = MuseumListItem.extend({
   photo_policy: PhotoPolicySchema,
   temp_closed_until: IsoDate.nullable(),
   mk_list: z.strictObject({ published_on: IsoDate, n: z.int().min(0), member: z.boolean() }).nullable(),
+  image: MuseumImage.nullable(),
   /** Per aspect: the mean is null below 3 ratings (WP4 fills it). */
   aspects: z.strictObject(Object.fromEntries(ASPECTS.map((a) => [a, AspectStat])) as Record<Aspect, typeof AspectStat>),
 });

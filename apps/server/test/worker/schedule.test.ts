@@ -2,6 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import type { Db } from '../../src/db/kysely.ts';
 import { silentLogger } from '../../src/lib/log.ts';
 import {
+  COMMONS_SYNC_PATTERN,
   MUSEUM_SYNC_PATTERN,
   PURGE_PATTERN,
   SCHEDULE_TIMEZONE,
@@ -85,4 +86,13 @@ it('registers the 10-minute purge, protected against overlap', () => {
   expect(schedule.purgeCron.name).toBe('purge');
   const next = schedule.purgeCron.nextRun(new Date('2027-01-05T12:03:00Z'));
   expect(next?.toISOString()).toBe('2027-01-05T12:10:00.000Z');
+});
+
+it('registers the weekly Commons check on Thursday at 04:11 Amsterdam time', () => {
+  schedule = startSchedule({ db: {} as Db, logger: silentLogger });
+  expect(COMMONS_SYNC_PATTERN).toBe('11 4 * * 4');
+  expect(schedule.commonsCron.name).toBe('commons_sync');
+  expect(schedule.commonsCron.options.protect).toBe(true);
+  const next = schedule.commonsCron.nextRun(new Date('2027-06-01T00:00:00Z')) as Date;
+  expect(amsterdam(next)).toBe('Thu 04:11');
 });
