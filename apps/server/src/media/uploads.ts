@@ -109,7 +109,7 @@ export async function createUpload(
 export function ownUpload(db: Db, userId: string, id: string) {
   return db
     .selectFrom('media')
-    .select(['id', 'state', 'type', 'declared_size', 'chunk_count', 'error_code'])
+    .select(['id', 'user_id', 'state', 'type', 'declared_size', 'chunk_count', 'error_code'])
     .where('id', '=', id)
     .where('user_id', '=', userId)
     .executeTakeFirst();
@@ -156,7 +156,7 @@ export type CompleteRefusal =
   | 'size' // 422: the file is not the declared size (failed)
   | 'sha256' // 422: the whole file's hash differs (failed)
   | 'type' // 415: the magic bytes are not the declared type (failed, no job)
-  | 'blocked' // 422: the hash is in blocked_hash (failed, audit-logged)
+  | 'blocked' // 422: the hash is in blocked_hash (failed as the neutral `upload_refused`, audit-logged)
   | 'gone'; // 409: the upload left `uploading` meanwhile (an abort or the purge)
 
 /** Enough of the head for file-type to tell JPEG, PNG (and APNG's acTL before the first IDAT) and WebP apart. */
@@ -213,17 +213,20 @@ export async function completeUpload(
     .where('sha256', '=', file.sha256)
     .executeTakeFirst();
   if (blocked !== undefined) {
+    // The row names the member, so it outlives the failed photo's purge after 24 h; the media id is detail. The
+    // uploader's status shows only the neutral `upload_refused`, never that the hash is on the list (P3b review).
     await db
       .insertInto('audit_log')
       .values({
         actor_kind: 'system',
         actor_id: null,
         action: 'media.blocked',
-        target_kind: 'media',
-        target_id: upload.id,
+        target_kind: 'user',
+        target_id: upload.user_id,
+        detail: JSON.stringify({ media_id: upload.id }),
       })
       .execute();
-    return refuse('blocked', 'upload_blocked');
+    return refuse('blocked', 'upload_refused');
   }
 
   const moved = await db.transaction().execute(async (trx) => {

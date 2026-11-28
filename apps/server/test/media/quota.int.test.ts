@@ -109,12 +109,18 @@ describe('blocked_hash at complete', () => {
       'SELECT state, error_code FROM media WHERE id = $1',
       [id],
     );
-    expect(row.rows[0]).toEqual({ state: 'failed', error_code: 'upload_blocked' });
+    expect(row.rows[0]).toEqual({ state: 'failed', error_code: 'upload_refused' });
+    // The member's status poll learns nothing about the block list.
+    const status = await f.raw(`/uploads/${id}`, { method: 'GET', token: m.token });
+    expect(await status.json()).toMatchObject({ state: 'failed', error_code: 'upload_refused' });
+    // The audit row names the member, so it outlives the failed photo's purge.
     const audit = await f.p.owner.query<{ action: string; actor_kind: string; detail: unknown }>(
-      `SELECT action, actor_kind, detail FROM audit_log WHERE target_kind = 'media' AND target_id = $1`,
-      [id],
+      `SELECT action, actor_kind, detail FROM audit_log WHERE target_kind = 'user' AND target_id = $1`,
+      [m.id],
     );
-    expect(audit.rows).toEqual([{ action: 'media.blocked', actor_kind: 'system', detail: {} }]);
+    expect(audit.rows).toEqual([{ action: 'media.blocked', actor_kind: 'system', detail: { media_id: id } }]);
+    await f.p.owner.query(`DELETE FROM media WHERE id = $1`, [id]);
+    expect((await f.p.owner.query(`SELECT 1 FROM audit_log WHERE target_id = $1`, [m.id])).rowCount).toBe(1);
     expect((await f.p.owner.query(`SELECT 1 FROM job WHERE payload->>'media_id' = $1`, [id])).rowCount).toBe(0);
     await expect(stat(join(f.root, id))).rejects.toThrow();
   });
