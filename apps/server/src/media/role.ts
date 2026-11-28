@@ -193,7 +193,9 @@ export async function runMediaRole(opts: MediaRoleOptions): Promise<number> {
           report = { code: r.code, maxRssKiB: r.maxRssKiB as number };
       });
       child.on('error', () => end({ kind: 'crashed', exit: null, sig: null }));
-      child.on('exit', (exit, sig) =>
+      // 'close', not 'exit': Node guarantees only that 'close' comes after the IPC channel is drained, so the
+      // report is in by then. A child that leaves a holder of the channel behind ends at the watchdog.
+      child.on('close', (exit, sig) =>
         end(exit === 0 && report !== undefined ? { kind: 'reported', ...report } : { kind: 'crashed', exit, sig }),
       );
       child.send({ dir, expect, deadlineMs });
