@@ -333,8 +333,9 @@ volumes:
     driver_opts: {type: tmpfs, device: tmpfs, o: "uid=63532,gid=63532,mode=0700"}
   originals:
     driver_opts: {type: tmpfs, device: tmpfs, o: "uid=63532,gid=63532,mode=0700"}
+  # As production: capped at 256 MB (A§17.1).
   media-work:
-    driver_opts: {type: tmpfs, device: tmpfs, o: "uid=63532,gid=63532,mode=0700"}
+    driver_opts: {type: tmpfs, device: tmpfs, o: "size=256m,uid=63532,gid=63532,mode=0700"}
 
 secrets:
   db_postgres:

@@ -9,7 +9,7 @@ mjkc() { docker compose -p mjk -f /etc/mjk/compose.yaml --env-file /srv/mjk/stat
 ## 1. The path of a photo
 
 1. A member uploads in 8 MiB chunks through the `api` (`POST /api/v1/uploads`, `PUT /uploads/:id/chunks/:n`, `POST /uploads/:id/complete`). The `api` writes to `/srv/mjk/quarantine`, and at `complete` it checks the sha256, the magic bytes (JPEG, PNG or WebP) and the `blocked_hash` table.
-2. The worker copies the file into a task directory under `/srv/mjk/media-work` and hands it to the `media` container. `media` is the only process that decodes the image. It has no network, no secret, no database login and no environment (owner Q1).
+2. The worker copies the file into a task directory under `/srv/mjk/media-work` (the tmpfs volume `mjk_media_work`, 256 MB, shared with `media` only) and hands it to the `media` container. `media` is the only process that decodes the image. It has no network, no secret, no database login and no environment (owner Q1).
 3. `media` decodes once into raw sRGB and writes AVIF and WebP at 400, 1200 and 2000 px (and the source width when that is smaller). The worker reads the outputs back through the task directory's descriptor and deletes the task.
 4. The photo stays in quarantine as "wacht op controle" (pending). Its author sees a preview from the `api` (`GET /uploads/:id/preview?w=400|1200`: `private, no-store`, `nosniff`, a sandbox CSP); anyone else gets a 404.
 5. `media_publish` runs only for a trusted member's photo that is attached to a review. It puts the variants on R2 under a random key (`Cache-Control: public, max-age=31536000, immutable`) and the original into `/srv/mjk/originals` (restic), then approves. A failure undoes what that run put.
@@ -19,7 +19,7 @@ Where the files live:
 | Place | Holds |
 | --- | --- |
 | `/srv/mjk/quarantine` | uploads and their pending variants; the `api` and the worker write it |
-| `/srv/mjk/media-work` | one task at a time, for `media`; empty when idle |
+| `/srv/mjk/media-work` (the tmpfs volume `mjk_media_work`, at most 256 MB; not on the host disk) | one task at a time, for `media`; empty when idle and after a restart |
 | `/srv/mjk/originals` | the original of a published photo; restic backs it up (`docs/runbooks/backup.md`) |
 | `media.<domain>/p/<key>/<width>.(avif|webp)` | published variants (R2) |
 

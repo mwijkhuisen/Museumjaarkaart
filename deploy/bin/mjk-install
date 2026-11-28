@@ -12,7 +12,7 @@
 #      the eight A§17.3 subnets overlaps a host route or a Docker network that is not the stack's own,
 #      or when /etc/mjk/mjk.env is not root:root 0644/0640 or holds a key outside the allowlist.
 #   2. Creates the groups of A§17.3 (63001-63013; 63014 and up stay reserved for P7), /etc/mjk/{secrets,
-#      postgres}, /srv/mjk/{state,state/guard,originals,quarantine,exports,tiles-build,backup-staging,media-work}
+#      postgres}, /srv/mjk/{state,state/guard,originals,quarantine,exports,tiles-build,backup-staging}
 #      with exact owners and modes.
 #   3. Installs the compose file, roles.sql, the nftables file, the worker's hosts list /etc/mjk/egress-hosts,
 #      the units, /etc/tmpfiles.d/mjk.conf (the lock directory /run/mjk, root 0700; /run/lock is never
@@ -127,7 +127,7 @@ holder=$(getent group 63532 | cut -d: -f1 || true)
 [[ $holder != *rws* && $holder != *f1* ]] || die "GID 63532 belongs to a group named for rws or f1"
 
 for dir in "$ETC" "$ETC/secrets" "$ETC/postgres" "$SRV" "$SRV/state" "$SRV/state/guard" "$SRV/originals" \
-  "$SRV/quarantine" "$SRV/exports" "$SRV/tiles-build" "$SRV/backup-staging" "$SRV/media-work" "$BIN" "$UNITS" \
+  "$SRV/quarantine" "$SRV/exports" "$SRV/tiles-build" "$SRV/backup-staging" "$BIN" "$UNITS" \
   "$LOCKDIR" "$TMPFILES"; do
   refuse_foreign "$dir"
   [[ ! -L $dir ]] || die "$dir is a symlink"
@@ -254,8 +254,9 @@ ensure_dir "$SRV" 0:0 755
 ensure_dir "$SRV/state" 0:0 755
 # P3b: mjk-tick's disk file, the only part of state the api mounts (read-only, owner Q6).
 ensure_dir "$SRV/state/guard" 0:0 755
-# media-work (P3b): the worker's and the media role's hand-off directory.
-for dir in originals quarantine exports tiles-build backup-staging media-work; do
+# No media-work here: since the P3b review it is the tmpfs volume mjk_media_work (A§17.1). A host that ran an
+# earlier P3b build keeps an unused /srv/mjk/media-work, which may be removed (docs/runbooks/update.md).
+for dir in originals quarantine exports tiles-build backup-staging; do
   ensure_dir "$SRV/$dir" 63532:63532 700
 done
 ensure_dir "$BIN" 0:0 755

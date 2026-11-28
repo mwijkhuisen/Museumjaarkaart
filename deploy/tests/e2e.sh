@@ -100,7 +100,9 @@ docker compose version >/dev/null 2>&1 || fail "docker compose is required"
 for net in "${NETS[@]}"; do
   if docker network inspect "$net" >/dev/null 2>&1; then fail "the Docker network $net exists here; run this on a throw-away host"; fi
 done
-if docker volume inspect mjk_pgdata >/dev/null 2>&1; then fail "the volume mjk_pgdata exists here; run this on a throw-away host"; fi
+for vol in mjk_pgdata mjk_media_work; do
+  if docker volume inspect "$vol" >/dev/null 2>&1; then fail "the volume $vol exists here; run this on a throw-away host"; fi
+done
 if command -v nft >/dev/null && nft list table inet mjk >/dev/null 2>&1; then
   fail "table inet mjk is loaded here; run this on a throw-away host"
 fi
@@ -136,7 +138,7 @@ cleanup() {
   if ((rc != 0)); then
     docker ps -a --filter label=com.docker.compose.project=mjk --format 'e2e: container {{.Names}} {{.Status}}' >&2
   fi
-  # The stack, whatever state it is in: by label, then the networks and the volume by name.
+  # The stack, whatever state it is in: by label, then the networks and the volumes by name.
   docker ps -a -q --filter label=com.docker.compose.project=mjk | xargs -r docker rm -f -v >/dev/null 2>&1
   docker rm -f mjk-e2e-stray >/dev/null 2>&1
   for net in "${NETS[@]}" mjk-e2e-overlap; do
@@ -145,7 +147,7 @@ cleanup() {
       docker network rm "$net" >/dev/null 2>&1
     fi
   done
-  docker volume rm mjk_pgdata >/dev/null 2>&1
+  docker volume rm mjk_pgdata mjk_media_work >/dev/null 2>&1
   if ((NFT_LOADED)); then nft delete table inet mjk >/dev/null 2>&1; fi
   if ((SINK_LOADED)); then nft delete table inet mjk_e2e_sink >/dev/null 2>&1; fi
   local g
@@ -310,7 +312,9 @@ done
 [[ $(stat -c '%u:%g:%a' "$ETC/egress-hosts") == 0:0:644 ]] || fail "$ETC/egress-hosts is not root:root 0644"
 cmp -s "$REPO/deploy/host/egress-hosts" "$ETC/egress-hosts" || fail "$ETC/egress-hosts is not a copy of deploy/host/egress-hosts"
 [[ $(stat -c '%u:%g:%a' "$ETC/secrets") == 0:0:700 ]] || fail "$ETC/secrets is not root:root 0700"
-for dir in originals quarantine exports tiles-build backup-staging media-work; do
+# media-work is a tmpfs volume since the P3b review (M3), not a host directory: mjk-install no longer makes it.
+[[ ! -e $SRVD/media-work ]] || fail "mjk-install made $SRVD/media-work"
+for dir in originals quarantine exports tiles-build backup-staging; do
   [[ $(stat -c '%u:%g:%a' "$SRVD/$dir") == 63532:63532:700 ]] || fail "$SRVD/$dir is not 63532:63532 0700"
 done
 [[ $(stat -c '%u:%g:%a' "$TESTROOT/run/mjk") == 0:0:700 ]] || fail "the lock directory run/mjk is not root:root 0700"

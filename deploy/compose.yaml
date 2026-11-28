@@ -191,12 +191,11 @@ services:
         target: /srv/mjk/tiles-build
         bind:
           create_host_path: false
-      # The photo hand-off to `media` (P3b): one task directory at a time in, the variants out.
-      - type: bind
-        source: /srv/mjk/media-work
+      # The photo hand-off to `media` (P3b): one task directory at a time in, the variants out. A size-capped
+      # tmpfs volume, never the host disk (P3b security review M3).
+      - type: volume
+        source: media-work
         target: /srv/mjk/media-work
-        bind:
-          create_host_path: false
     secrets:
       - db_mjk_worker
       - hc_ping_key
@@ -230,11 +229,9 @@ services:
     network_mode: none
     healthcheck: *heartbeat
     volumes:
-      - type: bind
-        source: /srv/mjk/media-work
+      - type: volume
+        source: media-work
         target: /srv/mjk/media-work
-        bind:
-          create_host_path: false
     # No file it writes may pass 64 MB (a 2000 px variant is a few MB; the input is the worker's copy, at
     # most 25 MiB). RLIMIT_FSIZE is in bytes.
     ulimits:
@@ -498,6 +495,13 @@ networks:
 volumes:
   pgdata:
     name: mjk_pgdata
+  # The worker's and the media role's hand-off (P3b, A§17.1): a tmpfs capped at 256 MB, so a compromised decoder
+  # cannot fill the VM's shared disk (security review M3). One task needs at most 25 MiB in and about 8 × 16 MiB
+  # out. tmpfs pages are charged to the memory limit of the container that writes them (A§17.2). Empty after
+  # every restart of the volume's last user; nothing in it outlives a task.
+  media-work:
+    name: mjk_media_work
+    driver_opts: {type: tmpfs, device: tmpfs, o: "size=256m,uid=63532,gid=63532,mode=0700"}
 
 # root:<gid> 0440 on the host; the GIDs are in group_add above (A§17.3). Only the secrets a role of
 # the phases built so far uses are here (least privilege). r2_media_rw (63009) arrived with P1d, in the
