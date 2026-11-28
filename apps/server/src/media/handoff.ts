@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
-import { type FileHandle, lstat, mkdir, open, readdir, rename, rmdir, unlink } from 'node:fs/promises';
+import { type FileHandle, lstat, mkdir, open, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import { JobError } from '../worker/types.ts';
 import { MEDIA_WORK_DIR, PHOTO_JOB_MS, TAKE_MS, variantWidths } from './limits.ts';
+import { emptyDir, removeTree } from './remove-tree.ts';
 import { ABORTED_CODE, TASK, TaskResult, variantName } from './task.ts';
 import { type Decode, type Decoded, VARIANT_CONTENT_TYPE, type Variant } from './types.ts';
 
@@ -18,8 +19,6 @@ export type HandoffSeams = { workDir?: string; takeMs?: number; jobMs?: number; 
 
 const RESULT_MAX_BYTES = 64 * 1024;
 const VARIANT_MAX_BYTES = 16 * 1024 * 1024;
-/** How deep a planted directory tree is emptied; anything deeper is left for the orphan sweeper. */
-const REMOVE_MAX_DEPTH = 4;
 const WITHDRAWN = 'withdrawn';
 
 const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW, O_DIRECTORY, O_NONBLOCK } = constants;
@@ -128,47 +127,14 @@ async function readBack(at: (name: string) => string): Promise<Decoded> {
   return { width: result.width, height: result.height, variants };
 }
 
-/**
- * Empties a directory through its descriptor: links and files are unlinked (never followed), a directory is
- * opened O_NOFOLLOW relative to its parent's descriptor, emptied the same way and removed.
- */
-async function emptyDir(fd: number, depth: number): Promise<void> {
-  const base = `/proc/self/fd/${fd}`;
-  for (const name of await readdir(base)) {
-    const path = `${base}/${name}`;
-    try {
-      await unlink(path);
-      continue;
-    } catch (err) {
-      if (errCode(err) !== 'EISDIR' || depth >= REMOVE_MAX_DEPTH) continue;
-    }
-    let sub: FileHandle;
-    try {
-      sub = await open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
-    } catch {
-      continue;
-    }
-    try {
-      await emptyDir(sub.fd, depth + 1);
-    } finally {
-      await sub.close();
-    }
-    await rmdir(path).catch(() => {});
-  }
-}
-
-/** Removes the task: its content through the descriptor, then the name (a link put in its place is unlinked). */
+/** Removes the task: its content through the descriptor we opened, then whatever the name now holds. */
 async function removeTask(path: string, dir: FileHandle | undefined): Promise<void> {
   if (dir !== undefined) {
-    await emptyDir(dir.fd, 0).catch(() => {});
+    await emptyDir(dir.fd).catch(() => {});
     await dir.close();
   }
-  try {
-    await rmdir(path);
-  } catch (err) {
-    // ENOTDIR: the decoder put a link there. ENOTEMPTY: another directory; the orphan sweeper takes it.
-    if (errCode(err) === 'ENOTDIR') await unlink(path).catch(() => {});
-  }
+  // A link the decoder put there is unlinked; a directory it renamed into place is removed the same way.
+  await removeTree(path);
 }
 
 /** The worker's Decode (media/types.ts) against the `media` role on the shared work directory. */

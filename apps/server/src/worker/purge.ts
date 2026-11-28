@@ -1,10 +1,11 @@
-import { lstat, readdir, rm } from 'node:fs/promises';
+import { lstat, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type RawBuilder, sql } from 'kysely';
 import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { removeUpload } from '../media/files.ts';
 import { UNATTACHED_TTL_MS } from '../media/limits.ts';
+import { removeTree } from '../media/remove-tree.ts';
 import { markRemoved } from '../media/remove.ts';
 import { MEDIA_DELETE_JOB, MEDIA_PROCESS_JOB } from '../media/types.ts';
 import { purgeExportFiles } from '../passport/export/files.ts';
@@ -72,8 +73,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DIR_MAX_AGE_MS = 60 * 60 * 1000;
 
 /**
- * Removes every entry of `dir` older than an hour that `keep` does not name (lstat only: a link is removed, never
- * followed). No directory (a worker without the mount, tests): nothing to do.
+ * Removes every entry of `dir` older than an hour that `keep` does not name, through descriptors (`removeTree`: a
+ * link is removed, never followed, wherever it sits in the tree). No directory (a worker without the mount, tests): nothing to do.
  */
 async function sweepDir(dir: string, keep: (names: string[]) => Promise<Set<string>>): Promise<number> {
   const names = await readdir(dir).catch((err: unknown) => {
@@ -89,7 +90,7 @@ async function sweepDir(dir: string, keep: (names: string[]) => Promise<Set<stri
   let n = 0;
   for (const name of old) {
     if (kept.has(name)) continue;
-    await rm(join(dir, name), { recursive: true, force: true });
+    await removeTree(join(dir, name));
     n++;
   }
   return n;

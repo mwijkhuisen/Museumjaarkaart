@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
-import { mkdir, open, rm } from 'node:fs/promises';
+import { mkdir, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Db } from '../db/kysely.ts';
 import { enqueueIn } from '../worker/queue.ts';
 import { JobError, type JobHandler } from '../worker/types.ts';
 import { removeUpload, uploadPath, variantsDir } from './files.ts';
+import { removeTree } from './remove-tree.ts';
 import { variantName } from './task.ts';
 import { type Decode, type Decoded, MEDIA_PUBLISH_JOB, type SourceFormat, variantKey } from './types.ts';
 
@@ -27,7 +28,7 @@ const CREATE = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | const
 
 async function writeVariants(dir: string, decoded: Decoded): Promise<void> {
   // A run that died after writing them left a directory: its files are this photo's own, made by us.
-  await rm(dir, { recursive: true, force: true });
+  await removeTree(dir);
   await mkdir(dir, { mode: 0o700 });
   for (const v of decoded.variants) {
     const fh = await open(join(dir, variantName(v.format, v.width)), CREATE, 0o600);
@@ -116,6 +117,6 @@ export function mediaProcessJob(deps: { db: Db; quarantineDir: string; decode: D
       }
       return true;
     });
-    if (!moved) await rm(dir, { recursive: true, force: true });
+    if (!moved) await removeTree(dir);
   };
 }

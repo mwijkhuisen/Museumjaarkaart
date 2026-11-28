@@ -175,6 +175,11 @@ it('removes hour-old orphan entries of quarantine and media-work, never followin
   const youngTask = join(mediaWork, 'beef');
   for (const d of [task, youngTask]) await mkdir(d);
   await writeFile(join(task, 'in'), 'x');
+  // A planted tree deeper than the old descriptor walk's limit of 4, with a link to outside half way (M1).
+  const deep = join(task, 'a', 'b', 'c', 'd', 'e', 'f', 'g');
+  await mkdir(deep, { recursive: true });
+  await writeFile(join(deep, 'f'), 'x');
+  await symlink(outside, join(task, 'a', 'b', 'c', 'link'));
   await old(task);
 
   const counts = await run();

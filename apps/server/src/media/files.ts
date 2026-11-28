@@ -1,6 +1,7 @@
 import { constants } from 'node:fs';
-import { type FileHandle, mkdir, open, rm } from 'node:fs/promises';
+import { type FileHandle, mkdir, open } from 'node:fs/promises';
 import { join } from 'node:path';
+import { removeTree } from './remove-tree.ts';
 
 // Quarantine paths (A§12, A§17.1: `/srv/mjk/quarantine/<id>/upload`, variants in `<id>/v/`). The id is a
 // server uuid, checked again here before it touches a path; files are opened without following a link in the
@@ -33,9 +34,8 @@ export async function createUploadFile(root: string, id: string): Promise<void> 
 export const openUpload = (root: string, id: string, mode: 'read' | 'write'): Promise<FileHandle> =>
   open(uploadPath(root, id), (mode === 'write' ? constants.O_WRONLY : constants.O_RDONLY) | constants.O_NOFOLLOW);
 
-/** Removes an upload's directory and everything in it; a link inside is removed, never followed. */
-export const removeUpload = (root: string, id: string): Promise<void> =>
-  rm(uploadDir(root, id), { recursive: true, force: true });
+/** Removes an upload's directory and everything in it through descriptors; a link is removed, never followed. */
+export const removeUpload = (root: string, id: string): Promise<void> => removeTree(uploadDir(root, id));
 
 const busy = new Set<string>();
 

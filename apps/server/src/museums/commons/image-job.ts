@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { mkdir, open, rm } from 'node:fs/promises';
+import { mkdir, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import type { Logger } from '../../lib/log.ts';
 import { createDecode } from '../../media/handoff.ts';
 import { QUARANTINE_DIR } from '../../media/limits.ts';
 import { type MediaJobDeps, r2Of } from '../../media/publish.ts';
+import { removeTree } from '../../media/remove-tree.ts';
 import { type Decode, type SourceFormat, VARIANT_CONTENT_TYPE } from '../../media/types.ts';
 import { IMMUTABLE } from '../../tiles/publish.ts';
 import { JobError, type JobHandler } from '../../worker/types.ts';
@@ -133,7 +134,7 @@ export function commonsImageJob(d: CommonsDeps): JobHandler {
       }
       decoded = await (d.decode ?? createDecode())({ path, expect }, signal);
     } finally {
-      await rm(dir, { recursive: true, force: true });
+      await removeTree(dir);
     }
 
     const publicKey = newPublicKey();
