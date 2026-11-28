@@ -5,3 +5,5 @@ e7ca00a2c99bd9d0d23ff2e822be7615b2319a59:apps/web/test/passkey.test.ts:generic-a
 e7ca00a2c99bd9d0d23ff2e822be7615b2319a59:apps/web/test/passkey.test.ts:generic-api-key:60
 f556ac60f4c600badad32ced35df4de40a799499:apps/server/test/media/uploads.int.test.ts:generic-api-key:170
 454f992da690d39c12c332d9ce640a1a95be96cc:apps/web/test/photos.test.tsx:generic-api-key:17
+c29ea90e833d92ae5408a0ad43f2c2cee79fbd13:apps/web/test/photos.test.tsx:generic-api-key:17
+c29ea90e833d92ae5408a0ad43f2c2cee79fbd13:apps/server/test/media/uploads.int.test.ts:generic-api-key:170
