@@ -158,7 +158,15 @@ playwright() {
     node_modules/.bin/playwright test -c e2e/playwright.config.ts "$@"
 }
 
-playwright --grep-invert '@ssr-down|@load' "$@"
+playwright --grep-invert '@ssr-down|@load|@photos' --pass-with-no-tests "$@"
+
+# P3b: photo-upload.spec.ts signs three members a test engine in by mailed code. With the main pass's own sign-ins
+# that passes code_prefix's 20 an hour from the one Playwright address, so the photo pass starts with the three code
+# buckets emptied (test rows only; the limiter is unchanged). It runs before the log scans and media's restart and
+# OOM check below, so both cover it.
+compose exec -T db psql -U postgres -d mjk -q -v ON_ERROR_STOP=1 \
+  -c "DELETE FROM rate_limit WHERE bucket IN ('code_prefix', 'code_email_prefix', 'code_email_day')"
+playwright --grep @photos --pass-with-no-tests "$@"
 
 # A§15.3 "never logged": near-me.spec.ts presses the button at 52.37312, 4.89351 (rounded 52.373, 4.894). Neither the
 # raw nor the rounded position, nor a lat or lon query, is in the api's, ssr's or caddy's log. A number that merely

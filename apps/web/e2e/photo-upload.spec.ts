@@ -116,7 +116,7 @@ const reviewsOf = async (request: APIRequestContext, slug: string): Promise<ApiR
 // The browser logs the failed preview or the 4xx of a rejected upload as a failed resource.
 test.use({ allowedConsole: [/status of 4\d\d/] });
 
-test('a trusted member`s photo is published and loads from the media origin', async ({
+test('@photos a trusted member`s photo is published and loads from the media origin', async ({
   page,
   request,
   browserName,
@@ -173,8 +173,9 @@ test('a trusted member`s photo is published and loads from the media origin', as
   const key = mine?.photos[0]?.public_key ?? '';
   expect(key).toMatch(/^[0-9a-f]{32}$/);
 
+  // This member's own photo: the other engine's trusted member reviews the same museum, so the page holds two.
   const media = page.waitForResponse((r) =>
-    /^https:\/\/media\.mjk\.test\/p\/[0-9a-f]{32}\/\d+\.(avif|webp)$/.test(r.url()),
+    new RegExp(`^https://media\\.mjk\\.test/p/${key}/\\d+\\.(avif|webp)$`).test(r.url()),
   );
   await page.goto(`${museumPath('nl', FORBIDDEN)}/reviews`);
   const card = page.locator('.review-card').filter({ hasText: `E2E ${handle}` });
@@ -188,7 +189,7 @@ test('a trusted member`s photo is published and loads from the media origin', as
   await expect.poll(() => img.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth)).toBeGreaterThan(0);
 });
 
-test('an untrusted member`s photo waits for review: the author sees a preview, the public sees nothing', async ({
+test('@photos an untrusted member`s photo waits for review: the author sees a preview, the public sees nothing', async ({
   page,
   request,
   browserName,
@@ -224,7 +225,7 @@ test('an untrusted member`s photo waits for review: the author sees a preview, t
   expect(await anonymous.text()).not.toContain('/p/');
 });
 
-test('a decompression bomb ends failed and the screen says so, nothing else breaks', async ({
+test('@photos a decompression bomb ends failed and the screen says so, nothing else breaks', async ({
   page,
   request,
   browserName,
