@@ -41,3 +41,14 @@
 - **Cloudflare Stream:** playback from `cloudflarestream.com` breaks the same rule, and it costs ~$60–110 a year.
 - **EU S3 providers (Hetzner, Scaleway, Backblaze B2) for serving:** not Cloudflare-hosted, so video through the CDN stays restricted, and their own hostnames break the rule.
 - **aws4fetch or the AWS SDK:** aws4fetch has had no release since 2024-08; the SDK is large for a handful of calls.
+
+## Amended in P3b (2026-11-28)
+
+The decision above stands except where this block changes it.
+
+- **Decoding moved to a `media` role (owner Q1).** The worker no longer loads sharp. A new `media` container runs `node apps/server/src/main.ts media` with `network_mode: none`, no secret, no GID, no database login and no environment; its one mount is `/srv/mjk/media-work`, and it has 768m, 1.0 CPU, 256 pids and a 64 MB `fsize` limit. Why: sharp and libvips parse untrusted bytes, and the worker holds `r2_media_rw` and a database login. A decoder exploit in `media` lands with no network, no secret and no database to reach. The worker dropped from 768m to 512m.
+- **Only JPEG, PNG and WebP decode.** Every libvips loader is blocked except `VipsForeignLoadJpegFile`, `VipsForeignLoadPngFile` and `VipsForeignLoadWebpFile`. `media` decodes once into raw sRGB and writes AVIF and WebP at 400, 1200 and 2000 px (plus the source width when smaller).
+- **The handoff.** The worker puts one task in `/srv/mjk/media-work` at a time and `media` writes the outputs next to it. The worker reads them back through the task directory's descriptor (`/proc/self/fd/<fd>/<name>`, `O_NOFOLLOW`), so a compromised decoder cannot redirect a read with a link, and it empties the directory through the same descriptor. Output is validated before it is trusted.
+- **`allowBuilds` is closed.** sharp 0.35.5 has no install script, so `strictDepBuilds` needs no `allowBuilds` entry. Its prebuilt binaries run on distroless Debian 13's glibc (proven in the built image).
+- **HEIC is proven absent** from sharp 0.35.5's libvips 8.18.7. The file input accepts JPEG, PNG and WebP only.
+- The "Open for P3b" item under Consequences is resolved by the two lines above.

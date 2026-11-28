@@ -45,3 +45,8 @@
 - **No images until members' photos (ADR-0005's first answer):** empty pages for months.
 - **Hotlinking Commons:** a third-party request from every page view (invariant 4), and no control over what is served.
 - **A separate Commons pipeline in P1a:** sharp and the R2 client do not exist yet in P1a, and two image pipelines would drift apart.
+
+## Amended in P3b (2026-11-28)
+
+- **The rendering is 1920 px** (owner Q8): the job asks `imageinfo` for `iiurlwidth=1920` and downloads that rendering; the original only when it is smaller than 1920 px.
+- **The allowlist stays two hosts.** `imageinfo` names most `thumburl`s on `thumb.wikimedia.org` (P3b's recording, 2026-11-27); the same path is served by `upload.wikimedia.org`, so the job rewrites the host and downloads from `upload.wikimedia.org` (`apps/server/src/museums/commons/api.ts`). The hosts the job may contact stay `commons.wikimedia.org` and `upload.wikimedia.org`.

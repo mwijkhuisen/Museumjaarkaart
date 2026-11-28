@@ -13,10 +13,10 @@ Never touch the Waterheight (`rws`) or F1 (`f1`) stacks while fixing this one; `
 ## 1. First look (any incident)
 
 ```bash
-mjkc ps                                                    # state and health of the six daemons
+mjkc ps                                                    # state and health of the seven daemons (`media` is one)
 systemctl list-timers 'mjk-*' --no-pager                   # are the three timers on?
 journalctl -u mjk-update.service -u mjk-tick.service -u mjk-backup.service --since '-6 hours' --no-pager | tail -60
-cat /srv/mjk/state/current.env /srv/mjk/state/disk 2>/dev/null; ls /srv/mjk/state
+cat /srv/mjk/state/current.env /srv/mjk/state/guard/disk 2>/dev/null; ls /srv/mjk/state
 nft list table inet mjk >/dev/null && echo 'firewall table loaded' || echo 'FIREWALL TABLE MISSING (section 5)'
 curl -sS -o /dev/null -w 'caddy %{http_code}\n' -H 'Host: <domain>' http://127.0.0.1:8280/api/v1/healthz
 ```
@@ -50,7 +50,7 @@ A rollback never runs a migration down; a migration must work with the previous 
 
 ## 4. The disk is full or nearly
 
-`/srv/mjk/state/disk` (written every 10 minutes) holds `free_pct`, `free_bytes`, `total_bytes`, `checked`. Below 10 % free [U] the `api` refuses new uploads (from P3b) and the status panel turns red (P3c). A file older than 30 minutes counts as "full" for that guard, so also check that `mjk-tick.timer` runs.
+`/srv/mjk/state/guard/disk` (written every 10 minutes; an older install's `/srv/mjk/state/disk` is stale and may be removed) holds `free_pct`, `free_bytes`, `total_bytes`, `checked`. Below 10 % free [U] the `api` refuses new uploads (from P3b) and the status panel turns red (P3c). A file older than 30 minutes counts as "full" for that guard, so also check that `mjk-tick.timer` runs.
 
 ```bash
 df -h /srv /var/lib/docker

@@ -45,7 +45,7 @@ cd /root/mjk-checkout && deploy/bin/mjk-install
 
 The first run:
 - refuses (exit 1, `REFUSED: …`, nothing changed) when a group name or GID collides with `rws` or `f1`, a path resolves into their trees, an `mjk-*` Docker network belongs to another compose project, or one of the eight subnets (10.63.1.0/24 … 10.63.8.0/24) overlaps another Docker network or a host route;
-- creates the groups `mjk_<secret>` (GIDs 63001 to 63013), `/etc/mjk` (0755), `/etc/mjk/secrets` (0700 root), `/etc/mjk/postgres`, `/srv/mjk/state` (root 0755) and `/srv/mjk/{originals,quarantine,exports,tiles-build,backup-staging}` (63532:63532 0700);
+- creates the groups `mjk_<secret>` (GIDs 63001 to 63013), `/etc/mjk` (0755), `/etc/mjk/secrets` (0700 root), `/etc/mjk/postgres`, `/srv/mjk/state` (root 0755), `/srv/mjk/state/guard` (root 0755; P3b: `mjk-tick` writes the disk file there and the `api` mounts it read-only) and `/srv/mjk/{originals,quarantine,exports,tiles-build,backup-staging,media-work}` (63532:63532 0700; `media-work` is the one mount of the `media` container);
 - copies the compose file, `roles.sql`, `mjk.nft`, the units and `mjk-update`, `mjk-tick`, `mjk-resolvers`, `mjk-ping`;
 - enables and starts `mjk-firewall.service` (loads `table inet mjk`; `nft -c` first);
 - prints `NOT ENABLED: …` and the names of everything still missing, and leaves the three timers off.
@@ -301,7 +301,7 @@ Write the answer into A§17.4. If the table is missing, `mjk-tick` reloads it wi
 
 ## 9. A day of `docker stats` (criterion 11)
 
-Sample the six daemons once an hour for a day, in a tmux or screen session, then summarise the peak memory, CPU and PIDs of each service into A§17.2 and say whether A3 (the resize) holds:
+Sample the seven daemons once an hour for a day, in a tmux or screen session, then summarise the peak memory, CPU and PIDs of each service into A§17.2 and say whether A3 (the resize) holds:
 
 ```bash
 for i in $(seq 24); do
