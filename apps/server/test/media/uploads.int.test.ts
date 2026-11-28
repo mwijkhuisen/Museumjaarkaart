@@ -8,6 +8,9 @@ import { jpeg, openUploads, sha256Hex, type UploadsFixture, writeGuard } from '.
 // P3b criteria 1, 4, 5 (the api parts) and 6: the chunked upload (A§12, A§14). Every check runs before a byte
 // is stored; a refused chunk writes nothing; a refused `complete` leaves no file and no job.
 
+/** A well-formed id that no upload has. */
+const NO_UPLOAD = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
+
 let f: UploadsFixture;
 let museumId: string;
 
@@ -168,7 +171,7 @@ describe('PUT /uploads/:id/chunks/:n', () => {
     expect((await f.put(m.token, made.id, 1, ten, { type: 'image/jpeg' })).status).toBe(415);
     const other = await member();
     expect((await f.put(other.token, made.id, 1, ten)).status).toBe(404);
-    expect((await f.put(m.token, '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b', 1, ten)).status).toBe(404);
+    expect((await f.put(m.token, NO_UPLOAD, 1, ten)).status).toBe(404);
     expect((await stat(file)).size).toBe(0);
     const chunks = await f.p.owner.query('SELECT 1 FROM media_chunk WHERE media_id = $1', [made.id]);
     expect(chunks.rowCount).toBe(0);

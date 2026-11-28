@@ -14,7 +14,7 @@ import { review } from './review-fixture.ts';
 // alt is generated when the member wrote none, and a hostile alt stays text.
 
 const MEDIA = 'https://media.mjk.test';
-const KEY = '0123456789abcdef0123456789abcdef';
+const PUB = 'ab'.repeat(16);
 const config = { brand: 'T', controller: 'T', contactEmail: 'a@b.nl', media: MEDIA };
 const ID = '0191a2b3-c4d5-7e6f-8a9b-0c1d2e3f4a5b';
 
@@ -24,7 +24,7 @@ const photo = (over: Record<string, unknown> = {}): PublicPhoto =>
     width: 1200,
     height: 800,
     alt_text: null,
-    public_key: KEY,
+    public_key: PUB,
     widths: [1200, 400],
     ...over,
   });
@@ -73,9 +73,9 @@ describe('Picture', () => {
   it('names AVIF before WebP, from the media origin, smallest first, and the smallest WebP as the img', () => {
     expect(out.indexOf('image/avif')).toBeGreaterThan(-1);
     expect(out.indexOf('image/avif')).toBeLessThan(out.indexOf('image/webp'));
-    expect(out).toContain(`srcSet="${MEDIA}/p/${KEY}/400.avif 400w, ${MEDIA}/p/${KEY}/1200.avif 1200w"`);
-    expect(out).toContain(`srcSet="${MEDIA}/p/${KEY}/400.webp 400w, ${MEDIA}/p/${KEY}/1200.webp 1200w"`);
-    expect(out).toContain(`src="${MEDIA}/p/${KEY}/400.webp"`);
+    expect(out).toContain(`srcSet="${MEDIA}/p/${PUB}/400.avif 400w, ${MEDIA}/p/${PUB}/1200.avif 1200w"`);
+    expect(out).toContain(`srcSet="${MEDIA}/p/${PUB}/400.webp 400w, ${MEDIA}/p/${PUB}/1200.webp 1200w"`);
+    expect(out).toContain(`src="${MEDIA}/p/${PUB}/400.webp"`);
     expect(out).toContain('width="1200"');
     expect(out).toContain('height="800"');
     expect(out).toContain('loading="lazy"');
@@ -102,7 +102,7 @@ describe('photoAlt', () => {
 describe('photos on a review', () => {
   it('ReviewCard shows them with the generated alt', () => {
     const out = html(<ReviewCard review={review({ photos: [photo()] })} locale="nl" />);
-    expect(out).toContain(`${MEDIA}/p/${KEY}/400.webp`);
+    expect(out).toContain(`${MEDIA}/p/${PUB}/400.webp`);
     expect(out).toContain('alt="Foto bij Voorbeeldmuseum door anna_b"');
     expect(out).not.toMatch(/style=/);
   });
