@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { crc32 } from 'node:zlib';
 import { CHUNK_BYTES } from '@mjk/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { jpeg, openUploads, sha256Hex, type UploadsFixture, writeGuard } from './fixtures.ts';
@@ -264,6 +265,19 @@ describe('POST /uploads/:id/complete', () => {
     expect(await jobsFor(made.id)).toEqual([]);
   });
 
+  /** The PNG with an `acTL` chunk (one frame, endless) right after IHDR: an animated PNG. */
+  const apngOf = (png: Buffer): Buffer => {
+    const data = Buffer.alloc(8);
+    data.writeUInt32BE(1, 0); // num_frames
+    const body = Buffer.concat([Buffer.from('acTL', 'latin1'), data]);
+    const chunk = Buffer.alloc(body.length + 8);
+    chunk.writeUInt32BE(data.length, 0);
+    body.copy(chunk, 4);
+    chunk.writeUInt32BE(crc32(body), body.length + 4);
+    const afterIhdr = 8 + 25; // the signature, then IHDR (length, type, 13 bytes, CRC)
+    return Buffer.concat([png.subarray(0, afterIhdr), chunk, png.subarray(afterIhdr)]);
+  };
+
   it('magic bytes that are not the declared allowed image → 415, nothing reaches the worker', async () => {
     const m = await member();
     const png = await (await import('sharp'))
@@ -277,6 +291,8 @@ describe('POST /uploads/:id/complete', () => {
       [Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'), 'image/png'],
       [Buffer.from('GIF89a\x01\x00\x01\x00\x00\x00\x00;'), 'image/webp'],
       [png, 'image/jpeg'],
+      // An APNG declared as a PNG (owner Q7: refused): an acTL chunk before the first IDAT makes file-type say apng.
+      [apngOf(png), 'image/png'],
     ];
     for (const [bytes, type] of cases) {
       const { id, done } = await f.upload(m.token, museumId, bytes, type);
