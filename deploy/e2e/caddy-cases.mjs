@@ -67,20 +67,24 @@ function send(via, path, opts = {}, tries = 3) {
   };
   const started = Date.now();
   return new Promise((resolve, reject) => {
+    let answered = false;
     const req = (tls ? https : http).request(options, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
-      res.on('end', () =>
+      res.on('end', () => {
+        answered = true;
         resolve({
           status: res.statusCode,
           headers: res.headers,
           body: Buffer.concat(chunks).toString('utf8'),
           ms: Date.now() - started,
-        }),
-      );
+        });
+      });
     });
     req.setTimeout(20_000, () => req.destroy(new Error('timeout')));
     req.on('error', (err) => {
+      // The whole answer was read: a reset after it (Caddy closing on a body it refused) changes nothing.
+      if (answered) return;
       // A body over a cap: Caddy answers 413 and closes while this client may still be writing, and the reset can
       // beat the answer (seen once in P3b, on the 2 MiB + 1 import case). Only a write-side reset of a request with
       // a body is sent again; the case still has to see its 413 and headers.
