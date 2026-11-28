@@ -73,3 +73,20 @@ Run after the first P3b deploy, with one real photo published from a trusted acc
 5. A deleted variant is gone from `media.<domain>` within the 4 h edge TTL: delete the photo, then `curl -sI` its URL after 4 h and expect 404.
 6. The iPhone check: choose a photo from the library on an iPhone. The file input must hand over a JPEG: iOS should convert HEIC because the input accepts only JPEG, PNG and WebP [U: WebKit's source and a 2025 test say so; this check proves it, A§12].
 7. A slow-link upload through the tunnel: upload a 20 MiB photo from a phone on a slow connection. The 8 MiB chunks must finish inside Cloudflare's request timeouts (about 100 s) and under its 100 MB body cap. Note the link speed and the result.
+8. The worker's egress sets (A§17.4, owner Q3), after `mjk-install`:
+   - the units' DNS: `systemctl status mjk-firewall.service` and `journalctl -u mjk-tick --since 1h` name no `worker_dst4` problem, and `nft list set inet mjk worker_dst4` has elements;
+   - `*.eu.r2.cloudflarestorage.com` and both Protomaps hosts resolve into `cf4` or `worker_dst4`: `getent ahostsv4 <host>` against `nft list set inet mjk cf4` and the set above;
+   - from the worker's namespace an address outside the sets is dropped while the rest works: the worker probes of `docs/runbooks/install.md` §8 (the hardened busybox `probe` there: 9.9.9.9:443 dropped, a `worker_dst4` address and a `cf4` address allowed, port 80 dropped), while `sync-museums --dry-run`, a mail (`admin invite create --uses 1 --days 1 --email <your address>`), an R2 upload (a photo, or `admin tiles refresh`) and the healthchecks ping all work.
+
+## 8. Museum images from Wikimedia Commons
+
+The weekly `commons_sync` (Thursday 04:11) checks every museum's Commons file and queues `commons_image`, which fetches the 1920 px rendering from `upload.wikimedia.org`, decodes it in `media` and publishes our own variants with the credit as plain text (ADR-0018, A§12). A file whose licence is not CC0, public domain, CC BY or CC BY-SA, or that has no author where the licence needs one, is skipped with a fixed code and never shown.
+
+To take an image off a museum page:
+
+```bash
+mjkc --profile tools run --rm admin museum image hide <museum>
+mjkc --profile tools run --rm admin museum image unhide <museum>
+```
+
+`hide` takes it off the page at once; the worker deletes its objects within seconds (and the edge copy expires within the 4 h edge TTL). `unhide` fetches it again, and exits 65 `hide_not_processed_yet` while the worker has not yet handled the hide: try again a minute later. Exit 66 is a museum without an image row, 64 bad usage. Each writes one `audit_log` row (`museum.image_hide` or `museum.image_unhide`).

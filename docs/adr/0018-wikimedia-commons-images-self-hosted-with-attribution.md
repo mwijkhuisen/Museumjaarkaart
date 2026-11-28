@@ -50,3 +50,6 @@
 
 - **The rendering is 1920 px** (owner Q8): the job asks `imageinfo` for `iiurlwidth=1920` and downloads that rendering; the original only when it is smaller than 1920 px.
 - **The allowlist stays two hosts.** `imageinfo` names most `thumburl`s on `thumb.wikimedia.org` (P3b's recording, 2026-11-27); the same path is served by `upload.wikimedia.org`, so the job rewrites the host and downloads from `upload.wikimedia.org` (`apps/server/src/museums/commons/api.ts`). The hosts the job may contact stay `commons.wikimedia.org` and `upload.wikimedia.org`.
+- **Its own weekly check:** `commons_sync` runs Thursday 04:11, apart from the museum sync, and queues `commons_image` per changed museum, 10 s apart, so the `media` role takes them one by one.
+- **Our copy moves before the old one goes:** a new image is put under a new random key and the row points at it before the previous image's objects are deleted, so a page never names a deleted object.
+- **Hiding is the admin CLI's** (`admin museum image hide|unhide`, as `mjk_api`, which holds no R2 key): the image leaves the page at once and the worker deletes the objects (A§12).
