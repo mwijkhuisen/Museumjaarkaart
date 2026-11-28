@@ -8,9 +8,12 @@
 # come from /etc/mjk/secrets and group_add matches A§17.3's table; no environment key looks like
 # a secret and none is DATABASE_URL; no name holds `rws` or `f1` (names only, never digests).
 # P3b: `media` (the photo decoder) has network_mode none, no network, secret or GID; no other service
-# may set network_mode.
+# may set network_mode. Its only mount is the volume media-work at /srv/mjk/media-work (no bind, so no
+# host path), it has no env_file and no environment, and that volume is a size-capped tmpfs (P3b review).
 #   deploy/tests/hardening.sh [compose file]    (default: deploy/compose.yaml)
-# The argument exists for the mutation checks on a temporary copy. The production paths
+# The argument exists for the mutation checks on a temporary copy: without one, after the file passes, the
+# script runs itself on mutated copies of it (media with originals mounted, with mjk.env, with an
+# environment, with media-work as a host bind, with an uncapped media-work) and each must fail. The production paths
 # (/etc/mjk, /srv/mjk) stay literal in the file. Compose v5 renders it with `--no-env-resolution`
 # without reading /etc/mjk/mjk.env, but Compose v2 (the GitHub runner's, 2.38) still reads every
 # env_file. So the check renders a staged copy: every /etc/mjk/ and /srv/mjk/ path outside a comment
@@ -134,6 +137,13 @@ def forbidden_path: test("docker\\.sock|^/(etc|srv)/(rws|f1)(/|$)|(^|/)\\.\\.(/|
       (if ($s.cap_add // []) | length > 0 then fail("\($n): cap_add \($s.cap_add | tojson)") else empty end),
       (if $n == "media" then (if $s.network_mode != "none" then fail("media: network_mode \($s.network_mode | tojson), not \"none\"") else empty end)
        elif $s.network_mode != null then fail("\($n): network_mode \($s.network_mode)") else empty end),
+      (if $n == "media" then
+         ([$s.volumes[]? | {type, source, target}]) as $mv
+         | (if $mv != [{"type": "volume", "source": "media-work", "target": "/srv/mjk/media-work"}]
+            then fail("media: mounts \($mv | tojson); only the volume media-work at /srv/mjk/media-work") else empty end),
+           (if ($s.env_file // []) | length > 0 then fail("media: env_file \([$s.env_file[]? | .path] | join(" "))") else empty end),
+           (if ($s.environment // {}) | length > 0 then fail("media: environment \($s.environment | keys | join(" "))") else empty end)
+       else empty end),
       (["pid", "ipc", "uts", "userns_mode", "cgroup"][] as $k
         | select($s[$k] != null and $s[$k] != "private") | fail("\($n): \($k) \($s[$k])")),
       (if ($s.devices // []) | length > 0 then fail("\($n): devices") else empty end),
@@ -207,6 +217,9 @@ def forbidden_path: test("docker\\.sock|^/(etc|srv)/(rws|f1)(/|$)|(^|/)\\.\\.(/|
          then fail("network \($k): enable_icc is not false") else empty end)
        else empty end)),
 
+  (($c.volumes["media-work"].driver_opts // {}) as $o
+    | if $o.type != "tmpfs" or $o.device != "tmpfs" or (($o.o // "") | test("(^|,)size=[1-9][0-9]*[kmg]?(,|$)") | not)
+      then fail("volume media-work is not a size-capped tmpfs: \($o | tojson)") else empty end),
   ($c.volumes // {} | to_entries[]
     | (if (.value.name // "") | startswith("mjk_") | not then fail("volume \(.key) is named \(.value.name | tojson)") else empty end),
       (if .value.external == true then fail("volume \(.key) is external") else empty end)),
@@ -236,3 +249,40 @@ if [[ -n $violations ]]; then
   exit 1
 fi
 echo "hardening: ok ($(jq '.services | length' "$tmp/config.json") services, $(jq '.networks | length' "$tmp/config.json") networks)"
+
+# The mutation checks (P3b review): only on a run without an argument, so a mutated copy never recurses.
+(($# == 0)) || exit 0
+# A copy of the file with `vol` printed after media's `volumes:` line and `top` after its command line.
+media_mutant() {
+  awk -v vol="$2" -v top="$3" '
+    /^  [a-z][a-z-]*:$/ { inm = ($0 == "  media:") }
+    { print }
+    inm && vol != "" && /^    volumes:$/ { print vol }
+    inm && top != "" && /^    command: \["media"\]$/ { print top }
+  ' "$compose_file" >"$1"
+}
+mut=$tmp/mutants
+mkdir "$mut"
+media_mutant "$mut/originals.yaml" $'      - type: bind\n        source: /srv/mjk/originals\n        target: /srv/mjk/originals\n        bind:\n          create_host_path: false' ''
+media_mutant "$mut/env-file.yaml" '' $'    env_file:\n      - path: /etc/mjk/mjk.env\n        required: true'
+media_mutant "$mut/environment.yaml" '' $'    environment:\n      MJK_DOMAIN: example.test'
+sed '/^  media:$/,/^  [a-z][a-z-]*:$/ { s#- type: volume#- type: bind#; s#source: media-work#source: /srv/mjk/media-work# }' \
+  "$compose_file" >"$mut/bind.yaml"
+sed '/^  media-work:$/,/^[a-z]/ s#o: "size=[^,]*,#o: "#' "$compose_file" >"$mut/uncapped.yaml"
+declare -A want=(
+  [originals]='media: mounts' [env-file]='media: env_file' [environment]='media: environment'
+  [bind]='media: mounts' [uncapped]='volume media-work is not a size-capped tmpfs'
+)
+for name in "${!want[@]}"; do
+  cmp -s "$compose_file" "$mut/$name.yaml" && { echo "hardening: the mutation $name changed nothing" >&2; exit 1; }
+  if "${BASH_SOURCE[0]}" "$mut/$name.yaml" >"$mut/$name.out" 2>&1; then
+    echo "FAIL the mutation $name passed" >&2
+    exit 1
+  fi
+  grep -qF -- "FAIL ${want[$name]}" "$mut/$name.out" || {
+    cat "$mut/$name.out" >&2
+    echo "FAIL the mutation $name failed for another reason" >&2
+    exit 1
+  }
+done
+echo "hardening: ${#want[@]} mutations of media's mounts, environment and media-work refused"
