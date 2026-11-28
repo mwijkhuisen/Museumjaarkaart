@@ -79,8 +79,13 @@ async function attachPhotos(trx: Db, userId: string, reviewId: string, input: Re
     .returning(['id', 'state'])
     .execute();
   if (attached.length !== ids.length) return false;
-  const trusted = await trx.selectFrom('app_user').select('trusted_at').where('id', '=', userId).executeTakeFirst();
-  if (trusted?.trusted_at != null)
+  // A banned member has no session (auth/session.ts), so the status check is defence in depth (P3b review L3).
+  const owner = await trx
+    .selectFrom('app_user')
+    .select(['trusted_at', 'status'])
+    .where('id', '=', userId)
+    .executeTakeFirst();
+  if (owner?.trusted_at != null && owner.status === 'active')
     for (const m of attached)
       if (m.state === 'pending_review') await enqueueIn(trx, MEDIA_PUBLISH_JOB, { media_id: m.id }, {});
   return true;

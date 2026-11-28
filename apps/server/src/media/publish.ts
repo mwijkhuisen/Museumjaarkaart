@@ -12,7 +12,7 @@ import { JobError, type JobHandler } from '../worker/types.ts';
 import { removeUpload } from './files.ts';
 import { QUARANTINE_DIR } from './limits.ts';
 import { MEDIA_SECRET_PATH, PUT_MAX_BYTES, R2Client, readR2Config } from './r2.ts';
-import { VARIANT_CONTENT_TYPE, variantKey } from './types.ts';
+import { MEDIA_PUBLISH_JOB, VARIANT_CONTENT_TYPE, variantKey } from './types.ts';
 
 // The `media_publish` job (A§12, P3b WP4), as mjk_worker: a photo in `pending_review`, attached to a review, whose
 // owner is trusted (P3c adds a moderator's approval), gets its variants on R2 and its original in
@@ -155,6 +155,32 @@ async function writeOriginal(dir: string, id: string, bytes: Buffer): Promise<vo
   }
 }
 
+/**
+ * Whether a `media_publish` job for this photo ran before this one: a retry of the running job (attempts > 1) or
+ * another job that ran at all (WP4's rule in remove.ts).
+ */
+async function ranBefore(db: Db, id: string): Promise<boolean> {
+  const row = await db
+    .selectFrom('job')
+    .select('id')
+    .where('kind', '=', MEDIA_PUBLISH_JOB)
+    .where(sql`payload ->> 'media_id'`, '=', id)
+    .where(sql<boolean>`attempts > CASE WHEN state = 'running' THEN 1 ELSE 0 END`)
+    .limit(1)
+    .executeTakeFirst();
+  return row !== undefined;
+}
+
+/** Deletes a photo's variant keys (a 404 is fine) and its original. Idempotent. */
+async function unpublish(d: MediaJobDeps, id: string, originalsDir: string, signal: AbortSignal): Promise<void> {
+  const keys = await d.db.selectFrom('media_variant').select('object_key').where('media_id', '=', id).execute();
+  if (keys.length > 0) {
+    const r2 = r2Of(d);
+    for (const k of keys) await r2.delete(k.object_key, { signal });
+  }
+  await removeOriginal(originalsDir, id);
+}
+
 export type PublishDeps = MediaJobDeps & {
   /** Test seam: runs after the PUTs and the original, before the approving UPDATE. */
   beforeApprove?: () => Promise<void>;
@@ -171,11 +197,17 @@ export function mediaPublishJob(d: PublishDeps): JobHandler {
     const m = await db
       .selectFrom('media as m')
       .innerJoin('app_user as u', 'u.id', 'm.user_id')
-      .select(['m.state', 'm.review_id', 'm.public_key', 'm.declared_size', 'u.trusted_at'])
+      .select(['m.state', 'm.review_id', 'm.public_key', 'm.declared_size', 'u.trusted_at', 'u.status'])
       .where('m.id', '=', id)
       .executeTakeFirst();
-    // Not (or no longer) publishable: a no-op. P3c's moderator approval joins the trust check here.
-    if (m === undefined || m.state !== 'pending_review' || m.review_id === null || m.trusted_at === null) return;
+    if (m === undefined || m.state !== 'pending_review') return;
+    // Not (or no longer) publishable. P3c's moderator approval joins the trust check here; a banned or deleted
+    // member's trust no longer counts. A run before this one may have died after its PUTs and its original, before
+    // the approving UPDATE (P3b review L2): what it put goes, so no unreviewed photo stays on R2 or in a backup.
+    if (m.review_id === null || m.trusted_at === null || m.status !== 'active') {
+      if (await ranBefore(db, id)) await unpublish(d, id, originalsDir, signal);
+      return;
+    }
     if (m.public_key === null) throw new JobError('media_variant_invalid', { retry: false });
 
     const rows = await db
@@ -222,7 +254,8 @@ export function mediaPublishJob(d: PublishDeps): JobHandler {
           selectFrom('app_user as u')
             .select(sql`1`.as('one'))
             .whereRef('u.id', '=', 'media.user_id')
-            .where('u.trusted_at', 'is not', null),
+            .where('u.trusted_at', 'is not', null)
+            .where('u.status', '=', 'active'),
         ),
       )
       .executeTakeFirst();

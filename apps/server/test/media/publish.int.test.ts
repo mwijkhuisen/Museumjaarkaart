@@ -126,6 +126,40 @@ if (minioUrl === '') {
       await expectUntouched(ph);
     });
 
+    it('a banned member’s photo is left alone, before the PUTs and between them and the UPDATE (L3)', async () => {
+      const before = await pendingPhoto(p, quarantine);
+      await p.owner.query(`UPDATE app_user SET status = 'banned' WHERE id = $1`, [before.userId]);
+      await run(before.id);
+      await expectUntouched(before);
+      const between = await pendingPhoto(p, quarantine);
+      await run(between.id, {
+        beforeApprove: async () => {
+          await p.owner.query(`UPDATE app_user SET status = 'banned' WHERE id = $1`, [between.userId]);
+        },
+      });
+      await expectUntouched(between);
+    });
+
+    it('a retry that finds trust revoked deletes what a run that died before its UPDATE put (L2)', async () => {
+      const died = await pendingPhoto(p, quarantine);
+      const img = await readFile(join(quarantine, died.id, 'v', '400.webp'));
+      // The dead run: its PUTs and its original, then nothing.
+      for (const key of died.keys) await c.put(key, img, { contentType: 'image/webp', cacheControl: 'no-store' });
+      await writeFile(join(originals, died.id), died.original);
+      await p.owner.query('UPDATE app_user SET trusted_at = NULL WHERE id = $1', [died.userId]);
+      // Without an earlier run there is nothing to undo: the stray keys stay (no run of ours put them).
+      await run(died.id);
+      expect(await onBucket(died)).toHaveLength(died.keys.length);
+      // The retry: the running job's second attempt.
+      await p.owner.query(`INSERT INTO job (kind, state, attempts, payload) VALUES ('media_publish', 'running', 2, $1)`, [
+        JSON.stringify({ media_id: died.id }),
+      ]);
+      await run(died.id);
+      await expectUntouched(died);
+      await run(died.id); // idempotent: the 404s are fine
+      await expectUntouched(died);
+    });
+
     it('a failure part-way leaves nothing; the retry publishes; a leftover temp original is replaced', async () => {
       const ph = await pendingPhoto(p, quarantine);
       let puts = 0;

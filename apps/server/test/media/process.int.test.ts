@@ -183,12 +183,17 @@ describe('media_process with the real media role', () => {
     const attached = await quarantined(trusted, await noise(120, 80).jpeg().toBuffer(), 'image/jpeg', true);
     const unattached = await quarantined(trusted, await noise(120, 80).jpeg().toBuffer());
     const other = await quarantined(untrusted, await noise(120, 80).jpeg().toBuffer(), 'image/jpeg', true);
-    const done = await runJobs([attached, unattached, other], realDecode());
-    expect(done.map((j) => j.state)).toEqual(['done', 'done', 'done']);
+    // A trusted member banned meanwhile: their trust no longer counts (P3b review L3).
+    const banned = await member({ trusted: true });
+    const ofBanned = await quarantined(banned, await noise(120, 80).jpeg().toBuffer(), 'image/jpeg', true);
+    await f.p.owner.query(`UPDATE app_user SET status = 'banned' WHERE id = $1`, [banned.id]);
+    const done = await runJobs([attached, unattached, other, ofBanned], realDecode());
+    expect(done.map((j) => j.state)).toEqual(['done', 'done', 'done', 'done']);
     expect((await jobs(attached, MEDIA_PUBLISH_JOB)).length).toBe(1);
     expect(await jobs(unattached, MEDIA_PUBLISH_JOB)).toEqual([]);
     expect(await jobs(other, MEDIA_PUBLISH_JOB)).toEqual([]);
-    for (const id of [attached, unattached, other]) expect((await media(id))?.state).toBe('pending_review');
+    expect(await jobs(ofBanned, MEDIA_PUBLISH_JOB)).toEqual([]);
+    for (const id of [attached, unattached, other, ofBanned]) expect((await media(id))?.state).toBe('pending_review');
   }, 60_000);
 
   it('fails a decompression bomb with media_too_many_pixels, then processes the next photo', async () => {

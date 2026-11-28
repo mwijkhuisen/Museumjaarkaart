@@ -110,10 +110,10 @@ export function mediaProcessJob(deps: { db: Db; quarantineDir: string; decode: D
       if (m.review_id !== null) {
         const owner = await trx
           .selectFrom('app_user')
-          .select('trusted_at')
+          .select(['trusted_at', 'status'])
           .where('id', '=', m.user_id)
           .executeTakeFirst();
-        if (owner?.trusted_at != null) await enqueueIn(trx, MEDIA_PUBLISH_JOB, { media_id: id }, {});
+        if (owner?.trusted_at != null && owner.status === 'active') await enqueueIn(trx, MEDIA_PUBLISH_JOB, { media_id: id }, {});
       }
       return true;
     });
