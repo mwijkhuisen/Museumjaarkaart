@@ -47,16 +47,20 @@ describe('expectedHeight', () => {
     [401, 3, 400, 3],
     [3, 1000, 3, 1000],
     [2000, 1, 400, 1],
-  ])('%i×%i to %i is %i high', async (w, h, to, want) => {
-    expect(expectedHeight(w, h, to)).toBe(want);
-    if (w * h <= 12_000_000) {
-      const got = await noise(w, h)
-        .resize({ width: to, withoutEnlargement: true })
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      expect(got.info.height).toBe(want);
-    }
-  });
+  ])(
+    '%i×%i to %i is %i high',
+    async (w, h, to, want) => {
+      expect(expectedHeight(w, h, to)).toBe(want);
+      if (w * h <= 12_000_000) {
+        const got = await noise(w, h)
+          .resize({ width: to, withoutEnlargement: true })
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        expect(got.info.height).toBe(want);
+      }
+    },
+    30_000,
+  );
 });
 
 describe('sharp outputs pass', () => {
@@ -93,15 +97,19 @@ describe('sharp outputs pass', () => {
       ['a rotated JPEG', rotatedJpeg, 'jpeg'],
       ['a JPEG full of metadata', canaryJpeg, 'jpeg'],
       ['a PNG with alpha', () => alpha(1999, 1001).png().toBuffer(), 'png'],
-    ] as const)('%s', async (name, make, format) => {
-      const path = join(dir, name.replaceAll(' ', '-'));
-      await writeFile(path, await make());
-      const r = await decodeSource(path, format, Date.now() + 60_000);
-      if (!r.ok) throw new Error(r.code);
-      for (const v of r.variants) {
-        expect(checkVariant(v.bytes, v.format, v.width, expectedHeight(r.width, r.height, v.width))).toBe(true);
-      }
-    });
+    ] as const)(
+      '%s',
+      async (name, make, format) => {
+        const path = join(dir, name.replaceAll(' ', '-'));
+        await writeFile(path, await make());
+        const r = await decodeSource(path, format, Date.now() + 60_000);
+        if (!r.ok) throw new Error(r.code);
+        for (const v of r.variants) {
+          expect(checkVariant(v.bytes, v.format, v.width, expectedHeight(r.width, r.height, v.width))).toBe(true);
+        }
+      },
+      60_000,
+    ); // a 12 MP decode into six variants: about 5 s on CI's runner, past Vitest's default 5 s
   });
 });
 
