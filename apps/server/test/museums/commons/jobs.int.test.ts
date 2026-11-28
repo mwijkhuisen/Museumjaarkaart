@@ -14,6 +14,7 @@ import type { Decode } from '../../../src/media/types.ts';
 import { type CommonsDeps, commonsImageJob } from '../../../src/museums/commons/image-job.ts';
 import { commonsSyncJob } from '../../../src/museums/commons/sync-job.ts';
 import { getMuseumDetail } from '../../../src/museums/detail.ts';
+import { JobError } from '../../../src/worker/types.ts';
 import { jpeg } from '../../media/fixtures.ts';
 import { dropBucket, listKeys, minioBucket, minioUrl } from '../../media/pending.ts';
 import { openPassportDb, type PassportDb } from '../../passport/fixtures.ts';
@@ -36,6 +37,7 @@ if (minioUrl === '') {
     mime?: string;
     licence?: string | null;
     artist?: string | null;
+    restrictions?: string;
     missing?: boolean;
     /** The file host's answer: a redirect, or other bytes. */
     redirect?: boolean;
@@ -116,6 +118,7 @@ if (minioUrl === '') {
                   extmetadata: {
                     ...(f.licence === null ? {} : { License: { value: f.licence ?? 'cc-by-sa-4.0' } }),
                     ...(f.artist === null ? {} : { Artist: { value: f.artist ?? '<a href="//x">Jane Doe</a>' } }),
+                    ...(f.restrictions === undefined ? {} : { Restrictions: { value: f.restrictions } }),
                   },
                 },
               ],
@@ -405,6 +408,55 @@ if (minioUrl === '') {
       expect(await row(m.id)).toBeUndefined();
       expect(await listKeys(c)).toEqual([]);
       await quarantineEmpty();
+    });
+
+    it('a rendering that does not decode is skipped, and the sync does not fetch it again (code review L5)', async () => {
+      const m = await museum({ sha1: sha(71) });
+      const bad: Decode = async () => {
+        throw new JobError('media_decode_failed', { retry: false });
+      };
+      await image(m.id, { decode: bad });
+      expect(await row(m.id)).toMatchObject({ state: 'skipped', skip_code: 'commons_decode_failed', sha1: sha(71) });
+      expect(await listKeys(c)).toEqual([]);
+      await quarantineEmpty();
+      await sync();
+      expect(await queued()).toEqual([]);
+      // A new sha1 is a new try.
+      Object.assign(commons.get(m.name) as F, { sha1: sha(72) });
+      await sync();
+      expect((await queued()).map((q) => q.museum_id)).toEqual([m.id]);
+      // A retryable failure (the role never took it) writes nothing and is retried.
+      const busy: Decode = async () => {
+        throw new JobError('media_not_taken');
+      };
+      await failsWith(image(m.id, { decode: busy }), 'media_not_taken', true);
+      expect(await row(m.id)).toMatchObject({ skip_code: 'commons_decode_failed', sha1: sha(71) });
+    });
+
+    it('a file with any Restrictions is skipped, and taken again once they are gone (security review L4)', async () => {
+      const m = await museum({ sha1: sha(81), restrictions: 'personality' });
+      await image(m.id);
+      expect(await row(m.id)).toMatchObject({ state: 'skipped', skip_code: 'commons_restricted' });
+      expect(await listKeys(c)).toEqual([]);
+      expect(hits).not.toContain('file');
+      delete (commons.get(m.name) as F).restrictions;
+      await sync();
+      expect((await queued()).map((q) => q.museum_id)).toEqual([m.id]);
+    });
+
+    it('the row goes before the objects when the file is gone, so a failed delete never leaves a row naming them (L6)', async () => {
+      const failing = {
+        put: (...args: Parameters<R2Client['put']>) => c.put(...args),
+        delete: () => Promise.reject(new Error('boom')),
+      } as unknown as R2Client;
+      for (const run of [(id: string) => image(id, { r2: failing }), () => sync({ r2: failing })]) {
+        const m = await museum({ sha1: sha(90 + seq) });
+        await image(m.id);
+        await p.owner.query('UPDATE museum SET commons_file = NULL WHERE id = $1', [m.id]);
+        await expect(run(m.id)).rejects.toThrow('boom');
+        expect(await row(m.id)).toBeUndefined();
+        for (const key of await listKeys(c)) await c.delete(key);
+      }
     });
 
     it('a malformed payload fails the job without retry', async () => {

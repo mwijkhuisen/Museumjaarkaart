@@ -1,6 +1,5 @@
 import { setTimeout as sleepFor } from 'node:timers/promises';
 import { sql } from 'kysely';
-import type { Db } from '../../db/kysely.ts';
 import { r2Of } from '../../media/publish.ts';
 import { enqueueIn } from '../../worker/queue.ts';
 import { JobError, type JobHandler } from '../../worker/types.ts';
@@ -23,6 +22,7 @@ const RETRYABLE_SKIPS = new Set([
   'commons_attribution_missing',
   'commons_file_missing',
   'commons_hidden',
+  'commons_restricted',
 ]);
 
 type Counts = Record<'museums' | 'queued' | 'removed' | 'skipped' | 'unchanged' | 'invalid' | 'failed', number>;
@@ -42,8 +42,9 @@ export function commonsSyncJob(d: CommonsDeps & { sleep?: (ms: number) => Promis
       .where('m.commons_file', 'is', null)
       .execute();
     for (const g of gone) {
-      if (g.public_key !== null) await deleteKeys(r2Of(d), imageKeys(g.public_key, g.widths ?? []), signal);
+      // The row first, then the objects (ADR-0018): a page never names a deleted object.
       await db.deleteFrom('museum_image').where('museum_id', '=', g.museum_id).execute();
+      if (g.public_key !== null) await deleteKeys(r2Of(d), imageKeys(g.public_key, g.widths ?? []), signal);
       counts.removed++;
     }
 

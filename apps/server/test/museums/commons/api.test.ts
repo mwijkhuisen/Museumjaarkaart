@@ -21,7 +21,7 @@ describe('imageInfoUrl', () => {
       prop: 'imageinfo',
       iiprop: 'url|sha1|size|mime|extmetadata',
       iiurlwidth: String(THUMB_WIDTH),
-      iiextmetadatafilter: 'License|LicenseShortName|Artist|Attribution',
+      iiextmetadatafilter: 'License|LicenseShortName|Artist|Attribution|Restrictions',
       titles: 'File:A b.jpg|File:C.png',
     });
   });

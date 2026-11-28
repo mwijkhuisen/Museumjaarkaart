@@ -28,6 +28,8 @@ export type Verdict = { ok: true; licence: string; attribution: string | null } 
 export function judge(p: Present): Verdict {
   const l = licenceCode(p.licence);
   if (!l.ok) return l;
+  // A restriction (personality rights, a trademark, …) is not ours to judge: skipped (P3b security review L4).
+  if (p.restrictions !== null) return { ok: false, code: 'commons_restricted' };
   const attribution = attributionText(p.attributionHtml);
   if (attribution === null && attributionRequired(l.code)) return { ok: false, code: 'commons_attribution_missing' };
   if (!COMMONS_MIME.includes(p.mime)) return { ok: false, code: 'commons_type_not_allowed' };

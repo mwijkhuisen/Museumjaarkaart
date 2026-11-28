@@ -25,7 +25,7 @@ export function imageInfoUrl(files: readonly string[]): string {
     prop: 'imageinfo',
     iiprop: 'url|sha1|size|mime|extmetadata',
     iiurlwidth: String(THUMB_WIDTH),
-    iiextmetadatafilter: 'License|LicenseShortName|Artist|Attribution',
+    iiextmetadatafilter: 'License|LicenseShortName|Artist|Attribution|Restrictions',
     titles: files.map((f) => `File:${f}`).join('|'),
   });
   return `${COMMONS_API}?${params.toString()}`;
@@ -45,6 +45,8 @@ export type ImageInfoResult =
       thumbUrl: string;
       licence: string | null;
       attributionHtml: string | null;
+      /** `extmetadata.Restrictions` (personality rights, trademarks, …): any value skips the file. */
+      restrictions: string | null;
     }
   | { file: string; state: 'invalid'; code: ImageInfoCode };
 
@@ -135,6 +137,7 @@ export function parseImageInfo(json: unknown, requested: readonly string[]): Par
       thumbUrl: `https://upload.wikimedia.org${thumb.pathname}`,
       licence: metaText(extmetadata, 'License'),
       attributionHtml: metaText(extmetadata, 'Attribution') ?? metaText(extmetadata, 'Artist'),
+      restrictions: metaText(extmetadata, 'Restrictions'),
     };
   });
   return { ok: true, results };

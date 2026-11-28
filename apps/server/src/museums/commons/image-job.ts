@@ -78,10 +78,10 @@ export function commonsImageJob(d: CommonsDeps): JobHandler {
     if (row?.state === 'hidden') return dropHidden(db, d, id, signal);
     const file = m?.commons_file ?? null;
     if (file === null) {
-      // No file any more (or no museum): our copy and its row go.
+      // No file any more (or no museum): the row goes first, then our copy, so a page never names a deleted object.
       if (row === undefined) return;
-      if (row.public_key !== null) await deleteKeys(r2Of(d), imageKeys(row.public_key, row.widths ?? []), signal);
       await db.deleteFrom('museum_image').where('museum_id', '=', id).where('state', '<>', 'hidden').execute();
+      if (row.public_key !== null) await deleteKeys(r2Of(d), imageKeys(row.public_key, row.widths ?? []), signal);
       return;
     }
 
@@ -133,6 +133,15 @@ export function commonsImageJob(d: CommonsDeps): JobHandler {
         await fh.close();
       }
       decoded = await (d.decode ?? createDecode())({ path, expect }, signal);
+    } catch (err) {
+      // The rendering does not decode (or breaks a limit): skipped, so the weekly sync does not fetch the same bytes
+      // again; a new sha1 or file is a new try. A retryable failure (the role busy, an abort) is retried.
+      if (err instanceof JobError && !err.retry) {
+        await writeSkipped(db, d, id, file, result.sha1, 'commons_decode_failed', signal);
+        d.logger?.warn({ code: err.code }, 'commons_decode_failed');
+        return;
+      }
+      throw err;
     } finally {
       await removeTree(dir);
     }
