@@ -37,11 +37,14 @@ stage=$tmp/stage
 ! grep -qF -- "$stage" "$compose_file" || { echo "hardening: the stage path occurs in $compose_file" >&2; exit 2; }
 staged=$tmp/compose.yaml
 sed -E "/^[[:space:]]*#/! s#(^|[^A-Za-z0-9_./-])/(etc|srv)/mjk/#\1$stage/\2/mjk/#g" "$compose_file" >"$staged"
-# One empty stand-in, for exactly /etc/mjk/mjk.env, the only file rendering reads (Compose v2 reads
+# One stand-in, for exactly /etc/mjk/mjk.env, the only file rendering reads (Compose v2 reads
 # env_file; secret files and bind sources are not opened). So an env_file that names any other path
-# still fails: Compose v2 cannot find it, and under v5 the env_file check below names it.
+# still fails: Compose v2 cannot find it, and under v5 the env_file check below names it. Compose v2 also
+# folds an env_file into `environment` and drops the key from its output, so the stand-in holds one
+# sentinel key: an env_file on `media` then shows as that environment key under v2 (proven with Compose
+# 2.40.3: an empty stand-in let the env-file mutation through) and as the env_file under v5.
 mkdir -p "$stage/etc/mjk"
-: >"$stage/etc/mjk/mjk.env"
+printf 'MJK_HARDENING_STANDIN=1\n' >"$stage/etc/mjk/mjk.env"
 
 # env -i: no COMPOSE_* or MJK_* from the caller; --env-file /dev/null: no .env next to the file.
 env -i PATH="$PATH" HOME="${HOME:-$tmp}" ${DOCKER_HOST:+DOCKER_HOST="$DOCKER_HOST"} \
@@ -269,8 +272,10 @@ media_mutant "$mut/environment.yaml" '' $'    environment:\n      MJK_DOMAIN: ex
 sed '/^  media:$/,/^  [a-z][a-z-]*:$/ { s#- type: volume#- type: bind#; s#source: media-work#source: /srv/mjk/media-work# }' \
   "$compose_file" >"$mut/bind.yaml"
 sed '/^  media-work:$/,/^[a-z]/ s#o: "size=[^,]*,#o: "#' "$compose_file" >"$mut/uncapped.yaml"
+# The env-file mutation fails as `media: env_file` under Compose v5 and as `media: environment
+# MJK_HARDENING_STANDIN` under v2 (see the stand-in above): either of media's two env pins.
 declare -A want=(
-  [originals]='media: mounts' [env-file]='media: env_file' [environment]='media: environment'
+  [originals]='media: mounts' [env-file]='media: env' [environment]='media: environment'
   [bind]='media: mounts' [uncapped]='volume media-work is not a size-capped tmpfs'
 )
 for name in "${!want[@]}"; do
