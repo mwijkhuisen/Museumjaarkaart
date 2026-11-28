@@ -53,7 +53,8 @@ const ADMIN_HEADERS = {
  * One request. `via`: 'edge' (https through the stand-in), 'edge-http' (its plain-http site), or an
  * address of caddy (a direct, untrusted peer). Resolves with status, headers, body and the time taken.
  */
-function send(via, path, { host = DOMAIN, method = 'GET', headers = {}, body } = {}) {
+function send(via, path, opts = {}, tries = 3) {
+  const { host = DOMAIN, method = 'GET', headers = {}, body } = opts;
   const tls = via === 'edge';
   const options = {
     host: via === 'edge' || via === 'edge-http' ? EDGE : via,
@@ -79,7 +80,14 @@ function send(via, path, { host = DOMAIN, method = 'GET', headers = {}, body } =
       );
     });
     req.setTimeout(20_000, () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
+    req.on('error', (err) => {
+      // A body over a cap: Caddy answers 413 and closes while this client may still be writing, and the reset can
+      // beat the answer (seen once in P3b, on the 2 MiB + 1 import case). Only a write-side reset of a request with
+      // a body is sent again; the case still has to see its 413 and headers.
+      if (body && tries > 1 && /^write (ECONNRESET|EPIPE)$/.test(err.message))
+        resolve(send(via, path, opts, tries - 1));
+      else reject(err);
+    });
     req.end(body);
   });
 }
