@@ -3,9 +3,10 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// sharp and libvips load only in the `media` role (P3b plan §1 Q1): process.ts is the one importer of sharp,
-// role.ts the one importer of process.ts, and main.ts reaches role.ts only through a dynamic import, so the api,
-// ssr and worker processes never load them.
+// sharp and libvips load only in the `media` role's single-use child (P3b plan §1 Q1, security review M2 b):
+// process.ts is the one importer of sharp, task-child.ts the one importer of process.ts and is imported by nothing
+// (the role forks it by URL), and main.ts reaches role.ts only through a dynamic import, so the api, ssr, worker
+// and even the role's own process never load them.
 
 const SRC = fileURLToPath(new URL('../../src/', import.meta.url));
 
@@ -37,8 +38,10 @@ describe('the media role is the only process that loads sharp', () => {
     expect(importersOf('sharp')).toEqual(['media/process.ts']);
   });
 
-  it('only media/role.ts imports media/process.ts', () => {
-    expect(importersOf(join(SRC, 'media/process.ts'))).toEqual(['media/role.ts']);
+  it('only media/task-child.ts imports media/process.ts, and nothing imports the child', () => {
+    expect(importersOf(join(SRC, 'media/process.ts'))).toEqual(['media/task-child.ts']);
+    expect(importersOf(join(SRC, 'media/task-child.ts'))).toEqual([]);
+    expect(readFileSync(join(SRC, 'media/role.ts'), 'utf8')).toContain("new URL('./task-child.ts', import.meta.url)");
   });
 
   it('main.ts reaches media/role.ts only through a dynamic import, and nothing else imports it', () => {
@@ -50,10 +53,12 @@ describe('the media role is the only process that loads sharp', () => {
     ]);
   });
 
-  it('media/role.ts imports nothing of the database, auth, mail, api or R2', () => {
-    const role = join(SRC, 'media/role.ts');
-    for (const i of imports(role)) {
-      expect(target(role, i.spec)).not.toMatch(/\/src\/(db|auth|mail|api)\/|\/r2\.ts$|^pg$|^kysely$/);
+  it('media/role.ts and its child import nothing of the database, auth, mail, api or R2', () => {
+    for (const f of ['media/role.ts', 'media/task-child.ts', 'media/task.ts']) {
+      const file = join(SRC, f);
+      for (const i of imports(file)) {
+        expect(target(file, i.spec)).not.toMatch(/\/src\/(db|auth|mail|api)\/|\/r2\.ts$|^pg$|^kysely$/);
+      }
     }
   });
 });

@@ -1,3 +1,6 @@
+import { constants } from 'node:fs';
+import { open, rename } from 'node:fs/promises';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { PHOTO_MAX_PIXELS } from './limits.ts';
 
@@ -44,3 +47,19 @@ export const TaskResult = z.discriminatedUnion('ok', [
   z.strictObject({ ok: z.literal(false), code: z.enum([...DECODE_CODES, ABORTED_CODE]) }),
 ]);
 export type TaskResult = z.infer<typeof TaskResult>;
+
+const CREATE = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
+
+/** Writes `name` through a temporary name and a rename, so the worker never sees half a file. */
+export async function writeAtomic(dir: string, name: string, bytes: Uint8Array | string): Promise<void> {
+  const tmp = join(dir, `.${name}.tmp`);
+  const fh = await open(tmp, CREATE, 0o600);
+  try {
+    await fh.writeFile(bytes);
+  } finally {
+    await fh.close();
+  }
+  await rename(tmp, join(dir, name));
+}
+
+export const writeResult = (dir: string, result: TaskResult) => writeAtomic(dir, TASK.result, JSON.stringify(result));

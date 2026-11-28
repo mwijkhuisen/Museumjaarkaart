@@ -234,7 +234,8 @@ export async function run(
       }
       // Loaded only here, so the api, ssr and worker processes never load sharp or libvips.
       const { runMediaRole } = await import('./media/role.ts');
-      return runMediaRole({ signal: stopSignal(deps), heartbeatPath });
+      // The container's /tmp and PID namespace: wiped and swept after every task (media/role.ts).
+      return runMediaRole({ signal: stopSignal(deps), heartbeatPath, container: { tmpDir: '/tmp', procDir: '/proc' } });
     }
     case 'backup':
       if (rest.length > 0) {

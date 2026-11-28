@@ -1,30 +1,43 @@
+import { fork } from 'node:child_process';
 import { constants } from 'node:fs';
 import { lstat, open, readdir, rename } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { HEARTBEAT_PATH, startHeartbeat } from '../heartbeat.ts';
 import { createLogger, type Logger } from '../lib/log.ts';
 import { MEDIA_WATCHDOG_MS, MEDIA_WORK_DIR, PHOTO_JOB_MS } from './limits.ts';
-import { decodeSource } from './process.ts';
-import { ABORTED_CODE, TASK, type TaskResult, TaskSpec, variantName } from './task.ts';
+import { removeTree } from './remove-tree.ts';
+import { ABORTED_CODE, DECODE_CODES, TASK, TaskSpec, writeResult } from './task.ts';
+import type { SourceFormat } from './types.ts';
 
 // The `media` role (A§12, plan §1 Q1): the only process that decodes an uploaded image. Its container has no
 // network, no secret, no database login and one mount, the work directory it shares with the worker. It takes one
-// task at a time (the oldest `ready`, renamed to `taken`), decodes `in` and writes flat fixed names, each through
-// a temporary name and a rename, `result.json` last. It imports nothing of the database, auth, mail, api or R2.
+// task at a time (the oldest `ready`, renamed to `taken`) and hands it to a single-use child (media/task-child.ts),
+// which decodes `in` and writes flat fixed names, each through a temporary name and a rename, `result.json` last.
+// After every task the child's process group is killed, every other process of the container too, and /tmp is
+// wiped but for the heartbeat, so a decoder that one photo compromised keeps nothing for the next member's photo
+// (P3b security review M2 b). The role itself never loads sharp. It imports nothing of the database, auth, mail,
+// api or R2.
 
 export type MediaRoleOptions = {
   signal: AbortSignal;
   workDir?: string;
   heartbeatPath?: string;
   logger?: Logger;
+  /**
+   * In the container (main.ts): its /tmp, wiped after every task but for the heartbeat, and its PID namespace, whose
+   * every other process is killed after every task. Never set in tests: they share the host's /tmp and /proc.
+   */
+  container?: { tmpDir: string; procDir: string };
   /** Test seams. */
   pollMs?: number;
   budgetMs?: number;
+  watchdogMs?: number;
+  /** Extra environment for the child (a test's TMPDIR). */
+  childEnv?: Record<string, string>;
 };
 
 const TASK_ID = /^[0-9a-f]{32}$/;
 const SPEC_MAX_BYTES = 1024;
-const CREATE = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW;
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -81,19 +94,56 @@ async function readSpec(dir: string) {
   }
 }
 
-/** Writes `name` through a temporary name and a rename, so the worker never sees half a file. */
-async function writeAtomic(dir: string, name: string, bytes: Uint8Array | string): Promise<void> {
-  const tmp = join(dir, `.${name}.tmp`);
-  const fh = await open(tmp, CREATE, 0o600);
+const CHILD = new URL('./task-child.ts', import.meta.url);
+const REPORTED = new Set<string>(['done', ...DECODE_CODES]);
+
+type ChildEnd =
+  | { kind: 'reported'; code: string; maxRssKiB: number }
+  | { kind: 'crashed'; exit: number | null; sig: string | null }
+  | { kind: 'aborted' }
+  | { kind: 'watchdog' };
+
+/** SIGKILL to a process group; it may be gone already. */
+function killGroup(pid: number | undefined): void {
+  if (pid === undefined) return;
   try {
-    await fh.writeFile(bytes);
-  } finally {
-    await fh.close();
+    process.kill(-pid, 'SIGKILL');
+  } catch {
+    // ESRCH: nothing left.
   }
-  await rename(tmp, join(dir, name));
 }
 
-const writeResult = (dir: string, result: TaskResult) => writeAtomic(dir, TASK.result, JSON.stringify(result));
+/**
+ * Kills every process in `procDir` but this one (and PID 1 when that is not us): in the container's PID namespace
+ * that is whatever a compromised decoder left running, even outside its process group (a `docker exec` or a
+ * healthcheck that runs just then goes too; the next healthcheck is a new process). Only when this process owns
+ * the namespace (it is PID 1: the `media` service has no init), so it can never reach a host's processes.
+ * Returns how many.
+ */
+export async function killStrays(procDir: string, ownsNamespace = process.pid === 1): Promise<number> {
+  if (!ownsNamespace) return 0;
+  let n = 0;
+  for (const name of await readdir(procDir).catch(() => [] as string[])) {
+    if (!/^[0-9]+$/.test(name)) continue;
+    const pid = Number(name);
+    if (pid === process.pid || pid === 1) continue;
+    try {
+      process.kill(pid, 'SIGKILL');
+      n++;
+    } catch {
+      // gone meanwhile, or not ours
+    }
+  }
+  return n;
+}
+
+/** Empties `tmpDir` through descriptors, but for the heartbeat file. */
+async function wipeTmp(tmpDir: string, heartbeatPath: string): Promise<void> {
+  const keep = dirname(heartbeatPath) === tmpDir ? basename(heartbeatPath) : undefined;
+  for (const name of await readdir(tmpDir).catch(() => [] as string[])) {
+    if (name !== keep) await removeTree(join(tmpDir, name));
+  }
+}
 
 /** Resolves with the exit code once the signal aborts (SIGTERM): 0. */
 export async function runMediaRole(opts: MediaRoleOptions): Promise<number> {
@@ -102,48 +152,91 @@ export async function runMediaRole(opts: MediaRoleOptions): Promise<number> {
   const logger = opts.logger ?? createLogger({ role: 'media' });
   const pollMs = opts.pollMs ?? 500;
   const budgetMs = opts.budgetMs ?? PHOTO_JOB_MS;
-  const aborted = new Promise<'aborted'>((resolve) => {
-    if (signal.aborted) resolve('aborted');
-    else signal.addEventListener('abort', () => resolve('aborted'), { once: true });
-  });
+
+  const watchdogMs = opts.watchdogMs ?? MEDIA_WATCHDOG_MS;
+  const heartbeatPath = opts.heartbeatPath ?? HEARTBEAT_PATH;
+  const childEnv = {
+    ...process.env,
+    ...(opts.container === undefined ? {} : { TMPDIR: opts.container.tmpDir }),
+    ...opts.childEnv,
+  };
+
+  /** One task in a fresh child: its end, whichever comes first. */
+  const runChild = (dir: string, expect: SourceFormat, deadlineMs: number) =>
+    new Promise<ChildEnd>((resolve) => {
+      const child = fork(CHILD, [], {
+        execArgv: [],
+        env: childEnv,
+        // Its own process group (setsid), so the group kill takes whatever it forked; no output of its own.
+        detached: true,
+        stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      });
+      let report: { code: string; maxRssKiB: number } | undefined;
+      let ended = false;
+      const end = (e: ChildEnd) => {
+        killGroup(child.pid);
+        if (ended) return;
+        ended = true;
+        clearTimeout(watchdog);
+        signal.removeEventListener('abort', onAbort);
+        resolve(e);
+      };
+      // The child works off our event loop, so this fires even while libvips is stuck; the role stays up.
+      const watchdog = setTimeout(() => end({ kind: 'watchdog' }), watchdogMs);
+      const onAbort = () => end({ kind: 'aborted' });
+      signal.addEventListener('abort', onAbort, { once: true });
+      if (signal.aborted) onAbort();
+      child.on('message', (m: unknown) => {
+        // The child is the untrusted party: only a fixed code and a number are kept.
+        const r = m as { code?: unknown; maxRssKiB?: unknown } | null;
+        if (typeof r?.code === 'string' && REPORTED.has(r.code) && Number.isSafeInteger(r.maxRssKiB))
+          report = { code: r.code, maxRssKiB: r.maxRssKiB as number };
+      });
+      child.on('error', () => end({ kind: 'crashed', exit: null, sig: null }));
+      child.on('exit', (exit, sig) =>
+        end(exit === 0 && report !== undefined ? { kind: 'reported', ...report } : { kind: 'crashed', exit, sig }),
+      );
+      child.send({ dir, expect, deadlineMs });
+    });
 
   const runTask = async (dir: string) => {
     const started = Date.now();
-    // sharp works off the event loop, so this timer fires even while libvips is stuck; Compose restarts us.
-    const watchdog = setTimeout(() => {
-      logger.error({}, 'media_watchdog');
-      process.exit(1);
-    }, MEDIA_WATCHDOG_MS);
     try {
       const spec = await readSpec(dir);
-      const outcome =
-        spec === undefined
-          ? ({ ok: false, code: 'media_decode_failed' } as const)
-          : await Promise.race([decodeSource(join(dir, TASK.input), spec.expect, started + budgetMs), aborted]);
-      if (outcome === 'aborted') {
-        // Retried by the worker; whatever the decoder still finishes is never written.
-        await writeResult(dir, { ok: false, code: ABORTED_CODE });
-        logger.warn({}, 'media_task_aborted');
+      if (spec === undefined) {
+        await writeResult(dir, { ok: false, code: 'media_decode_failed' });
+        logger.warn({ code: 'media_decode_failed', ms: 0 }, 'media_task_failed');
         return;
       }
-      if (outcome.ok) {
-        for (const v of outcome.variants) await writeAtomic(dir, variantName(v.format, v.width), v.bytes);
-        const files = outcome.variants.map((v) => ({ format: v.format, width: v.width }));
-        await writeResult(dir, { ok: true, width: outcome.width, height: outcome.height, files });
-        logger.info({ ms: Date.now() - started }, 'media_task_done');
+      const e = await runChild(dir, spec.expect, started + budgetMs);
+      const ms = Date.now() - started;
+      if (e.kind === 'aborted') {
+        // Retried by the worker; the child is gone, so nothing it would still finish is written.
+        await writeResult(dir, { ok: false, code: ABORTED_CODE });
+        logger.warn({}, 'media_task_aborted');
+      } else if (e.kind === 'watchdog') {
+        logger.error({ ms }, 'media_watchdog');
+      } else if (e.kind === 'crashed') {
+        // Killed (fsize, memory) or broken: the worker gets a fixed failure instead of waiting for its timeout.
+        await writeResult(dir, { ok: false, code: 'media_decode_failed' });
+        logger.error({ exit: e.exit, sig: e.sig, ms }, 'media_task_crashed');
+      } else if (e.code === 'done') {
+        logger.info({ ms, rss_kib: e.maxRssKiB }, 'media_task_done');
       } else {
-        await writeResult(dir, outcome);
-        logger.warn({ code: outcome.code, ms: Date.now() - started }, 'media_task_failed');
+        logger.warn({ code: e.code, ms, rss_kib: e.maxRssKiB }, 'media_task_failed');
       }
     } catch {
       // The worker gave up and removed the task meanwhile, or the mount is full: the worker times out.
       logger.error({}, 'media_task_write_failed');
     } finally {
-      clearTimeout(watchdog);
+      if (opts.container !== undefined) {
+        await killStrays(opts.container.procDir);
+        await wipeTmp(opts.container.tmpDir, heartbeatPath);
+      }
     }
   };
 
-  const stopHeartbeat = startHeartbeat(opts.heartbeatPath ?? HEARTBEAT_PATH);
+  const stopHeartbeat = startHeartbeat(heartbeatPath);
   let unreadable = false;
   try {
     while (!signal.aborted) {
