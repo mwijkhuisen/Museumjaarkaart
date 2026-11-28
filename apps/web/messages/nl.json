@@ -552,5 +552,9 @@
   "photo_remove": "Verwijder foto",
   "photo_dismiss": "Sluit melding",
   "photo_alt_generated": "Foto bij {museum} door {handle}",
-  "photo_alt_generated_anon": "Foto bij {museum}"
+  "photo_alt_generated_anon": "Foto bij {museum}",
+  "museum_image_by": "Foto: {credit}",
+  "museum_image_pd": "Publiek domein",
+  "museum_image_edited": "bewerkt (verkleind)",
+  "museum_image_commons": "Bestand op Wikimedia Commons"
 }

@@ -552,5 +552,9 @@
   "photo_remove": "Remove photo",
   "photo_dismiss": "Dismiss message",
   "photo_alt_generated": "Photo at {museum} by {handle}",
-  "photo_alt_generated_anon": "Photo at {museum}"
+  "photo_alt_generated_anon": "Photo at {museum}",
+  "museum_image_by": "Photo: {credit}",
+  "museum_image_pd": "Public domain",
+  "museum_image_edited": "resized",
+  "museum_image_commons": "File on Wikimedia Commons"
 }

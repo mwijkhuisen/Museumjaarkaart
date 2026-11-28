@@ -20,7 +20,7 @@ export function photoAlt(photo: Pick<Pic, 'alt_text'>, museum: string, handle: s
 
 const SIZES = '(min-width: 40rem) 400px, 100vw';
 
-export function Picture({ photo, alt }: { photo: Pic; alt: string }) {
+export function Picture({ photo, alt, sizes = SIZES }: { photo: Pic; alt: string; sizes?: string }) {
   const { media } = useConfig();
   const widths = [...photo.widths].sort((a, b) => a - b);
   const [smallest] = widths;
@@ -29,8 +29,8 @@ export function Picture({ photo, alt }: { photo: Pic; alt: string }) {
   const set = (ext: 'avif' | 'webp') => widths.map((w) => `${url(w, ext)} ${w}w`).join(', ');
   return (
     <picture>
-      <source type="image/avif" srcSet={set('avif')} sizes={SIZES} />
-      <source type="image/webp" srcSet={set('webp')} sizes={SIZES} />
+      <source type="image/avif" srcSet={set('avif')} sizes={sizes} />
+      <source type="image/webp" srcSet={set('webp')} sizes={sizes} />
       <img
         src={url(smallest, 'webp')}
         width={photo.width ?? undefined}

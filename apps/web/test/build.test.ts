@@ -39,6 +39,9 @@ const ALLOWED_URLS = [
   'http://fallback.com',
   'http://example.com',
   'http://[${',
+  // The link-outs of a Commons image's caption (`@mjk/contracts` commons.ts, ADR-0018): `<a href>` navigations, never fetched.
+  'https://creativecommons.org/',
+  'https://commons.wikimedia.org/wiki/File:',
   // MapLibre's and pmtiles' bundles (A§15.3; inspected in P1d, all inert: none is fetched by code we run).
   // The href of MapLibre's opt-in logo control and of its default attribution text: we pass
   // `attributionControl: { compact: true }` and never `maplibreLogo`, so neither renders, and an
