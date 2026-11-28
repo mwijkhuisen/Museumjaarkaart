@@ -187,7 +187,8 @@ services:
     <<: *node
     command: ["node", "apps/server/src/main.ts", "media"]
     network_mode: none
-    # As production: a crash or the role's watchdog exit restarts it, and stack.sh's restart count sees it.
+    # As production: a crash of the role restarts it (its watchdog kills only the task's child), and stack.sh's
+    # restart count sees it.
     restart: unless-stopped
     volumes:
       - ../..:/app:ro
