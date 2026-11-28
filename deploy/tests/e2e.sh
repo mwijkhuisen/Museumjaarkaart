@@ -22,7 +22,9 @@
 #      with owners, modes and checksums before and after); it refuses an overlapping subnet and a path that
 #      resolves into /srv/f1.
 #   2. table inet mjk loaded from the installed /etc/mjk/mjk.nft in the host's network namespace (the
-#      real boundary), and mjk-resolvers filled. Then the test's own `table inet mjk_e2e_sink`, which
+#      real boundary), mjk-resolvers filled, and mjk-egress filled worker_dst4 from the test's own
+#      etc/mjk/egress-hosts (one literal address, so the host never looks up an outside name; it replaces
+#      the installed list after step 1). Then the test's own `table inet mjk_e2e_sink`, which
 #      drops every packet that leaves an mjk-* bridge for another interface after table inet mjk has
 #      judged it: no packet from a container reaches a host outside this machine (invariant 9: no R2,
 #      Cloudflare, healthchecks.io, Wikidata or RCE), and a probe that table inet mjk lets through is
@@ -46,7 +48,7 @@
 #   5. rollback: a server image whose daemons never get healthy (migrate and healthcheck are the real
 #      ones): mjk-update exits 1, current.env is unchanged, failed.env names the broken image, the old
 #      images are healthy again and the site answers.
-#   6. mjk-tick: reloads a deleted table and refills resolvers4, writes the disk file, restarts an
+#   6. mjk-tick: reloads a deleted table and refills resolvers4 and worker_dst4, writes the disk file, restarts an
 #      unhealthy container while a backup holds the lock shared, writes the disk file while a deploy holds
 #      it or when the lock directory is unusable (then exit 1, and mjk-update refuses), and fails closed (stack stopped, firewall-stopped written) when the table cannot be loaded, then
 #      starts the stack again once it can.
@@ -71,6 +73,8 @@ DOMAIN=mjk.test
 # The probes' public destination: outside private4, cf4 and cf_tunnel4, so table inet mjk judges it as
 # "the internet". No packet reaches it: what table inet mjk lets through, the sink drops (step 2).
 PROBE_IP=9.9.9.9
+# The test's one worker_dst4 address: outside private4, cf4 and cf_tunnel4 too, and dropped by the sink.
+WORKER_DST_IP=149.112.112.112
 # The documentation resolver of the test's resolv.conf (in resolvers4; also dropped by the sink).
 TEST_RESOLVER=192.0.2.53
 OLD_REF=ghcr.io/mwijkhuisen/mjk-server:e2e-old
@@ -300,9 +304,11 @@ chmod 0644 "$ETC/compose.override.yaml"
 
 install_out=$("$REPO/deploy/bin/mjk-install") || fail "mjk-install with the secrets failed"
 if grep -q 'NOT ENABLED' <<<"$install_out"; then fail "mjk-install still lists something missing: $install_out"; fi
-for name in mjk-update mjk-tick mjk-resolvers mjk-ping mjk-envcheck; do
+for name in mjk-update mjk-tick mjk-resolvers mjk-egress mjk-ping mjk-envcheck; do
   [[ $(stat -c '%u:%g:%a' "$BIN/$name") == 0:0:755 ]] || fail "$BIN/$name is not root:root 0755"
 done
+[[ $(stat -c '%u:%g:%a' "$ETC/egress-hosts") == 0:0:644 ]] || fail "$ETC/egress-hosts is not root:root 0644"
+cmp -s "$REPO/deploy/host/egress-hosts" "$ETC/egress-hosts" || fail "$ETC/egress-hosts is not a copy of deploy/host/egress-hosts"
 [[ $(stat -c '%u:%g:%a' "$ETC/secrets") == 0:0:700 ]] || fail "$ETC/secrets is not root:root 0700"
 for dir in originals quarantine exports tiles-build backup-staging media-work; do
   [[ $(stat -c '%u:%g:%a' "$SRVD/$dir") == 63532:63532:700 ]] || fail "$SRVD/$dir is not 63532:63532 0700"
@@ -310,7 +316,7 @@ done
 [[ $(stat -c '%u:%g:%a' "$TESTROOT/run/mjk") == 0:0:700 ]] || fail "the lock directory run/mjk is not root:root 0700"
 grep -qx 'd /run/mjk 0700 root root -' "$TESTROOT/etc/tmpfiles.d/mjk.conf" || fail "the tmpfiles entry for /run/mjk is not installed"
 [[ ! -e $TESTROOT/run/lock ]] || fail "mjk-install made a run/lock in the test root"
-ok "with the thirteen secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
+ok "with the thirteen secrets and mjk.env mjk-install is satisfied; scripts root:root 0755, egress-hosts 0644, secrets/ 0700, the data directories 63532 0700, the lock directory root 0700 with its tmpfiles entry"
 
 snapshot "$TESTROOT" >"$SCRATCH/before.txt"
 groups_before=$(getent group | sort)
@@ -332,6 +338,14 @@ if foreign_out=$(MJK_ROOT=$TESTROOT2 "$REPO/deploy/bin/mjk-install" 2>&1); then 
 grep -q 'REFUSED' <<<"$foreign_out" || fail "the f1 refusal is not a REFUSED line: $foreign_out"
 [[ ! -e /srv/f1 ]] || [[ -z $(find /srv/f1 -newer "$SCRATCH/before.txt" -print -quit 2>/dev/null) ]] || fail "something was written under /srv/f1"
 ok "mjk-install refuses a subnet that overlaps a foreign Docker network and a /srv/mjk that resolves into /srv/f1, before any change"
+# The hosts list is installed like the other files: never through a symlink, never into another stack.
+mv "$ETC/egress-hosts" "$SCRATCH/egress-hosts.aside"
+ln -s /etc/f1/egress-hosts "$ETC/egress-hosts"
+if hosts_out=$("$REPO/deploy/bin/mjk-install" 2>&1); then fail "mjk-install wrote through a symlinked egress-hosts"; fi
+grep -q 'REFUSED' <<<"$hosts_out" || fail "the egress-hosts refusal is not a REFUSED line: $hosts_out"
+rm "$ETC/egress-hosts"
+mv "$SCRATCH/egress-hosts.aside" "$ETC/egress-hosts"
+ok "mjk-install refuses an egress-hosts that is a symlink into /etc/f1"
 # mjk.env: an unknown key (DATABASE_URL, NODE_OPTIONS) or a loose mode is refused, without the value.
 cp -p "$ETC/mjk.env" "$SCRATCH/mjk.env.good"
 for extra in 'DATABASE_URL=postgres://e2e-not-a-real-login@db/mjk' 'NODE_OPTIONS=--require=/tmp/e2e.js' 'MJK_SECRET_FILE=/tmp/x'; do
@@ -351,6 +365,9 @@ ok "the host's /run/lock is unchanged ($RUNLOCK_BEFORE) after every mjk-install 
 
 # --- 2. the firewall ---------------------------------------------------------------------------------
 step "2. table inet mjk"
+# From here on the worker's hosts list is the test's: one literal address, never a lookup (the installed
+# list names real hosts). No mjk-install runs after this point.
+printf '# e2e: a literal address only\n%s\n' "$WORKER_DST_IP" >"$ETC/egress-hosts"
 HAVE_NFT=0
 if command -v nft >/dev/null && nft add table inet mjk_e2e_probe >/dev/null 2>&1; then
   nft delete table inet mjk_e2e_probe >/dev/null 2>&1 || true
@@ -362,7 +379,9 @@ if ((HAVE_NFT)); then
   NFT_LOADED=1
   "$BIN/mjk-resolvers" "$TESTROOT/etc/resolv.conf" >/dev/null || fail "mjk-resolvers could not fill resolvers4"
   nft list set inet mjk resolvers4 | grep -q '192.0.2.53' || fail "resolvers4 does not hold the test resolver"
-  ok "the installed mjk.nft loads in the host's network namespace and mjk-resolvers fills resolvers4"
+  "$BIN/mjk-egress" >/dev/null || fail "mjk-egress could not fill worker_dst4"
+  nft list set inet mjk worker_dst4 | grep -qF "$WORKER_DST_IP" || fail "worker_dst4 does not hold the test address"
+  ok "the installed mjk.nft loads in the host's network namespace; mjk-resolvers fills resolvers4, mjk-egress worker_dst4"
   # After table inet mjk (priority filter - 10) and before Docker's chains: whatever table inet mjk
   # accepts on its way out of an mjk-* bridge ends here, counted. Traffic between two mjk bridges passes.
   nft -f - <<EOF || fail "could not load table inet mjk_e2e_sink"
@@ -370,7 +389,7 @@ table inet mjk_e2e_sink {
 	chain forward {
 		type filter hook forward priority filter - 5; policy accept;
 		iifname "mjk-*" oifname "mjk-*" accept
-		iifname "mjk-*" ip daddr { $PROBE_IP, $TEST_RESOLVER } counter drop comment "e2e sink: a probe"
+		iifname "mjk-*" ip daddr { $PROBE_IP, $WORKER_DST_IP, $TEST_RESOLVER } counter drop comment "e2e sink: a probe"
 		iifname "mjk-*" counter drop comment "e2e sink: everything else"
 	}
 }
@@ -494,10 +513,16 @@ if ((HAVE_NFT)) && awk '$2 == "00000000" && $8 == "00000000" && $1 !~ /^mjk-/ {f
   ok "worker network: tcp/80 to a public address is dropped (the final drop)"
   probe mjk-egress private nc -w 2 -z 192.168.255.254 443
   ok "worker network: tcp/443 to a private address is dropped (the private-range drop)"
-  probe mjk-egress none nc -w 2 -z "$PROBE_IP" 443
-  ok "worker network: tcp/443 to a public address passes this table (no drop counter moves)"
+  probe mjk-egress final nc -w 2 -z "$PROBE_IP" 443
+  ok "worker network: tcp/443 to a public address outside cf4 and worker_dst4 is dropped (the final drop)"
+  probe mjk-egress none nc -w 2 -z "$WORKER_DST_IP" 443
+  ok "worker network: tcp/443 to an address in worker_dst4 passes this table (no drop counter moves)"
+  probe mjk-egress final nc -w 2 -z "$WORKER_DST_IP" 80
+  ok "worker network: tcp/80 to an address in worker_dst4 is dropped (the set opens 443 only)"
   probe mjk-api-egress final nc -w 2 -z "$PROBE_IP" 443
   ok "api network: tcp/443 to an address outside cf4 is dropped"
+  probe mjk-api-egress final nc -w 2 -z "$WORKER_DST_IP" 443
+  ok "api network: tcp/443 to an address in worker_dst4 is dropped (the set is the worker's only)"
   probe mjk-publish final nc -w 2 -z "$PROBE_IP" 443
   ok "publish network: no egress at all"
   probe mjk-tunnel final nc -w 2 -z "$PROBE_IP" 443
@@ -582,8 +607,9 @@ if ((HAVE_NFT)); then
   "$BIN/mjk-tick" >/dev/null || fail "mjk-tick failed with the table deleted"
   nft list table inet mjk >/dev/null 2>&1 || fail "mjk-tick did not reload the deleted table"
   nft list set inet mjk resolvers4 | grep -q '192.0.2.53' || fail "mjk-tick did not refill resolvers4"
+  nft list set inet mjk worker_dst4 | grep -qF "$WORKER_DST_IP" || fail "mjk-tick did not refill worker_dst4"
   grep -Eq '^free_pct=[0-9]+$' "$STATE/guard/disk" || fail "mjk-tick did not write the disk file"
-  ok "a deleted table is loaded again, resolvers4 is refilled, the disk file is written"
+  ok "a deleted table is loaded again, resolvers4 and worker_dst4 are refilled, the disk file is written"
 else
   skip "mjk-tick's table steps need a host nftables that can load a table"
 fi

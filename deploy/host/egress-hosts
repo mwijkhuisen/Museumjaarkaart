@@ -1,0 +1,23 @@
+# egress-hosts: every host the worker (and sync-museums, on the same network) dials outside Cloudflare's
+# ranges (A§17.4, P3b Q3). mjk-install installs it as the root-owned /etc/mjk/egress-hosts; mjk-egress
+# resolves each name with the host's resolver into table inet mjk's set worker_dst4, the only tcp/443 the
+# mjk-egress network has besides cf4. R2 (MJK_R2_ENDPOINT) is not listed: it is in cf4.
+# One lower-case name per line. test/egress-hosts.test.ts holds this list equal to the hosts in the code.
+# A change takes effect when mjk-install runs (it refills the set), at the latest at the next mjk-tick.
+
+# The museum sources (P1a) and Wikimedia Commons (P3b, ADR-0018): ALLOWED_HOSTS in
+# apps/server/src/museums/sources/http.ts
+query.wikidata.org
+services.rce.geovoorziening.nl
+commons.wikimedia.org
+upload.wikimedia.org
+
+# Mail (P2a, ADR-0012): LETTERMINT_URL in apps/server/src/mail/lettermint.ts
+api.lettermint.co
+
+# The worker's health pings (A§17.7): HC_PING_ORIGIN in apps/server/src/lib/healthchecks.ts
+hc-ping.com
+
+# The basemap tiles (P1d): BUILDS_URL and SOURCE_BASE in apps/server/src/tiles/builds.ts
+build-metadata.protomaps.dev
+build.protomaps.com

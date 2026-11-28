@@ -14,15 +14,17 @@
 #   2. Creates the groups of A§17.3 (63001-63013; 63014 and up stay reserved for P7), /etc/mjk/{secrets,
 #      postgres}, /srv/mjk/{state,state/guard,originals,quarantine,exports,tiles-build,backup-staging,media-work}
 #      with exact owners and modes.
-#   3. Installs the compose file, roles.sql, the nftables file, the units, /etc/tmpfiles.d/mjk.conf (the
-#      lock directory /run/mjk, root 0700; /run/lock is never touched), and mjk-update, mjk-tick,
-#      mjk-resolvers and mjk-ping into /usr/local/bin (root-owned copies).
+#   3. Installs the compose file, roles.sql, the nftables file, the worker's hosts list /etc/mjk/egress-hosts,
+#      the units, /etc/tmpfiles.d/mjk.conf (the lock directory /run/mjk, root 0700; /run/lock is never
+#      touched), and mjk-update, mjk-tick, mjk-resolvers, mjk-egress, mjk-ping and mjk-envcheck into
+#      /usr/local/bin (root-owned copies).
 #   4. Checks the thirteen secrets of P1e, P1d and P2a and mjk.env, by name only: it never writes a secret and never reads
 #      one (only whether the file exists, is root:<gid> 0440 and is not empty). r2_media_rw is the worker's
 #      from P1d; from P2a, app_keys is the api's, the worker's and admin's, lettermint_api_token the worker's.
 #      It does not check MJK_MAIL_FROM and MJK_MAIL_CAP: mail needs both, and without either the worker fails
 #      every mail job mail_unconfigured (its other jobs run) and its health ping fails.
-#   5. Enables mjk-firewall.service (and starts it), and, only when every secret and mjk.env are in
+#   5. Enables mjk-firewall.service (and starts it, or reloads it when mjk.nft changed, or runs mjk-egress
+#      when only egress-hosts changed), and, only when every secret and mjk.env are in
 #      place, mjk-update.timer, mjk-tick.timer and mjk-backup.timer. Until then it lists what is missing
 #      and leaves the timers off.
 # It never touches /etc/rws, /srv/rws, /etc/f1, /srv/f1 or any file of those stacks.
@@ -297,7 +299,9 @@ fi
 put "$SRC/deploy/postgres/roles.sql" "$ETC/postgres/roles.sql" 644
 put "$SRC/deploy/host/nftables/mjk.nft" "$ETC/mjk.nft" 644
 nft_changed=$PUT_CHANGED
-for script in mjk-update mjk-tick mjk-resolvers mjk-ping mjk-envcheck; do
+put "$SRC/deploy/host/egress-hosts" "$ETC/egress-hosts" 644
+hosts_changed=$PUT_CHANGED
+for script in mjk-update mjk-tick mjk-resolvers mjk-egress mjk-ping mjk-envcheck; do
   put "$SRC/deploy/bin/$script" "$BIN/$script" 755
 done
 units_before=${#CHANGES[@]}
@@ -337,7 +341,12 @@ if [[ -z $ROOT ]]; then
   ((units_changed == 0)) || systemctl daemon-reload
   systemctl enable mjk-firewall.service >/dev/null 2>&1 || die "systemctl enable mjk-firewall.service failed"
   if systemctl is-active --quiet mjk-firewall.service; then
-    ((nft_changed == 0)) || systemctl reload mjk-firewall.service
+    if ((nft_changed)); then
+      systemctl reload mjk-firewall.service
+    elif ((hosts_changed)); then
+      # Not fatal, as in the unit: mjk-tick retries every 10 minutes.
+      "$BIN/mjk-egress" || say "mjk-egress did not fully refresh worker_dst4 (exit $?); mjk-tick retries"
+    fi
   else
     systemctl start mjk-firewall.service
   fi
