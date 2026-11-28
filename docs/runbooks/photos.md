@@ -56,7 +56,7 @@ docker inspect -f '{{.RestartCount}} {{.State.OOMKilled}}' mjk-media-1
 
 Its log lines are fixed codes, never a file name or content: `media_task_done` (with its duration), `media_task_failed` (with a `code`), `media_task_aborted` (a stop during a task; the worker retries it), `media_task_write_failed` (the worker gave up first, or the mount is full), `media_workdir_unreadable` (the mount is missing or unreadable) and `media_watchdog` (a task ran past its time and the process exited, so Docker restarted it). A photo that fails ends `failed` with a code and its quarantine file is deleted. A `failed` photo is the member's to re-upload; a rising `media_watchdog` or restart count is a bug to report with the code, not the file.
 
-The limits are 768m, 1.0 CPU, 256 pids and a 64 MB file-size ulimit. The disk guard reads `/srv/mjk/state/guard/disk` (`docs/runbooks/incident.md` §4): under 10 % free, or a file older than 30 minutes, makes `POST /uploads` answer 503.
+The limits are 768m, 1.0 CPU, 256 pids and a 64 MB file-size ulimit; `media-work` is a 256 MB tmpfs, whose pages count against the memory of the container that writes them (A§17.2). The disk guard reads `/srv/mjk/state/guard/disk` (`docs/runbooks/incident.md` §4): under 10 % free, or a file older than 30 minutes, makes `POST /uploads` answer 503.
 
 ## 7. [box] checks for the owner
 
@@ -78,6 +78,10 @@ Run after the first P3b deploy, with one real photo published from a trusted acc
    - the boot order: after a reboot, `systemd-analyze critical-chain docker.service` does not list `mjk-egress.service`, and `systemctl reload mjk-firewall.service` followed by `nft list set inet mjk worker_dst4` shows the set filled again (the reload propagates to `mjk-egress.service`);
    - `*.eu.r2.cloudflarestorage.com` and both Protomaps hosts resolve into `cf4` or `worker_dst4`: `getent ahostsv4 <host>` against `nft list set inet mjk cf4` and the set above;
    - from the worker's namespace an address outside the sets is dropped while the rest works: the worker probes of `docs/runbooks/install.md` §8 (the hardened busybox `probe` there: 9.9.9.9:443 dropped, a `worker_dst4` address and a `cf4` address allowed, port 80 dropped), while `sync-museums --dry-run`, a mail (`admin invite create --uses 1 --days 1 --email <your address>`), an R2 upload (a photo, or `admin tiles refresh`) and the healthchecks ping all work.
+9. The worker at 512m through a tiles refresh (A§17.2 [U box]; P3b moved sharp out of the worker and lowered it from 768m). Queue one, watch it and read the kill count afterwards:
+   `mjkc --profile tools run --rm admin tiles refresh`, then `docker stats mjk-worker-1` until the log shows `job_done` (or a `tiles_*` failure), then `docker inspect -f '{{.RestartCount}} {{.State.OOMKilled}}' mjk-worker-1`.
+   Expect `0 false` and the job done. Write the peak into A§17.2. If the worker was killed for memory (`true`, or `tiles_extract_failed` with `signal: "SIGKILL"`), raise its `mem_limit` back to 768m in `deploy/compose.yaml` in a PR before the January refresh (`docs/runbooks/tiles-refresh.md` §2 item 6).
+10. Large photos under the 64 MB file-size limit (A§12, P3b security review). A large photo that libvips cannot stream (a rotated JPEG, a big PNG) may need a temporary file, which `fsize` would kill. From a trusted test account, upload a photo of about 50 MP with EXIF orientation 6 (a camera or phone photo taken in portrait) and a PNG of about 7,000 × 7,000 px, each under 25 MiB, with `docker stats mjk-media-1` running. Expect both to reach "wacht op controle" or published, never `failed` with `media_decode_failed` or `media_timeout`; `docker inspect -f '{{.RestartCount}} {{.State.OOMKilled}}' mjk-media-1` stays `0 false` and `mjkc logs media` shows no `media_watchdog`. Write the time per photo and the peak memory into A§17.2.
 
 ## 8. Museum images from Wikimedia Commons
 
