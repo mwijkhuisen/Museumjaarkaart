@@ -1,0 +1,52 @@
+# mjk-egress.service: fills the set worker_dst4 of table inet mjk from /etc/mjk/egress-hosts (A§17.4, P3b Q3).
+#
+# Installed by mjk-install as /etc/systemd/system/mjk-egress.service; it runs the root-owned copy
+# /usr/local/bin/mjk-egress. Wanted by mjk-firewall.service and ordered after it, but never before
+# docker.service: its lookups (up to 8 hosts × 5 s) must not hold up Docker, whose daemon also runs
+# Waterheight's and F1's containers (P3b security review). Until it has run, the worker reaches only cf4
+# (fail closed), and mjk-tick (every 10 min) refills the set as well.
+#
+# PartOf=mjk-firewall.service: a restart of the firewall unit (a table load empties the set) restarts this
+# one after it. ReloadPropagatedFrom: `systemctl reload mjk-firewall` loads the table again, and this unit
+# refills the set right after [U, A§17.4]. mjk-install runs the script itself when only the list changed.
+#
+# The sandbox is the one widening the lookups need: getent asks the host's resolvers over UDP and TCP, so
+# AF_INET and AF_INET6 are allowed here, next to AF_NETLINK (nft) and AF_UNIX; mjk-firewall.service itself
+# keeps AF_NETLINK AF_UNIX only.
+
+[Unit]
+Description=mjk worker egress set (worker_dst4 from /etc/mjk/egress-hosts)
+Documentation=file:///etc/mjk/egress-hosts
+After=mjk-firewall.service network-online.target
+Wants=network-online.target
+PartOf=mjk-firewall.service
+ReloadPropagatedFrom=mjk-firewall.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Non-fatal: exit 75 (some host unresolved) still added the others; mjk-tick retries every 10 minutes.
+ExecStart=-/usr/local/bin/mjk-egress
+ExecReload=-/usr/local/bin/mjk-egress
+TimeoutStartSec=2min
+
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_NETLINK AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077

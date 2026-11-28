@@ -762,7 +762,7 @@ ok "mjk-ping sends the key on stdin only (absent from the process table and its 
 
 # --- 8. units ----------------------------------------------------------------------------------------
 step "8. units"
-for unit in mjk-update.timer mjk-tick.timer mjk-backup.timer mjk-update.service mjk-tick.service mjk-backup.service mjk-firewall.service; do
+for unit in mjk-update.timer mjk-tick.timer mjk-backup.timer mjk-update.service mjk-tick.service mjk-backup.service mjk-firewall.service mjk-egress.service; do
   [[ -f $TESTROOT/etc/systemd/system/$unit ]] || fail "$unit was not installed"
 done
 grep -qx 'OnCalendar=\*-\*-\* 01:43:00 Europe/Amsterdam' "$TESTROOT/etc/systemd/system/mjk-backup.timer" || fail "mjk-backup.timer OnCalendar"
@@ -775,7 +775,17 @@ if command -v systemd-analyze >/dev/null; then
   # are not under any root the analyzer can see.
   systemd-analyze calendar '*:07/10' '*:0/10' '*-*-* 01:43:00 Europe/Amsterdam' >/dev/null || fail "a timer's OnCalendar does not parse"
 fi
-ok "the seven units are installed; the timers are 10 minutes (:00 and :07, tick also after boot) and 01:43 Europe/Amsterdam with Persistent=true"
+# The lookups never hold up Docker (P3b review): mjk-firewall.service (Before=docker.service) runs no
+# mjk-egress and allows no inet socket; mjk-egress.service runs after it and is not ordered before Docker.
+fw=$TESTROOT/etc/systemd/system/mjk-firewall.service
+eg=$TESTROOT/etc/systemd/system/mjk-egress.service
+if grep -q '^Exec.*mjk-egress' "$fw"; then fail "mjk-firewall.service still runs mjk-egress"; fi
+grep -qx 'RestrictAddressFamilies=AF_NETLINK AF_UNIX' "$fw" || fail "mjk-firewall.service allows more than AF_NETLINK AF_UNIX"
+grep -qx 'Wants=network-online.target mjk-egress.service' "$fw" || fail "mjk-firewall.service does not want mjk-egress.service"
+grep -qx 'After=mjk-firewall.service network-online.target' "$eg" || fail "mjk-egress.service is not ordered after the firewall"
+if grep -q '^Before=' "$eg"; then fail "mjk-egress.service is ordered before another unit"; fi
+grep -qx 'ExecStart=-/usr/local/bin/mjk-egress' "$eg" || fail "mjk-egress.service does not run mjk-egress"
+ok "the eight units are installed; mjk-egress.service runs the lookups after the firewall, never before Docker; the timers are 10 minutes (:00 and :07, tick also after boot) and 01:43 Europe/Amsterdam with Persistent=true"
 
 step "teardown happens in the EXIT trap"
 echo "e2e: all steps passed"

@@ -23,8 +23,8 @@
 #      from P1d; from P2a, app_keys is the api's, the worker's and admin's, lettermint_api_token the worker's.
 #      It does not check MJK_MAIL_FROM and MJK_MAIL_CAP: mail needs both, and without either the worker fails
 #      every mail job mail_unconfigured (its other jobs run) and its health ping fails.
-#   5. Enables mjk-firewall.service (and starts it, or reloads it when mjk.nft changed, or runs mjk-egress
-#      when only egress-hosts changed), and, only when every secret and mjk.env are in
+#   5. Enables mjk-firewall.service (and starts it, which pulls in mjk-egress.service, or reloads it when
+#      mjk.nft changed, or runs mjk-egress when only egress-hosts changed), and, only when every secret and mjk.env are in
 #      place, mjk-update.timer, mjk-tick.timer and mjk-backup.timer. Until then it lists what is missing
 #      and leaves the timers off.
 # It never touches /etc/rws, /srv/rws, /etc/f1, /srv/f1 or any file of those stacks.
@@ -351,6 +351,9 @@ if [[ -z $ROOT ]]; then
   else
     systemctl start mjk-firewall.service
   fi
+  # The lookups run in their own unit, after the firewall and never before Docker (P3b review). A host that
+  # had no mjk-egress.service yet gets it started here; on any other host this is a no-op (it already ran).
+  systemctl start mjk-egress.service || say "mjk-egress.service did not start; mjk-tick refills worker_dst4"
   if ((${#MISSING[@]} == 0)); then
     systemctl enable --now mjk-update.timer mjk-tick.timer mjk-backup.timer >/dev/null 2>&1 ||
       die "systemctl enable --now of the three timers failed"

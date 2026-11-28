@@ -1,8 +1,8 @@
-# mjk-firewall.service: loads table inet mjk (A§17.4, ADR-0003) and fills its sets resolvers4 and worker_dst4.
+# mjk-firewall.service: loads table inet mjk (A§17.4, ADR-0003) and fills its set resolvers4; worker_dst4 is
+# filled by mjk-egress.service, which this unit wants and which runs after it, never before Docker.
 #
 # Installed by mjk-install as /etc/systemd/system/mjk-firewall.service, with the root-owned copies
-# /etc/mjk/mjk.nft, /etc/mjk/egress-hosts, /usr/local/bin/mjk-resolvers and /usr/local/bin/mjk-egress
-# (never a file of the checkout).
+# /etc/mjk/mjk.nft and /usr/local/bin/mjk-resolvers (never a file of the checkout).
 #
 # Ordering: after Debian's nftables.service, whose /etc/nftables.conf empties every table when it
 # starts or stops, and before docker.service, so the table is in place before Docker starts the mjk
@@ -22,13 +22,14 @@
 # Stop: there is no ExecStop. Stopping this unit leaves the table loaded, because an mjk stack without
 # its table has open egress (fail closed). To remove the table on purpose, stop the stack first
 # (docker compose -p mjk down), then run nft delete table inet mjk.
-# Reload and restart both load the file again in one transaction, then refill resolvers4 and worker_dst4.
+# Reload and restart both load the file again in one transaction, then refill resolvers4; mjk-egress.service
+# follows a restart (PartOf) and a reload (ReloadPropagatedFrom) and refills worker_dst4.
 
 [Unit]
 Description=mjk egress firewall (nftables table inet mjk)
 Documentation=file:///etc/mjk/mjk.nft
 After=nftables.service network-online.target
-Wants=network-online.target
+Wants=network-online.target mjk-egress.service
 Before=docker.service
 PartOf=nftables.service
 ReloadPropagatedFrom=nftables.service
@@ -38,14 +39,12 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/sbin/nft -c -f /etc/mjk/mjk.nft
 ExecStart=/usr/sbin/nft -f /etc/mjk/mjk.nft
-# Non-fatal: the table is the boundary and is loaded by now; without resolvers DNS stays blocked, and
-# without worker_dst4 the worker reaches only cf4 (fail closed), until mjk-tick fills the sets.
+# Non-fatal: the table is the boundary and is loaded by now; without resolvers DNS stays blocked until
+# mjk-tick fills the set. No DNS lookup runs here: this unit is Before=docker.service.
 ExecStartPost=-/usr/local/bin/mjk-resolvers
-ExecStartPost=-/usr/local/bin/mjk-egress
 ExecReload=/usr/sbin/nft -c -f /etc/mjk/mjk.nft
 ExecReload=/usr/sbin/nft -f /etc/mjk/mjk.nft
 ExecReload=-/usr/local/bin/mjk-resolvers
-ExecReload=-/usr/local/bin/mjk-egress
 
 CapabilityBoundingSet=CAP_NET_ADMIN
 NoNewPrivileges=yes
@@ -57,8 +56,8 @@ ProtectKernelTunables=yes
 ProtectControlGroups=yes
 ProtectClock=yes
 ProtectHostname=yes
-# AF_INET and AF_INET6: mjk-egress's lookups (getent asks the host's resolvers over UDP and TCP).
-RestrictAddressFamilies=AF_NETLINK AF_UNIX AF_INET AF_INET6
+# No AF_INET: mjk-egress's lookups run in mjk-egress.service (P3b review).
+RestrictAddressFamilies=AF_NETLINK AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes

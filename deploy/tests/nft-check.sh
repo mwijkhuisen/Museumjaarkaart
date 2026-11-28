@@ -174,13 +174,14 @@ EOF
   done
   ok "mjk-egress changes nothing and exits 1 when no host resolves or the list is empty, malformed or missing"
 
-  # A reload empties the sets again: mjk-firewall.service and mjk-tick refill them after every load.
+  # A reload empties the sets again: mjk-firewall.service (resolvers4), mjk-egress.service (worker_dst4) and
+  # mjk-tick (both) refill them after every load.
   nft -f "$NFT_FILE"
   for set in resolvers4 worker_dst4; do
     got=$(nft list set inet mjk "$set")
     [[ $got != *elements* ]] || fail "a reload kept $set's elements"
   done
-  ok "a reload empties resolvers4 and worker_dst4 (the unit refills them)"
+  ok "a reload empties resolvers4 and worker_dst4 (mjk-firewall.service, mjk-egress.service and mjk-tick refill them)"
 
   nft delete table inet mjk
   if "$RESOLVERS" "$tmp/resolv.conf" >/dev/null 2>&1; then fail "mjk-resolvers succeeded without the table"; fi

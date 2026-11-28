@@ -2,8 +2,8 @@
 # mjk-egress: fill the set worker_dst4 of table inet mjk with the IPv4 addresses of the hosts the worker
 # dials outside Cloudflare (A§17.4, P3b Q3). R2 and other Cloudflare-fronted hosts are in cf4 already.
 #
-# Run by mjk-firewall.service right after the table loads (a load leaves the set empty), by mjk-tick on
-# every run and by mjk-install when the list changed. Root-owned copy in /usr/local/bin; the list is the
+# Run by mjk-egress.service right after mjk-firewall.service loads the table (a load leaves the set empty),
+# by mjk-tick on every run and by mjk-install when the list changed. Root-owned copy in /usr/local/bin; the list is the
 # root-owned /etc/mjk/egress-hosts (deploy/host/egress-hosts). One host per line: a lower-case DNS name,
 # or a literal IPv4 address (the tests); `#` starts a comment, blank lines are ignored. A line that is
 # neither refuses the whole list.
@@ -37,7 +37,7 @@ LIST=$ROOT/etc/mjk/egress-hosts
 # Each label 1-63 letters, digits and inner hyphens; at least two labels; the last starts with a letter
 # (so a dotted quad is never a name).
 NAME_RE='^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$'
-# Seconds per lookup: eight hosts stay well inside mjk-firewall.service's 90 s start timeout.
+# Seconds per lookup: eight hosts stay well inside mjk-egress.service's 2 min start timeout.
 LOOKUP_TIMEOUT=5
 
 # A dotted quad with four decimal octets of 0-255 and no leading zeros (nft would read 010 as octal).

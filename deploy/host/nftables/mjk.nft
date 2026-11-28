@@ -8,8 +8,8 @@
 #
 # Atomic and idempotent: the three statements below run as one transaction. The first declares the
 # table (a no-op when it exists), the second deletes it, the third defines it again. A reload therefore
-# empties the sets resolvers4 and worker_dst4 too: mjk-firewall.service and mjk-tick run mjk-resolvers and
-# mjk-egress right after.
+# empties the sets resolvers4 and worker_dst4 too: mjk-firewall.service runs mjk-resolvers and
+# mjk-egress.service runs mjk-egress right after, and mjk-tick runs both.
 #
 # Only interfaces named mjk-* are filtered (A§17.3 names every bridge mjk-*). The networks are told
 # apart by their fixed A§17.3 subnets, so this file does not depend on the exact bridge names:

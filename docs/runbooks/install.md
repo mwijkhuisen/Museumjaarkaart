@@ -50,7 +50,7 @@ The first run:
 - refuses (exit 1, `REFUSED: …`, nothing changed) when a group name or GID collides with `rws` or `f1`, a path resolves into their trees, an `mjk-*` Docker network belongs to another compose project, or one of the eight subnets (10.63.1.0/24 … 10.63.8.0/24) overlaps another Docker network or a host route;
 - creates the groups `mjk_<secret>` (GIDs 63001 to 63013), `/etc/mjk` (0755), `/etc/mjk/secrets` (0700 root), `/etc/mjk/postgres`, `/srv/mjk/state` (root 0755), `/srv/mjk/state/guard` (root 0755; P3b: `mjk-tick` writes the disk file there and the `api` mounts it read-only) and `/srv/mjk/{originals,quarantine,exports,tiles-build,backup-staging}` (63532:63532 0700). The `media` container's one mount, `media-work`, is not a host directory but the tmpfs volume `mjk_media_work` (256 MB), which Compose makes at the first start (A§17.1);
 - copies the compose file, `roles.sql`, `mjk.nft`, the worker's hosts list `/etc/mjk/egress-hosts` (P3b), the units and `mjk-update`, `mjk-tick`, `mjk-resolvers`, `mjk-egress`, `mjk-ping`; a changed `mjk.nft` reloads the firewall unit, a changed hosts list alone runs `mjk-egress` (it refills `worker_dst4`, A§17.4);
-- enables and starts `mjk-firewall.service` (loads `table inet mjk`; `nft -c` first);
+- enables and starts `mjk-firewall.service` (loads `table inet mjk`; `nft -c` first), then starts `mjk-egress.service` (P3b review: fills `worker_dst4`; wanted by the firewall unit and ordered after it, never before Docker, so its lookups do not hold up any stack at boot);
 - prints `NOT ENABLED: …` and the names of everything still missing, and leaves the three timers off.
 
 ### The secrets
