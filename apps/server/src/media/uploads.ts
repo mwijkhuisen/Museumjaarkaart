@@ -109,7 +109,7 @@ export async function createUpload(
 export function ownUpload(db: Db, userId: string, id: string) {
   return db
     .selectFrom('media')
-    .select(['id', 'user_id', 'state', 'type', 'declared_size', 'chunk_count', 'error_code'])
+    .select(['id', 'user_id', 'state', 'type', 'declared_size', 'chunk_count', 'error_code', 'width', 'height'])
     .where('id', '=', id)
     .where('user_id', '=', userId)
     .executeTakeFirst();

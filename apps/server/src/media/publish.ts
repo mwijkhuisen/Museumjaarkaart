@@ -2,7 +2,6 @@ import { constants } from 'node:fs';
 import { type FileHandle, open, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { VARIANT_FORMATS, type VariantFormat } from '@mjk/contracts';
-import { fileTypeFromBuffer } from 'file-type';
 import { sql } from 'kysely';
 import { z } from 'zod';
 import { ORIGINALS_DIR } from '../backup/plan.ts';
@@ -13,6 +12,7 @@ import { removeUpload } from './files.ts';
 import { QUARANTINE_DIR } from './limits.ts';
 import { MEDIA_SECRET_PATH, PUT_MAX_BYTES, R2Client, readR2Config } from './r2.ts';
 import { MEDIA_PUBLISH_JOB, VARIANT_CONTENT_TYPE, variantKey } from './types.ts';
+import { checkVariant, expectedHeight } from './variant-check.ts';
 
 // The `media_publish` job (A§12, P3b WP4), as mjk_worker: a photo in `pending_review`, attached to a review, whose
 // owner is trusted (P3c adds a moderator's approval), gets its variants on R2 and its original in
@@ -22,8 +22,8 @@ import { MEDIA_PUBLISH_JOB, VARIANT_CONTENT_TYPE, variantKey } from './types.ts'
 //
 // The quarantine is shared with the api, so nothing in it is trusted: each directory is opened O_NOFOLLOW and each
 // file through that directory's descriptor (`/proc/self/fd/<fd>/<name>`) with O_NOFOLLOW (O_NONBLOCK: a FIFO
-// never blocks the open), fstat'd (regular, the expected size) and read once; a variant's magic bytes must be its
-// format. So no link or planted file of the worker's can reach the public bucket.
+// never blocks the open), fstat'd (regular, the expected size) and read once; a variant's whole container must be
+// sharp's, at the photo's size (media/variant-check.ts). So no link or planted file can reach the public bucket.
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -104,6 +104,7 @@ async function readFiles(
   id: string,
   publicKey: string,
   declaredSize: number,
+  size: { width: number; height: number },
   rows: readonly VariantRow[],
 ): Promise<Files> {
   const files = await withDir(join(quarantineDir, id), async (idDir) => {
@@ -121,7 +122,8 @@ async function readFiles(
           throw new JobError('media_variant_invalid', { retry: false });
         }
         const bytes = await readExact(at(vDir, `${r.width}.${format}`), r.bytes);
-        if (bytes === undefined || (await fileTypeFromBuffer(bytes))?.ext !== format) {
+        const height = expectedHeight(size.width, size.height, r.width);
+        if (bytes === undefined || !checkVariant(bytes, format, r.width, height)) {
           throw new JobError('media_variant_invalid', { retry: false });
         }
         out.push({ key: r.object_key, format, bytes });
@@ -197,7 +199,16 @@ export function mediaPublishJob(d: PublishDeps): JobHandler {
     const m = await db
       .selectFrom('media as m')
       .innerJoin('app_user as u', 'u.id', 'm.user_id')
-      .select(['m.state', 'm.review_id', 'm.public_key', 'm.declared_size', 'u.trusted_at', 'u.status'])
+      .select([
+        'm.state',
+        'm.review_id',
+        'm.public_key',
+        'm.declared_size',
+        'm.width',
+        'm.height',
+        'u.trusted_at',
+        'u.status',
+      ])
       .where('m.id', '=', id)
       .executeTakeFirst();
     if (m === undefined || m.state !== 'pending_review') return;
@@ -208,7 +219,9 @@ export function mediaPublishJob(d: PublishDeps): JobHandler {
       if (await ranBefore(db, id)) await unpublish(d, id, originalsDir, signal);
       return;
     }
-    if (m.public_key === null) throw new JobError('media_variant_invalid', { retry: false });
+    if (m.public_key === null || m.width === null || m.height === null) {
+      throw new JobError('media_variant_invalid', { retry: false });
+    }
 
     const rows = await db
       .selectFrom('media_variant')
@@ -218,7 +231,8 @@ export function mediaPublishJob(d: PublishDeps): JobHandler {
       .orderBy('width')
       .execute();
     if (rows.length === 0) throw new JobError('media_variant_invalid', { retry: false });
-    const files = await readFiles(quarantineDir, id, m.public_key, m.declared_size, rows);
+    const size = { width: m.width, height: m.height };
+    const files = await readFiles(quarantineDir, id, m.public_key, m.declared_size, size, rows);
 
     const r2 = r2Of(d);
     const put: string[] = [];

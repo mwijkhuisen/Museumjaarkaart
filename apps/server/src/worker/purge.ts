@@ -5,8 +5,8 @@ import type { Db } from '../db/kysely.ts';
 import type { Logger } from '../lib/log.ts';
 import { removeUpload } from '../media/files.ts';
 import { UNATTACHED_TTL_MS } from '../media/limits.ts';
-import { removeTree } from '../media/remove-tree.ts';
 import { markRemoved } from '../media/remove.ts';
+import { removeTree } from '../media/remove-tree.ts';
 import { MEDIA_DELETE_JOB, MEDIA_PROCESS_JOB } from '../media/types.ts';
 import { purgeExportFiles } from '../passport/export/files.ts';
 

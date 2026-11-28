@@ -83,7 +83,8 @@ export async function openPhotos(existing?: PassportDb) {
         o.state,
         needsSha ? randomBytes(32) : null,
         needsKey ? 1600 + seq : null,
-        needsKey ? 1200 : null,
+        // The 4:3 of `webp(width)`, which the preview's container check holds the variants to.
+        needsKey ? Math.round((1600 + seq) * 0.75) : null,
         needsKey ? publicKey : null,
         o.alt ?? null,
         o.state === 'failed' ? 'process_failed' : null,

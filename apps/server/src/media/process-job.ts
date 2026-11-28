@@ -113,7 +113,8 @@ export function mediaProcessJob(deps: { db: Db; quarantineDir: string; decode: D
           .select(['trusted_at', 'status'])
           .where('id', '=', m.user_id)
           .executeTakeFirst();
-        if (owner?.trusted_at != null && owner.status === 'active') await enqueueIn(trx, MEDIA_PUBLISH_JOB, { media_id: id }, {});
+        if (owner?.trusted_at != null && owner.status === 'active')
+          await enqueueIn(trx, MEDIA_PUBLISH_JOB, { media_id: id }, {});
       }
       return true;
     });

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { HttpResponse, http, passthrough } from 'msw';
+import sharp from 'sharp';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../../test/msw.setup.ts';
 import { parseBackupConfig, resticBackupArgs, resticEnv } from '../../src/backup/plan.ts';
@@ -151,9 +152,10 @@ if (minioUrl === '') {
       await run(died.id);
       expect(await onBucket(died)).toHaveLength(died.keys.length);
       // The retry: the running job's second attempt.
-      await p.owner.query(`INSERT INTO job (kind, state, attempts, payload) VALUES ('media_publish', 'running', 2, $1)`, [
-        JSON.stringify({ media_id: died.id }),
-      ]);
+      await p.owner.query(
+        `INSERT INTO job (kind, state, attempts, payload) VALUES ('media_publish', 'running', 2, $1)`,
+        [JSON.stringify({ media_id: died.id })],
+      );
       await run(died.id);
       await expectUntouched(died);
       await run(died.id); // idempotent: the 404s are fine
@@ -195,6 +197,26 @@ if (minioUrl === '') {
       await rm(join(quarantine, dirLink.id, 'v'), { recursive: true });
       await symlink(join(quarantine, link.id, 'v'), join(quarantine, dirLink.id, 'v'));
       for (const ph of [link, swapped, dirLink]) {
+        await expect(run(ph.id)).rejects.toMatchObject({ code: 'media_variant_invalid', retry: false });
+        await expectUntouched(ph);
+      }
+    });
+
+    it('a variant with metadata or of the wrong size never reaches the bucket (security review M2)', async () => {
+      const img = (h: number) => sharp({ create: { width: 400, height: h, channels: 3, background: '#336699' } });
+      for (const bytes of [
+        await img(300)
+          .webp()
+          .withExif({ IFD0: { Copyright: 'MJKEXIF' } })
+          .toBuffer(),
+        await img(200).webp().toBuffer(),
+      ]) {
+        const ph = await pendingPhoto(p, quarantine);
+        await writeFile(join(quarantine, ph.id, 'v', '400.webp'), bytes);
+        await p.owner.query(
+          `UPDATE media_variant SET bytes = $2 WHERE media_id = $1 AND format = 'webp' AND width = 400`,
+          [ph.id, bytes.length],
+        );
         await expect(run(ph.id)).rejects.toMatchObject({ code: 'media_variant_invalid', retry: false });
         await expectUntouched(ph);
       }

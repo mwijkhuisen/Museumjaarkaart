@@ -140,7 +140,7 @@ async function filesUnder(dir: string): Promise<string[]> {
   return out;
 }
 
-async function quarantineHolds(marker: string): Promise<boolean> {
+async function quarantineHolds(marker: string | Buffer): Promise<boolean> {
   for (const file of await filesUnder(f.root)) if ((await readFile(file)).includes(marker)) return true;
   return false;
 }
@@ -248,7 +248,8 @@ async function withFakeDecoder<T>(behave: (dir: string) => Promise<void>, run: (
 }
 
 describe('media_process with a misbehaving decoder', () => {
-  const MARKER = 'MJKOUTSIDE5e1b';
+  /** 16 bytes from the middle of the noise WebP: random pixels, so no other file holds them. */
+  let MARKER: Buffer;
   let outside: string;
   let avif: Buffer;
   let webp: Buffer;
@@ -263,9 +264,10 @@ describe('media_process with a misbehaving decoder', () => {
   });
 
   beforeAll(async () => {
-    // Valid outputs that carry a marker: only the trick (a link, a swap) may refuse them.
-    avif = Buffer.concat([await noise(64, 48).avif().toBuffer(), Buffer.from(MARKER)]);
-    webp = Buffer.concat([await noise(64, 48).webp().toBuffer(), Buffer.from(MARKER)]);
+    // Valid outputs whose noise is the marker: only the trick (a link, a swap) may refuse them.
+    avif = await noise(64, 48).avif().toBuffer();
+    webp = await noise(64, 48).webp().toBuffer();
+    MARKER = Buffer.from(webp.subarray(webp.length >> 1, (webp.length >> 1) + 16));
     outside = await mkdtemp(join(scratch, 'outside-'));
     await writeFile(join(outside, '64.avif'), avif);
     await writeFile(join(outside, '64.webp'), webp);
@@ -342,6 +344,37 @@ describe('media_process with a misbehaving decoder', () => {
     expect(await readdir(work)).toEqual([moved.slice(work.length + 1)]);
     expect(await readdir(moved)).toEqual([]);
   });
+
+  // The container, not only the magic bytes (P3b security review M2): metadata put back into a variant, or a
+  // variant of another size, never reaches quarantine.
+  for (const [name, make] of [
+    [
+      'a WebP with an EXIF chunk',
+      () =>
+        noise(64, 48)
+          .webp()
+          .withExif({ IFD0: { Copyright: 'MJKEXIF' } }),
+    ],
+    ['a WebP with an ICC profile', () => noise(64, 48).webp().withIccProfile('p3')],
+    ['a WebP with trailing bytes', undefined],
+    ['a WebP two pixels taller than the aspect gives', () => noise(64, 50).webp()],
+  ] as const) {
+    it(`${name} → media_bad_output`, async () => {
+      const bad = make === undefined ? Buffer.concat([webp, Buffer.from('MJKTAIL')]) : await make().toBuffer();
+      const id = await quarantined(await member(), await noise(64, 48).jpeg().toBuffer());
+      const { result: job, work } = await withFakeDecoder(
+        async (dir) => {
+          await writeFile(join(dir, '64.avif'), avif);
+          await writeFile(join(dir, '64.webp'), bad);
+          await writeFile(join(dir, 'result.json'), result);
+        },
+        (decode) => runJob(id, decode),
+      );
+      expect(job).toMatchObject({ state: 'failed', last_error: 'media_bad_output' });
+      expect(await exists(join(f.root, id))).toBe(false);
+      expect(await readdir(work)).toEqual([]);
+    });
+  }
 
   it('a decoder that takes the task and never answers → media_timeout, quarantine removed', async () => {
     const id = await quarantined(await member(), await noise(64, 48).jpeg().toBuffer());

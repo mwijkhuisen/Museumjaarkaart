@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { GalleryPhoto, OwnReview, PhotoList, PublicReview, ReviewList } from '@mjk/contracts';
+import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type Db } from '../../src/db/kysely.ts';
 import { silentLogger } from '../../src/lib/log.ts';
@@ -102,7 +103,7 @@ describe('the public answers', () => {
       {
         id: S.approved.id,
         width: expect.any(Number),
-        height: 1200,
+        height: expect.any(Number),
         alt_text: 'Een zaal met schilderijen',
         public_key: S.approved.publicKey,
         widths: [400, 1200, 1600],
@@ -311,6 +312,24 @@ describe('GET /uploads/:id/preview', () => {
     await writeFile(join(f.root, 'elsewhere', '400.webp'), await webp(400));
     await symlink(join(f.root, 'elsewhere'), variantsDir(f.root, dirIsLink.id));
     expect((await preview(S.author.token, dirIsLink.id)).status).toBe(404);
+
+    // A WebP that carries metadata, or is not the photo's size, is not sound either (security review M2).
+    for (const bytes of [
+      await sharp(await webp(400))
+        .webp()
+        .withExif({ IFD0: { Copyright: 'MJKEXIF' } })
+        .toBuffer(),
+      Buffer.concat([await webp(400), Buffer.from('MJKTAIL')]),
+      await sharp({ create: { width: 400, height: 200, channels: 3, background: '#aa5533' } })
+        .webp()
+        .toBuffer(),
+    ]) {
+      const bad = await mk();
+      const bdir = variantsDir(f.root, bad.id);
+      await mkdir(bdir, { recursive: true });
+      await writeFile(join(bdir, '400.webp'), bytes);
+      expect((await preview(S.author.token, bad.id)).status).toBe(404);
+    }
   });
 
   it('is a 404 once the photo is approved: the published URL is the only way to see it', async () => {
@@ -343,7 +362,7 @@ describe('the member’s own answers', () => {
         id: pre.id,
         state: 'pending_review',
         width: expect.any(Number),
-        height: 1200,
+        height: expect.any(Number),
         alt_text: null,
         public_key: null,
         widths: [],

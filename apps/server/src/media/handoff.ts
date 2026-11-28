@@ -2,12 +2,12 @@ import { randomBytes } from 'node:crypto';
 import { constants } from 'node:fs';
 import { type FileHandle, lstat, mkdir, open, rename } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileTypeFromBuffer } from 'file-type';
 import { JobError } from '../worker/types.ts';
 import { MEDIA_WORK_DIR, PHOTO_JOB_MS, TAKE_MS, variantWidths } from './limits.ts';
 import { emptyDir, removeTree } from './remove-tree.ts';
 import { ABORTED_CODE, TASK, TaskResult, variantName } from './task.ts';
-import { type Decode, type Decoded, VARIANT_CONTENT_TYPE, type Variant } from './types.ts';
+import type { Decode, Decoded, Variant } from './types.ts';
+import { checkVariant, expectedHeight } from './variant-check.ts';
 
 // The worker's side of the handoff to the `media` role (A§12, A§16.2 "Compromised worker"; plan §2 "Processing").
 // The decoder is assumed compromised: it may plant links, swap files or rename the task directory. So the worker
@@ -121,7 +121,11 @@ async function readBack(at: (name: string) => string): Promise<Decoded> {
   const variants: Variant[] = [];
   for (const f of result.files) {
     const bytes = await readOnce(at(variantName(f.format, f.width)), VARIANT_MAX_BYTES);
-    if ((await fileTypeFromBuffer(bytes))?.mime !== VARIANT_CONTENT_TYPE[f.format]) throw badOutput();
+    // The whole container, not only its magic bytes: no metadata chunk or item, and the size the widths and the
+    // source aspect give (P3b security review M2).
+    if (!checkVariant(bytes, f.format, f.width, expectedHeight(result.width, result.height, f.width))) {
+      throw badOutput();
+    }
     variants.push({ format: f.format, width: f.width, bytes });
   }
   return { width: result.width, height: result.height, variants };

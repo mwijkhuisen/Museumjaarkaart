@@ -9,18 +9,22 @@ import { jpeg, sha256Hex } from './fixtures.ts';
 
 // A processed photo as the `media` package leaves it (WP3 is built in parallel, so these tests do not need it):
 // the owner's rows (media in `pending_review`, its variants) and the files in a temp quarantine
-// (`<id>/upload`, `<id>/v/<width>.<format>`). The variant bytes are real AVIF and WebP, for the magic check.
+// (`<id>/upload`, `<id>/v/<width>.<format>`). The variant bytes are real AVIF and WebP of the photo's 4:3 size,
+// for the container check.
 
 export const WIDTHS = [400, 1200] as const;
 export const FORMATS: readonly VariantFormat[] = ['avif', 'webp'];
 
-let images: Record<VariantFormat, Buffer> | undefined;
-async function variantImages(): Promise<Record<VariantFormat, Buffer>> {
-  if (images === undefined) {
-    const img = () => sharp({ create: { width: 40, height: 30, channels: 3, background: '#336699' } });
-    images = { avif: await img().avif().toBuffer(), webp: await img().webp().toBuffer() };
+const images = new Map<string, Buffer>();
+async function variantImage(format: VariantFormat, width: number): Promise<Buffer> {
+  const name = `${width}.${format}`;
+  let bytes = images.get(name);
+  if (bytes === undefined) {
+    const img = sharp({ create: { width, height: (width * 3) / 4, channels: 3, background: '#336699' } });
+    bytes = await (format === 'avif' ? img.avif() : img.webp()).toBuffer();
+    images.set(name, bytes);
   }
-  return images;
+  return bytes;
 }
 
 export type Pending = {
@@ -60,7 +64,6 @@ export async function pendingPhoto(
       [u.id, museum.id, reviewId, o.state ?? 'pending_review', original.length, sha256Hex(original), publicKey],
     )
   ).rows[0]?.id as string;
-  const img = await variantImages();
   await mkdir(join(quarantine, id, 'v'), { recursive: true, mode: 0o700 });
   await writeFile(join(quarantine, id, 'upload'), original);
   const keys: string[] = [];
@@ -70,9 +73,9 @@ export async function pendingPhoto(
       keys.push(key);
       await p.owner.query(
         'INSERT INTO media_variant (media_id, format, width, object_key, bytes) VALUES ($1, $2, $3, $4, $5)',
-        [id, format, width, key, img[format].length],
+        [id, format, width, key, (await variantImage(format, width)).length],
       );
-      await writeFile(join(quarantine, id, 'v', `${width}.${format}`), img[format]);
+      await writeFile(join(quarantine, id, 'v', `${width}.${format}`), await variantImage(format, width));
     }
   }
   return { id, userId: u.id, handle: u.handle, reviewId, publicKey, keys, original };

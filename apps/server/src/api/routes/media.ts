@@ -48,7 +48,7 @@ export function mountMedia(v1: ApiApp, deps: ApiDeps): void {
     if (session === undefined) throw new ApiError('not_found');
     const upload = await ownUpload(db, session.user.id, id);
     if (upload === undefined || upload.state !== 'pending_review') throw new ApiError('not_found');
-    const bytes = await readPreview(root, upload.id, Number(q.w));
+    const bytes = await readPreview(root, upload, Number(q.w));
     if (bytes === undefined) throw new ApiError('not_found');
     return c.body(new Uint8Array(bytes), 200, {
       'Content-Type': 'image/webp',
